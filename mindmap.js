@@ -1,5 +1,5 @@
 /*!
- * mind-maps-helper v1.2.0
+ * mind-maps-helper v1.3.0
  * Simple indented-text syntax -> interactive-ready SVG mind maps.
  * PlantUML-style geometry with a refined palette.
  * No dependencies. MIT licensed.
@@ -8,7 +8,7 @@
 (function (global) {
   'use strict';
 
-  var VERSION = '1.2.0';
+  var VERSION = '1.3.0';
 
   // ---------------------------------------------------------------- constants
 
@@ -511,8 +511,12 @@
    */
   function accumulateOffsets(root) {
     eachNode(root, function (n) {
-      n.edx = (n.parent ? n.parent.edx : 0) + (n.dx || 0);
-      n.edy = (n.parent ? n.parent.edy : 0) + (n.dy || 0);
+      // Offsets stop at the root: its "subtree" is the entire map, so passing
+      // them down would slide everything at once and change nothing visible.
+      // The centre node therefore moves alone.
+      var from = (n.parent && n.parent.depth > 0) ? n.parent : null;
+      n.edx = (from ? from.edx : 0) + (n.dx || 0);
+      n.edy = (from ? from.edy : 0) + (n.dy || 0);
     });
   }
 
@@ -982,14 +986,37 @@
   function attachInteraction(state) {
     var root = state.root;
 
+    /** Arrow keys move whichever node has focus. */
+    function attachArrowKeys(n) {
+      n.el.addEventListener('keydown', function (ev) {
+        if (!state.opts.draggable) return;
+        var step = ev.shiftKey ? 2 : NUDGE;
+        if (ev.key === 'ArrowLeft') { ev.preventDefault(); nudge(state, n, -step, 0); }
+        else if (ev.key === 'ArrowRight') { ev.preventDefault(); nudge(state, n, step, 0); }
+        else if (ev.key === 'ArrowUp') { ev.preventDefault(); nudge(state, n, 0, -step); }
+        else if (ev.key === 'ArrowDown') { ev.preventDefault(); nudge(state, n, 0, step); }
+      });
+    }
+
     eachNode(root, function (n) {
-      if (n.depth === 0) return;
-      var togglable = n.children.length > 0;
+      var isRoot = n.depth === 0;
+      var togglable = !isRoot && n.children.length > 0;
 
       if (state.opts.draggable) {
         n.el.classList.add('mm-draggable');
         attachDrag(state, n);
       }
+
+      if (isRoot) {
+        // No toggle to press, but it can still be focused and nudged.
+        if (state.opts.draggable) {
+          n.el.setAttribute('tabindex', '0');
+          n.el.setAttribute('aria-label', n.label + ', centre node; arrow keys move it');
+          attachArrowKeys(n);
+        }
+        return;
+      }
+
       if (!togglable) return;
 
       n.el.classList.add('mm-interactive');
@@ -1007,15 +1034,9 @@
         if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') {
           ev.preventDefault();
           toggleNode(state, n);
-          return;
         }
-        if (!state.opts.draggable) return;
-        var step = ev.shiftKey ? 2 : NUDGE;
-        if (ev.key === 'ArrowLeft') { ev.preventDefault(); nudge(state, n, -step, 0); }
-        else if (ev.key === 'ArrowRight') { ev.preventDefault(); nudge(state, n, step, 0); }
-        else if (ev.key === 'ArrowUp') { ev.preventDefault(); nudge(state, n, 0, -step); }
-        else if (ev.key === 'ArrowDown') { ev.preventDefault(); nudge(state, n, 0, step); }
       });
+      attachArrowKeys(n);
     });
 
     syncToggleState(root);
@@ -1127,8 +1148,9 @@
     '.mm-interactive{cursor:pointer;}',
     '.mm-interactive .mm-box{transition:filter .12s ease;}',
     '.mm-interactive:hover .mm-box{filter:brightness(.97);}',
-    '.mm-interactive:focus{outline:none;}',
-    '.mm-interactive:focus-visible .mm-box{stroke-width:2.4;}',
+    '.mm-interactive:focus,.mm-draggable:focus{outline:none;}',
+    '.mm-interactive:focus-visible .mm-box,.mm-draggable:focus-visible .mm-box',
+    '{stroke:var(--mm-root-bg);stroke-width:2.4;}',
     '.mm-interactive:focus-visible .mm-toggle-bg{stroke-width:2.4;}',
 
     '.mm-toggle{cursor:pointer;}',

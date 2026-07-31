@@ -305,10 +305,12 @@ along, and the connecting curves follow. Drag the map above and see.</p>
 
 <ul class="tight">
   <li>Dragging a node moves its whole subtree, so branches keep their shape.</li>
+  <li>The centre node is the exception: it moves on its own. Taking its branches
+      along would just slide the entire map, which changes nothing.</li>
   <li>The rest of the map stays exactly where it was — nothing reflows around you.</li>
   <li>If you drag past the edge, the canvas grows to fit once you let go.</li>
   <li>A click is still a click: only a real drag moves a node, so folding still works.</li>
-  <li>With a keyboard, focus a node and use the arrow keys. Hold <kbd>Shift</kbd> for fine steps.</li>
+  <li>With a keyboard, focus any node with children (or the centre) and use the arrow keys. Hold <kbd>Shift</kbd> for fine steps.</li>
 </ul>
 
 <p>Moves are per-reader and per-visit — reloading the page brings the tidy
@@ -544,6 +546,6 @@ CS2103 Software Engineering
 
 </div>
 
-<script src="mindmap.js?v=1.2.0"></script>
+<script src="mindmap.js?v=1.3.0"></script>
 </body>
 </html>

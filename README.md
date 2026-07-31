@@ -90,10 +90,11 @@ switch.
 ## Moving nodes
 
 Readers can drag any node somewhere clearer. Its subtree comes along and the connecting
-curves follow; the rest of the map stays put. Drag past the edge and the canvas grows to
-fit on release. A click is still a click — only a real drag moves a node, so folding keeps
-working. With a keyboard, focus a node and use the arrow keys (<kbd>Shift</kbd> for fine
-steps).
+curves follow; the rest of the map stays put. The centre node is the exception — it moves
+on its own, since taking its branches along would just slide the whole map. Drag past the
+edge and the canvas grows to fit on release. A click is still a click — only a real drag
+moves a node, so folding keeps working. With a keyboard, focus any node with children (or
+the centre) and use the arrow keys (<kbd>Shift</kbd> for fine steps).
 
 Moves last for the visit only; a reload restores the computed layout.
 `MindMap.resetPositions(el)` does the same on demand, and `data-draggable="false"` keeps
@@ -170,7 +171,7 @@ Only needed for maps added after page load.
 
 There is no build step — `mindmap.js` is the shipped file.
 
-Open `tests.html` in a browser. It runs 57 checks over the rendered DOM and prints a
+Open `tests.html` in a browser. It runs 62 checks over the rendered DOM and prints a
 pass/fail summary at the top of the page.
 
 ## Versioning

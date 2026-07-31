@@ -346,6 +346,16 @@ No controls
   Beta
 </pre></div>
 
+<h2>35. Root drags on its own</h2>
+<p class="want">Expect: the centre moves; branches stay where they are.</p>
+<div class="case" id="rootdrag"><pre class="mindmap">
+Centre
+  Alpha
+    a1
+  Beta
+    b1
+</pre></div>
+
 <script>document.write('<script src="mindmap.js?v='+Date.now()+'"><\/script>');</script>
 <script>
 // Minimal assertions over the rendered DOM.
@@ -364,7 +374,7 @@ window.addEventListener('load', function () {
     var cases = document.querySelectorAll('.case');
     var out = [];
     var fails = 0;
-    var pending = 3;              // the collapse, drag and shape-switch chains
+    var pending = 4;   // collapse, drag, shape-switch and root-drag chains
     function done() { if (--pending === 0) finish(); }
 
     function check(n, label, ok) {
@@ -612,9 +622,9 @@ window.addEventListener('load', function () {
         }));
       }
 
-      check(40, 'every non-root node is draggable',
-        host.querySelectorAll('.mm-draggable').length === 5 &&
-        !host.querySelector('.mm-root.mm-draggable'));
+      check(40, 'every node including the root is draggable',
+        host.querySelectorAll('.mm-draggable').length === 6 &&
+        !!host.querySelector('.mm-root.mm-draggable'));
 
       var req = nodeNamed('Requirements');
       var kid = nodeNamed('Stakeholders');
@@ -730,13 +740,70 @@ window.addEventListener('load', function () {
             check(56, 'data-controls=false hides the switch but keeps folding',
               document.querySelectorAll('#nocontrols .mm-controls').length === 0 &&
               document.querySelectorAll('#nocontrols .mm-interactive').length === 1 &&
-              document.querySelectorAll('#nocontrols .mm-draggable').length === 3);
+              document.querySelectorAll('#nocontrols .mm-draggable').length === 4);
             check(57, 'setDirection API works and rejects nonsense',
               MindMap.setDirection(container, 'right') === true &&
               MindMap.setDirection(container, 'sideways') === false);
             done();
           }, 420);
         }, 420);
+      }, 420);
+    })();
+
+    // The root moves alone -- carrying its subtree would just slide the map.
+    (function () {
+      var host = document.getElementById('rootdrag');
+      function nodeNamed(n) {
+        return Array.prototype.filter.call(host.querySelectorAll('.mm-node'), function (g) {
+          return g.querySelector('.mm-label').textContent === n;
+        })[0];
+      }
+      function pos(g) {
+        var m = /translate\(([-\d.]+),([-\d.]+)\)/.exec(g.getAttribute('transform'));
+        return { x: parseFloat(m[1]), y: parseFloat(m[2]) };
+      }
+      function pointer(el, type, x, y) {
+        el.dispatchEvent(new PointerEvent(type, {
+          bubbles: true, cancelable: true, pointerId: 3, clientX: x, clientY: y, button: 0
+        }));
+      }
+
+      var rootEl = nodeNamed('Centre');
+      var alpha = nodeNamed('Alpha');
+      var a1 = nodeNamed('a1');
+      var rootBefore = pos(rootEl), alphaBefore = pos(alpha), a1Before = pos(a1);
+
+      check(58, 'the root is focusable for keyboard moves',
+        rootEl.getAttribute('tabindex') === '0');
+
+      var r = rootEl.getBoundingClientRect();
+      pointer(rootEl, 'pointerdown', r.left + 5, r.top + 5);
+      pointer(rootEl, 'pointermove', r.left + 45, r.top + 30);
+      pointer(rootEl, 'pointerup', r.left + 45, r.top + 30);
+
+      var rootAfter = pos(rootEl);
+      check(59, 'the root moved',
+        Math.abs(rootAfter.x - rootBefore.x) > 10 && Math.abs(rootAfter.y - rootBefore.y) > 5);
+      check(60, 'branches did not move with it',
+        Math.abs(pos(alpha).x - alphaBefore.x) < 0.6 &&
+        Math.abs(pos(alpha).y - alphaBefore.y) < 0.6 &&
+        Math.abs(pos(a1).x - a1Before.x) < 0.6);
+
+      // Its own branch still carries its children.
+      var alphaR = alpha.getBoundingClientRect();
+      pointer(alpha, 'pointerdown', alphaR.left + 5, alphaR.top + 5);
+      pointer(alpha, 'pointermove', alphaR.left + 5, alphaR.top + 40);
+      pointer(alpha, 'pointerup', alphaR.left + 5, alphaR.top + 40);
+      check(61, 'a branch still carries its subtree',
+        Math.abs((pos(a1).y - a1Before.y) - (pos(alpha).y - alphaBefore.y)) < 0.6 &&
+        pos(alpha).y > alphaBefore.y);
+
+      MindMap.resetPositions(host.querySelector('.mm-container'));
+      setTimeout(function () {
+        check(62, 'reset clears the root offset too',
+          Math.abs(pos(nodeNamed('Centre')).x - rootBefore.x) < 0.6 &&
+          Math.abs(pos(nodeNamed('Centre')).y - rootBefore.y) < 0.6);
+        done();
       }, 420);
     })();
 
