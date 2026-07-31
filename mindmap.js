@@ -1,5 +1,5 @@
 /*!
- * mind-maps-helper v1.4.0
+ * mind-maps-helper v1.4.1
  * Simple indented-text syntax -> interactive-ready SVG mind maps.
  * PlantUML-style geometry with a refined palette.
  * No dependencies. MIT licensed.
@@ -8,7 +8,7 @@
 (function (global) {
   'use strict';
 
-  var VERSION = '1.4.0';
+  var VERSION = '1.4.1';
 
   // ---------------------------------------------------------------- constants
 
@@ -952,6 +952,25 @@
     return wrap;
   }
 
+  /**
+   * Rebuilds a node's box and label from its current measurements. Needed when
+   * a re-measure changes the node's size, which happens once images load.
+   */
+  function redrawNodeBody(node) {
+    if (!node.el) return;
+
+    var box = node.el.querySelector('.mm-box');
+    if (box) {
+      box.setAttribute('width', node.w);
+      box.setAttribute('height', node.h);
+    }
+
+    var old = node.el.querySelector('.mm-label');
+    var fresh = buildLabel(node);
+    if (old) node.el.replaceChild(fresh, old);
+    else node.el.insertBefore(fresh, node.el.firstChild);
+  }
+
   function buildToggle(node) {
     // Sits on the edge facing away from the root, where the subtree extends.
     var cx = node.side > 0 ? node.w : 0;
@@ -1319,7 +1338,10 @@
     function done() {
       if (++settled < pending.length) return;
       if (!changed) return;
-      eachNode(state.root, function (n) { measureNode(n, state.opts); });
+      eachNode(state.root, function (n) {
+        measureNode(n, state.opts);
+        redrawNodeBody(n);           // the box and label were sized for placeholders
+      });
       syncTogglePositions(state.root);
       relayout(state, true);
     }

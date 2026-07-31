@@ -401,6 +401,14 @@ Raw
   `not code`
 </pre></div>
 
+<h2>41. Unsized image resizes once it loads</h2>
+<p class="want">Expect: starts at a placeholder, then settles to the file's own size.</p>
+<div class="case" id="autoimg"><pre class="mindmap">
+Auto size
+  ![diagram](img/diagram-mvc.svg)
+  ![missing](img/does-not-exist.svg)
+</pre></div>
+
 <script>document.write('<script src="mindmap.js?v='+Date.now()+'"><\/script>');</script>
 <script>
 // Minimal assertions over the rendered DOM.
@@ -419,7 +427,7 @@ window.addEventListener('load', function () {
     var cases = document.querySelectorAll('.case');
     var out = [];
     var fails = 0;
-    var pending = 5;   // collapse, drag, shape-switch, root-drag, markup
+    var pending = 6;   // collapse, drag, shape, root-drag, markup, images
     function done() { if (--pending === 0) finish(); }
 
     function check(n, label, ok) {
@@ -953,6 +961,30 @@ window.addEventListener('load', function () {
       check(75, 'clicking a link does not fold its node',
         linkParent.classList.contains('mm-collapsed') === beforeFold);
       done();
+    })();
+
+    // An image with no size hint must re-flow the node once it loads.
+    (function () {
+      var host = document.getElementById('autoimg');
+
+      setTimeout(function () {
+        var imgs = host.querySelectorAll('.mm-image');
+        var real = imgs[0], missing = imgs[1];
+        var w = parseFloat(real.getAttribute('width'));
+        var h = parseFloat(real.getAttribute('height'));
+        var box = real.closest('.mm-node').querySelector('.mm-box');
+
+        // 132x86 natural, capped to 120x90 -> 120x78.
+        check(76, 'unsized image settles at its scaled natural size',
+          w === 120 && h === 78);
+        check(77, 'a missing image keeps its placeholder rather than collapsing',
+          parseFloat(missing.getAttribute('width')) === 64 &&
+          parseFloat(missing.getAttribute('height')) === 48);
+        check(78, 'the node box grew to contain the loaded image',
+          parseFloat(box.getAttribute('width')) >= w &&
+          parseFloat(box.getAttribute('height')) >= h);
+        done();
+      }, 1200);
     })();
 
     function finish() {

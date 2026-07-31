@@ -75,6 +75,13 @@
   footer { border-top: 1px solid var(--line); margin-top: 4rem; padding-top: 1.5rem; color: var(--soft); font-size: .9rem; }
   ul.tight { margin: 0 0 1rem; padding-left: 1.3rem; }
   ul.tight li { margin-bottom: .3rem; }
+  .ver {
+    display: inline-block; vertical-align: middle; margin-left: .5rem;
+    font-family: var(--mono); font-size: .42em; font-weight: 500;
+    letter-spacing: 0; color: var(--soft);
+    border: 1px solid var(--line); border-radius: 999px;
+    padding: .28em .7em; transform: translateY(-.25em);
+  }
   kbd { font-family: var(--mono); font-size: .82em; background: var(--code-bg);
         border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px;
         padding: .1em .4em; }
@@ -84,7 +91,7 @@
 
 <header class="hero">
   <div class="wrap">
-    <h1>Mind Maps Helper</h1>
+    <h1>Mind Maps Helper <span class="ver" id="ver" hidden></span></h1>
     <p class="tagline">Write an indented list. Get an interactive mind map. One script tag, no build step, no dependencies.</p>
   </div>
 </header>
@@ -284,6 +291,32 @@ content. Unsized images are scaled to fit within 120&times;90; add
 
 <p>A map is drawn immediately and re-flows once the images report their real
 size, so a slow file never blocks the rest of the page.</p>
+
+<p>Both forms in one map — a small icon sitting beside its label, and a diagram
+that is the whole of its node:</p>
+
+<div class="split">
+<pre><code>Week 5
+  ![](img/icon-notes.svg =18x18) Lecture notes
+  Architecture
+    ![MVC](img/diagram-mvc.svg)
+  Reading
+    Chapter 4</code></pre>
+<div class="demo">
+<pre class="mindmap" data-direction="right">
+Week 5
+  ![](img/icon-notes.svg =18x18) Lecture notes
+  Architecture
+    ![MVC](img/diagram-mvc.svg)
+  Reading
+    Chapter 4
+</pre>
+</div>
+</div>
+
+<p>The icon above is given an explicit <code>=18x18</code> because a small
+glyph should not be scaled to whatever the file happens to be. The diagram has
+no size, so it is scaled to fit the 120&times;90 box on its own.</p>
 
 <div class="note">
   <p><strong>One caveat on images.</strong> Everything else here keeps the map
@@ -641,6 +674,16 @@ CS2103 Software Engineering
 
 </div>
 
-<script src="mindmap.js?v=1.4.0"></script>
+<script src="mindmap.js?v=1.4.1"></script>
+<script>
+  // Taken from the library itself, so the badge can never drift from the
+  // script actually loaded (and a stale cache is visible at a glance).
+  (function () {
+    var badge = document.getElementById('ver');
+    if (!badge || !window.MindMap) return;
+    badge.textContent = 'v' + window.MindMap.version;
+    badge.hidden = false;
+  })();
+</script>
 </body>
 </html>

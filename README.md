@@ -208,7 +208,7 @@ Only needed for maps added after page load.
 
 There is no build step — `mindmap.js` is the shipped file.
 
-Open `tests.html` in a browser. It runs 75 checks over the rendered DOM and prints a
+Open `tests.html` in a browser. It runs 78 checks over the rendered DOM and prints a
 pass/fail summary at the top of the page.
 
 ## Versioning
