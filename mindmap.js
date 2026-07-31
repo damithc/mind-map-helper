@@ -1,5 +1,5 @@
 /*!
- * mind-maps-helper v1.1.0
+ * mind-maps-helper v1.2.0
  * Simple indented-text syntax -> interactive-ready SVG mind maps.
  * PlantUML-style geometry with a refined palette.
  * No dependencies. MIT licensed.
@@ -8,7 +8,7 @@
 (function (global) {
   'use strict';
 
-  var VERSION = '1.1.0';
+  var VERSION = '1.2.0';
 
   // ---------------------------------------------------------------- constants
 
@@ -298,14 +298,14 @@
    * accent. Done once per map: if the split were recomputed after every
    * collapse, branches would jump across the root and lose the reader.
    */
-  function assignSides(root, opts) {
+  function assignSides(root, direction) {
     refreshVisibility(root);
     var branches = root.children;
     var groups;
 
-    if (opts.direction === 'right') {
+    if (direction === 'right') {
       groups = { right: branches.slice(), left: [] };
-    } else if (opts.direction === 'left') {
+    } else if (direction === 'left') {
       groups = { right: [], left: branches.slice() };
     } else {
       groups = splitBranches(branches);
@@ -492,7 +492,17 @@
     t.appendChild(svgEl('circle', { 'class': 'mm-toggle-bg', r: TOGGLE_R }));
     t.appendChild(svgEl('path', { 'class': 'mm-toggle-sign', d: 'M-3.4 0 H3.4' }));
     t.appendChild(svgEl('path', { 'class': 'mm-toggle-sign mm-toggle-v', d: 'M0 -3.4 V3.4' }));
+    node.toggleEl = t;
     return t;
+  }
+
+  /** Toggles live on the outward edge, which flips when a branch changes side. */
+  function syncTogglePositions(root) {
+    eachNode(root, function (n) {
+      if (!n.toggleEl) return;
+      n.toggleEl.setAttribute('transform',
+        'translate(' + round(n.side > 0 ? n.w : 0) + ',' + round(n.h / 2) + ')');
+    });
   }
 
   /**
@@ -819,6 +829,84 @@
     relayout(state, true);
   }
 
+  /**
+   * Re-arranges the map between the balanced (two-sided) and one-sided
+   * shapes. Folded branches stay folded; drags are cleared, because a
+   * position nudged into one arrangement means nothing in the other.
+   */
+  function setDirection(state, direction) {
+    if (direction !== 'balanced' && direction !== 'right' && direction !== 'left') return false;
+    if (direction === state.direction) return false;
+
+    finishAnimation(state);
+    state.direction = direction;
+    eachNode(state.root, function (n) { n.dx = 0; n.dy = 0; });
+
+    state.sides = assignSides(state.root, direction);
+    syncTogglePositions(state.root);
+    syncControls(state);
+    relayout(state, true);
+    return true;
+  }
+
+  function syncControls(state) {
+    if (!state.controls) return;
+    var buttons = state.controls.querySelectorAll('.mm-ctl');
+    for (var i = 0; i < buttons.length; i++) {
+      var on = buttons[i].getAttribute('data-dir') === state.direction;
+      buttons[i].setAttribute('aria-pressed', on ? 'true' : 'false');
+      buttons[i].classList.toggle('mm-ctl-on', on);
+    }
+  }
+
+  var DIRECTION_ICON = {
+    balanced: 'M2 7h4M10 7h4M6 3.5h1.5M6 10.5h1.5M8.5 3.5H10M8.5 10.5H10' +
+              'M6 3.5v7M10 3.5v7',
+    right: 'M2 7h3M5 3.5h2M5 10.5h2M5 3.5v7M7 3.5h5M7 7h5M7 10.5h5'
+  };
+
+  /**
+   * A two-way switch so the reader, not just the author, picks the shape.
+   * Kept quiet until the map is hovered or focused, so a page full of
+   * diagrams does not turn into a page full of buttons.
+   */
+  function buildControls(state, altDirection) {
+    var bar = document.createElement('div');
+    bar.className = 'mm-controls';
+    bar.setAttribute('role', 'group');
+    bar.setAttribute('aria-label', 'Mind map shape');
+
+    [['balanced', 'Balanced', 'Branches on both sides'],
+     [altDirection, 'One-sided', 'All branches on one side']
+    ].forEach(function (spec) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'mm-ctl';
+      b.setAttribute('data-dir', spec[0]);
+      b.title = spec[2];
+
+      var icon = document.createElementNS(SVG_NS, 'svg');
+      icon.setAttribute('class', 'mm-ctl-icon');
+      icon.setAttribute('viewBox', '0 0 16 14');
+      icon.setAttribute('aria-hidden', 'true');
+      icon.appendChild(svgEl('path', {
+        d: DIRECTION_ICON[spec[0] === 'balanced' ? 'balanced' : 'right'],
+        fill: 'none', 'stroke-width': 1.3, 'stroke-linecap': 'round'
+      }));
+      if (spec[0] === 'left') icon.style.transform = 'scaleX(-1)';
+
+      var text = document.createElement('span');
+      text.textContent = spec[1];
+
+      b.appendChild(icon);
+      b.appendChild(text);
+      b.addEventListener('click', function () { setDirection(state, spec[0]); });
+      bar.appendChild(b);
+    });
+
+    return bar;
+  }
+
   // How far the pointer must travel before a press counts as a drag rather
   // than a click. Below this, a slightly shaky click still toggles.
   var DRAG_THRESHOLD = 4;
@@ -987,11 +1075,15 @@
     '.mm-container{',
     '--mm-surface:#ffffff;--mm-text:#1f2933;--mm-muted:#5b6976;',
     '--mm-root-bg:#2c3e50;--mm-root-text:#ffffff;',
-    'display:block;margin:1.25em 0;overflow-x:auto;',
+    'display:block;margin:1.25em 0;',
     // min-width:0 stops the SVG's own min-width from blowing out a flex or
     // grid track on the host page.
     'min-width:0;max-width:100%;',
     'font-family:' + FONT_STACK + ';}',
+
+    // Only the drawing scrolls. Controls sit outside it so a wide map cannot
+    // push them off the visible area.
+    '.mm-scroll{display:block;overflow-x:auto;min-width:0;max-width:100%;}',
 
     '.mm-svg{display:block;width:100%;height:auto;}',
 
@@ -1012,6 +1104,19 @@
     '.mm-edge{--mm-accent:var(--mm-a);fill:none;stroke:var(--mm-accent);',
     'stroke-linecap:round;opacity:.85;}',
 
+    // --- shape switch ---
+    '.mm-controls{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:2px;',
+    'margin:0 0 2px;opacity:.4;transition:opacity .15s ease;}',
+    '.mm-container:hover .mm-controls,.mm-controls:focus-within{opacity:1;}',
+    '.mm-ctl{display:inline-flex;align-items:center;gap:4px;',
+    'font:inherit;font-size:11px;line-height:1;color:var(--mm-muted);',
+    'background:none;border:1px solid transparent;border-radius:4px;',
+    'padding:3px 6px;cursor:pointer;}',
+    '.mm-ctl:hover{color:var(--mm-text);border-color:var(--mm-muted);}',
+    '.mm-ctl:focus-visible{outline:2px solid var(--mm-root-bg);outline-offset:1px;}',
+    '.mm-ctl-icon{width:16px;height:14px;stroke:currentColor;flex:none;}',
+    '.mm-ctl-on{color:var(--mm-text);border-color:var(--mm-muted);',
+    'background:color-mix(in srgb, var(--mm-muted) 12%, transparent);}',
     // --- drag ---
     '.mm-draggable{cursor:grab;touch-action:none;}',
     '.mm-dragging{cursor:grabbing;}',
@@ -1211,6 +1316,7 @@
 
     opts.interactive = attr('data-interactive') !== 'false';
     opts.draggable = opts.interactive && attr('data-draggable') !== 'false';
+    opts.controls = opts.interactive && attr('data-controls') !== 'false';
 
     var level = parseInt(attr('data-collapse-level'), 10);
     if (level > 0) opts.collapseLevel = level;
@@ -1257,7 +1363,7 @@
 
       // The left/right split is fixed once, from the fully expanded tree, so
       // collapsing never shuffles branches across the root.
-      var sides = assignSides(root, opts);
+      var sides = assignSides(root, opts.direction);
       markVisible(root);
       var size = layout(root, opts, sides);
       eachNode(root, function (n) {
@@ -1265,12 +1371,27 @@
       });
 
       var svg = buildSvg(root, size, opts);
-      container.appendChild(svg);
+      var scroller = document.createElement('div');
+      scroller.className = 'mm-scroll';
+      scroller.appendChild(svg);
+      container.appendChild(scroller);
       container.appendChild(buildOutline(root));
 
-      var state = { root: root, opts: opts, sides: sides, size: size, svg: svg };
+      var state = {
+        root: root, opts: opts, sides: sides, size: size, svg: svg,
+        direction: opts.direction
+      };
       paint(state, sizeBounds(size));
       if (opts.interactive) attachInteraction(state);
+
+      if (opts.controls) {
+        // A one-sided author default keeps its own side as the alternative.
+        var alt = opts.direction === 'left' ? 'left' : 'right';
+        state.controls = buildControls(state, alt);
+        container.insertBefore(state.controls, scroller);
+        syncControls(state);
+      }
+
       container.mindMap = state;
     } catch (err) {
       if (!(err instanceof MindMapError)) throw err;
@@ -1289,9 +1410,10 @@
    */
   function centreOnRoot(container) {
     var run = function () {
-      var svg = container.querySelector('.mm-svg');
+      var scroller = container.querySelector('.mm-scroll') || container;
+      var svg = scroller.querySelector('.mm-svg');
       if (!svg) return;
-      var overflow = container.scrollWidth - container.clientWidth;
+      var overflow = scroller.scrollWidth - scroller.clientWidth;
       if (overflow <= 0) return;
 
       var rootRect = svg.querySelector('.mm-root rect');
@@ -1301,7 +1423,7 @@
       var centre = (parseFloat(rootRect.getAttribute('x')) +
                     parseFloat(rootRect.getAttribute('width')) / 2) * scale;
 
-      container.scrollLeft = Math.max(0, Math.min(overflow, centre - container.clientWidth / 2));
+      scroller.scrollLeft = Math.max(0, Math.min(overflow, centre - scroller.clientWidth / 2));
     };
     if (global.requestAnimationFrame) global.requestAnimationFrame(run);
     else run();
@@ -1391,6 +1513,10 @@
     expandAll: function (el) { return setAllCollapsed(el, false); },
     collapseAll: function (el) { return setAllCollapsed(el, true); },
     resetPositions: resetPositions,
+    setDirection: function (el, dir) {
+      var state = stateOf(el);
+      return state ? setDirection(state, dir) : false;
+    },
     palette: PALETTE
   };
 })(typeof window !== 'undefined' ? window : this);

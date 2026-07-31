@@ -95,7 +95,7 @@
   If you can write a bulleted list, you can make a mind map. Drop one
   <code>&lt;script&gt;</code> tag into your page, wrap your list in a
   <code>&lt;pre class="mindmap"&gt;</code>, and it is drawn as clean SVG when
-  the page loads. Readers can fold branches away and drag nodes around as they read.
+  the page loads. Readers can reshape it, fold branches away, and drag nodes around.
 </p>
 
 <h2>Add it to your page</h2>
@@ -268,6 +268,36 @@ Testing
 <p>To turn interaction off entirely and get a plain static diagram, set
 <code>data-interactive="false"</code>.</p>
 
+<h2>Choosing the shape</h2>
+
+<p>The same content reads differently depending on how it is arranged.
+<strong>Balanced</strong> is compact and works well as a figure;
+<strong>one-sided</strong> reads top-to-bottom like an indented outline, which
+some readers find easier to follow. Rather than deciding for everyone, each map
+carries a small switch in its top corner — it fades in when you hover the map.</p>
+
+<div class="demo">
+<pre class="mindmap">
+Requirements
+  Gathering
+    Interviews
+    Surveys
+    Observation
+  Specification
+    User Stories
+    Use Cases
+    Glossary
+  Validation
+    Reviews
+    Prototyping
+</pre>
+</div>
+
+<p>You still set the starting shape with <code>data-direction</code>; the switch
+just lets a reader try the other one. Folded branches stay folded across a
+switch. If you would rather pin one shape, set
+<code>data-controls="false"</code>.</p>
+
 <h2>Moving nodes</h2>
 
 <p>Readers can drag any node to somewhere clearer. The branch below it comes
@@ -296,9 +326,10 @@ set <code>data-draggable="false"</code>.</p>
   <tr>
     <td><code>data-direction</code></td>
     <td><code>balanced</code></td>
-    <td>Where branches go. <code>balanced</code> splits them left and right of
-        the centre. <code>right</code> puts everything on the right,
-        <code>left</code> everything on the left.</td>
+    <td>Which shape the map <em>opens</em> in — readers can switch it themselves.
+        <code>balanced</code> splits branches left and right of the centre.
+        <code>right</code> puts them all on the right, <code>left</code> all on
+        the left.</td>
   </tr>
   <tr>
     <td><code>data-max-node-width</code></td>
@@ -315,6 +346,12 @@ set <code>data-draggable="false"</code>.</p>
     <td>off</td>
     <td>Show only this many levels at first. <code>1</code> shows the centre and
         its branches; deeper nodes start folded.</td>
+  </tr>
+  <tr>
+    <td><code>data-controls</code></td>
+    <td><code>true</code></td>
+    <td>Set to <code>false</code> to hide the shape switch and fix the map in
+        the shape you chose.</td>
   </tr>
   <tr>
     <td><code>data-draggable</code></td>
@@ -451,6 +488,7 @@ entry is a <code>[light, dark]</code> pair.</p>
   <tr><td><code>MindMap.collapseAll(el)</code></td><td>Folds every branch of one rendered map.</td></tr>
   <tr><td><code>MindMap.expandAll(el)</code></td><td>Unfolds every branch of one rendered map.</td></tr>
   <tr><td><code>MindMap.resetPositions(el)</code></td><td>Undoes every drag, returning nodes to the computed layout.</td></tr>
+  <tr><td><code>MindMap.setDirection(el, dir)</code></td><td>Switches shape from your own control: <code>balanced</code>, <code>right</code> or <code>left</code>.</td></tr>
 </table>
 </div>
 
@@ -506,6 +544,6 @@ CS2103 Software Engineering
 
 </div>
 
-<script src="mindmap.js"></script>
+<script src="mindmap.js?v=1.2.0"></script>
 </body>
 </html>

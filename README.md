@@ -1,7 +1,7 @@
 # Mind Maps Helper
 
-Write an indented list, get a mind map. Readers can fold branches away and drag nodes
-around. One script tag, no build step, no dependencies.
+Write an indented list, get a mind map. Readers can reshape it, fold branches away, and
+drag nodes around. One script tag, no build step, no dependencies.
 
 Made for authors of educational sites (course pages, lecture notes, handbooks) who write
 their own HTML or Markdown but are not web developers.
@@ -76,6 +76,17 @@ Big maps read better opening as an overview — `data-collapse-level="1"` shows 
 and its branches, with everything deeper one click away. `data-interactive="false"`
 turns it all off for a plain static diagram.
 
+## Choosing the shape
+
+Balanced is compact and reads as a figure; one-sided reads top-to-bottom like an indented
+outline. Rather than deciding for every reader, each map carries a small switch in its top
+corner that fades in on hover.
+
+`data-direction` still sets the shape the map *opens* in — the switch just offers the other
+one. Folded branches survive a switch; drags are cleared, since a nudged position means
+nothing in the other arrangement. `data-controls="false"` pins one shape and hides the
+switch.
+
 ## Moving nodes
 
 Readers can drag any node somewhere clearer. Its subtree comes along and the connecting
@@ -94,10 +105,11 @@ Set these as attributes on the container.
 
 | Attribute | Default | Effect |
 |---|---|---|
-| `data-direction` | `balanced` | `balanced` splits branches either side of the centre. `right` or `left` puts them all on one side. |
+| `data-direction` | `balanced` | Shape the map *opens* in; readers can switch. `balanced` splits branches either side of the centre, `right`/`left` puts them all on one side. |
 | `data-max-node-width` | `190` | Pixel width at which a label wraps to another line. |
 | `data-column-gap` | `46` | Horizontal space between levels. |
 | `data-collapse-level` | off | Show only this many levels at first; deeper nodes start folded. |
+| `data-controls` | `true` | `false` hides the shape switch and pins your chosen shape. |
 | `data-draggable` | `true` | `false` keeps folding but stops readers moving nodes. |
 | `data-interactive` | `true` | `false` for a plain static diagram — no folding, no dragging. |
 | `data-theme` | follows the page | `light` or `dark`, to pin one map regardless of the site's theme. |
@@ -144,6 +156,7 @@ Only needed for maps added after page load.
 | `MindMap.collapseAll(el)` | Folds every branch of one rendered map. |
 | `MindMap.expandAll(el)` | Unfolds every branch of one rendered map. |
 | `MindMap.resetPositions(el)` | Undoes every drag, restoring the computed layout. |
+| `MindMap.setDirection(el, dir)` | Switches shape: `balanced`, `right` or `left`. |
 
 ## Notes
 
@@ -157,7 +170,7 @@ Only needed for maps added after page load.
 
 There is no build step — `mindmap.js` is the shipped file.
 
-Open `tests.html` in a browser. It runs 47 checks over the rendered DOM and prints a
+Open `tests.html` in a browser. It runs 57 checks over the rendered DOM and prints a
 pass/fail summary at the top of the page.
 
 ## Versioning
