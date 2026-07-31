@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mind Maps Helper — mind maps for your web page, from indented text</title>
+<meta name="description" content="Write an indented list, get a professional mind map. One script tag, no build step, no dependencies.">
+<style>
+  :root {
+    --page: #ffffff;
+    --ink: #1f2933;
+    --soft: #5b6976;
+    --line: #e2e7ec;
+    --accent: #3b6ea5;
+    --code-bg: #f6f8fa;
+    --panel: #fbfcfd;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page: #12161b; --ink: #e4e9ef; --soft: #a7b3c0; --line: #2a323b;
+      --accent: #7fb0e0; --code-bg: #1b2027; --panel: #171c22;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--page); color: var(--ink);
+    font-family: var(--font); font-size: 16px; line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 62rem; margin: 0 auto; padding: 0 1.25rem 6rem; }
+  header.hero {
+    border-bottom: 1px solid var(--line); margin-bottom: 3rem;
+    padding: 4rem 0 3rem; text-align: center;
+  }
+  h1 { font-size: clamp(1.9rem, 4.5vw, 2.6rem); margin: 0 0 .5rem; letter-spacing: -.02em; }
+  .tagline { color: var(--soft); font-size: 1.1rem; margin: 0 auto; max-width: 34rem; }
+  h2 {
+    font-size: 1.35rem; margin: 3.5rem 0 1rem; letter-spacing: -.01em;
+    padding-bottom: .4rem; border-bottom: 1px solid var(--line);
+  }
+  h3 { font-size: 1.02rem; margin: 2rem 0 .5rem; }
+  p { margin: 0 0 1rem; }
+  a { color: var(--accent); }
+  code {
+    font-family: var(--mono); font-size: .875em;
+    background: var(--code-bg); padding: .15em .4em; border-radius: 3px;
+  }
+  pre {
+    font-family: var(--mono); font-size: .84rem; line-height: 1.6;
+    background: var(--code-bg); border: 1px solid var(--line); border-radius: 6px;
+    padding: .9rem 1rem; overflow-x: auto; margin: 0 0 1rem;
+  }
+  pre code { background: none; padding: 0; font-size: inherit; }
+  .lede { font-size: 1.03rem; }
+  .split { display: grid; gap: 1.25rem; grid-template-columns: minmax(0, 20rem) minmax(0, 1fr); align-items: start; }
+  @media (max-width: 44rem) { .split { grid-template-columns: minmax(0, 1fr); } }
+  .split > pre { margin: 0; }
+  .demo {
+    border: 1px solid var(--line); border-radius: 6px; background: var(--panel);
+    padding: .5rem 1rem;
+  }
+  .demo .mm-container { margin: .75rem 0; }
+  .table-scroll { overflow-x: auto; margin: 0 0 1rem; }
+  table { border-collapse: collapse; width: 100%; min-width: 30rem; font-size: .92rem; }
+  th, td { text-align: left; padding: .5rem .7rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-weight: 600; }
+  td code { white-space: nowrap; }
+  .note {
+    border-left: 3px solid var(--accent); background: var(--panel);
+    padding: .75rem 1rem; margin: 0 0 1rem; font-size: .94rem;
+  }
+  .note p:last-child { margin-bottom: 0; }
+  footer { border-top: 1px solid var(--line); margin-top: 4rem; padding-top: 1.5rem; color: var(--soft); font-size: .9rem; }
+  ul.tight { margin: 0 0 1rem; padding-left: 1.3rem; }
+  ul.tight li { margin-bottom: .3rem; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <h1>Mind Maps Helper</h1>
+    <p class="tagline">Write an indented list. Get a mind map. One script tag, no build step, no dependencies.</p>
+  </div>
+</header>
+
+<div class="wrap">
+
+<p class="lede">
+  If you can write a bulleted list, you can make a mind map. Drop one
+  <code>&lt;script&gt;</code> tag into your page, wrap your list in a
+  <code>&lt;pre class="mindmap"&gt;</code>, and it is drawn as clean SVG when
+  the page loads.
+</p>
+
+<h2>Add it to your page</h2>
+
+<p>Put this once, anywhere in your page (the end of <code>&lt;body&gt;</code> is a good spot):</p>
+
+<pre><code>&lt;script src="https://damithc.github.io/mind-map-helper/mindmap.js"&gt;&lt;/script&gt;</code></pre>
+
+<p>Then write a mind map wherever you want one:</p>
+
+<pre><code>&lt;pre class="mindmap"&gt;
+Software Engineering
+  Requirements
+    Elicitation
+    Specification
+  Design
+    Architecture
+    Design Patterns
+  Implementation
+    Code Quality
+    Refactoring
+  Testing
+    Unit Testing
+    Integration Testing
+&lt;/pre&gt;</code></pre>
+
+<p>That produces this:</p>
+
+<div class="demo">
+<pre class="mindmap">
+Software Engineering
+  Requirements
+    Elicitation
+    Specification
+  Design
+    Architecture
+    Design Patterns
+  Implementation
+    Code Quality
+    Refactoring
+  Testing
+    Unit Testing
+    Integration Testing
+</pre>
+</div>
+
+<div class="note">
+  <p><strong>Indentation is the whole syntax.</strong> A line indented further
+  than the one above it becomes its child. Use two spaces per level and you
+  will never think about it again.</p>
+</div>
+
+<h2>Writing the text</h2>
+
+<h3>Bullets are optional</h3>
+
+<p>These two are identical. Use whichever looks better in your source.</p>
+
+<div class="split">
+<pre><code>Assessment
+  Exams
+    Midterm
+    Final
+  Coursework
+    Project
+    Quizzes</code></pre>
+<pre><code>- Assessment
+  - Exams
+    - Midterm
+    - Final
+  - Coursework
+    - Project
+    - Quizzes</code></pre>
+</div>
+
+<h3>The rules, in full</h3>
+
+<ul class="tight">
+  <li>The first line is the centre of the map. There can be only one such line.</li>
+  <li>Deeper indentation means a deeper level. Any consistent step works — 2 spaces, 4 spaces, or tabs.</li>
+  <li>A leading <code>-</code>, <code>*</code> or <code>+</code> followed by a space is treated as a bullet and dropped.</li>
+  <li>Blank lines are ignored, so you can use them to group things while writing.</li>
+  <li>A line starting with <code>//</code> is a comment and is not drawn.</li>
+  <li>Node text is plain text. No Markdown, no HTML.</li>
+</ul>
+
+<p>If something is wrong with your list, the page shows a short message saying
+what and on which line, instead of silently drawing nothing.</p>
+
+<h3>Longer labels wrap</h3>
+
+<p>A label wider than <code>data-max-node-width</code> breaks onto another line
+rather than stretching the map.</p>
+
+<pre><code>&lt;pre class="mindmap" data-max-node-width="110"&gt;
+Course Admin
+  Weekly deadlines are strictly enforced
+  Late submissions lose 10% per day
+  Extensions need prior approval
+&lt;/pre&gt;</code></pre>
+
+<div class="demo">
+<pre class="mindmap" data-max-node-width="110">
+Course Admin
+  Weekly deadlines are strictly enforced
+  Late submissions lose 10% per day
+  Extensions need prior approval
+</pre>
+</div>
+
+<h2>Options</h2>
+
+<p>Set these as attributes on the container. All are optional.</p>
+
+<div class="table-scroll">
+<table>
+  <tr><th>Attribute</th><th>Default</th><th>What it does</th></tr>
+  <tr>
+    <td><code>data-direction</code></td>
+    <td><code>balanced</code></td>
+    <td>Where branches go. <code>balanced</code> splits them left and right of
+        the centre. <code>right</code> puts everything on the right,
+        <code>left</code> everything on the left.</td>
+  </tr>
+  <tr>
+    <td><code>data-max-node-width</code></td>
+    <td><code>190</code></td>
+    <td>How wide (in pixels) a label may get before it wraps to another line.</td>
+  </tr>
+  <tr>
+    <td><code>data-column-gap</code></td>
+    <td><code>46</code></td>
+    <td>Horizontal space between levels. Lower it to make a wide map fit.</td>
+  </tr>
+  <tr>
+    <td><code>data-theme</code></td>
+    <td>follows the page</td>
+    <td><code>light</code> or <code>dark</code>, to pin this one map regardless
+        of the site's theme.</td>
+  </tr>
+</table>
+</div>
+
+<h3>One-sided maps</h3>
+
+<p>Good for short lists, or when the map sits in a narrow column.</p>
+
+<div class="split">
+<pre><code>&lt;pre class="mindmap"
+     data-direction="right"&gt;
+Git
+  Local
+    commit
+    branch
+  Remote
+    push
+    pull
+&lt;/pre&gt;</code></pre>
+<div class="demo">
+<pre class="mindmap" data-direction="right">
+Git
+  Local
+    commit
+    branch
+  Remote
+    push
+    pull
+</pre>
+</div>
+</div>
+
+<h2>Using it in Markdown</h2>
+
+<p>In a Markdown source file, <strong>the <code>&lt;pre class="mindmap"&gt;</code>
+form always works</strong>. If you only remember one thing, remember that one —
+it needs nothing from your site generator and it accepts the options above.</p>
+
+<pre><code>&lt;pre class="mindmap"&gt;
+Topics
+  Week 1
+  Week 2
+&lt;/pre&gt;</code></pre>
+
+<p>Fenced code blocks also work, but exactly how depends on your generator,
+because each one records the language differently.</p>
+
+<div class="table-scroll">
+<table>
+  <tr><th>Generator</th><th>Write this</th></tr>
+  <tr>
+    <td>Jekyll / GitHub Pages, MkDocs, Docusaurus, and most others</td>
+    <td><code>```mindmap</code></td>
+  </tr>
+  <tr>
+    <td>MarkBind</td>
+    <td><code>```mindmap {.mindmap}</code></td>
+  </tr>
+</table>
+</div>
+
+<div class="note">
+  <p><strong>Why MarkBind needs the extra bit.</strong> MarkBind hands fenced
+  blocks to its syntax highlighter and drops the language name from the output,
+  so there is nothing left for the script to find. The
+  <code>{.mindmap}</code> suffix adds a class that survives. Verified against
+  MarkBind 7.1.</p>
+</div>
+
+<div class="note">
+  <p><strong>Why not a plain <code>&lt;div&gt;</code> in Markdown?</strong>
+  Markdown processors reinterpret indented lines inside a
+  <code>&lt;div&gt;</code>, which mangles the map. A fenced block or a
+  <code>&lt;pre&gt;</code> is safe.</p>
+</div>
+
+<h3>Where to put the script</h3>
+
+<p>Once per page is enough. In MarkBind, add it to a file in
+<code>_markbind/head/</code> so every page gets it. In Jekyll, add it to your
+layout. Anywhere else, put it at the bottom of the page.</p>
+
+<h2>Changing the look</h2>
+
+<p>Colours come from CSS custom properties, so you can match your site's theme
+with a few lines of CSS.</p>
+
+<p>Light and dark are both handled already. If your site has its own dark-mode
+toggle, the map follows it — MarkBind, Bootstrap 5.3, Docusaurus and Tailwind
+are all detected. Failing that, it follows the reader's system setting. To
+pin one map either way, add <code>data-theme="light"</code> or
+<code>data-theme="dark"</code>; that beats everything else.</p>
+
+<pre><code>.mm-container {
+  --mm-surface:   #ffffff;  /* box fill              */
+  --mm-text:      #1f2933;  /* label text            */
+  --mm-muted:     #5b6976;  /* deepest-level text    */
+  --mm-root-bg:   #2c3e50;  /* centre node fill      */
+  --mm-root-text: #ffffff;  /* centre node text      */
+}</code></pre>
+
+<p>Branch accent colours cycle through a built-in palette in the order your
+top-level branches appear. To use your own, override
+<code>window.MindMap.palette</code> before the page finishes loading — each
+entry is a <code>[light, dark]</code> pair.</p>
+
+<h2>Calling it from JavaScript</h2>
+
+<p>Only needed if your page adds mind maps after it has loaded.</p>
+
+<div class="table-scroll">
+<table>
+  <tr><th>Call</th><th>What it does</th></tr>
+  <tr><td><code>MindMap.renderAll()</code></td><td>Draws every unrendered map on the page. Runs automatically on load.</td></tr>
+  <tr><td><code>MindMap.renderAll(el)</code></td><td>Same, but only inside <code>el</code>.</td></tr>
+  <tr><td><code>MindMap.render(el)</code></td><td>Draws one specific element.</td></tr>
+  <tr><td><code>MindMap.parse(text)</code></td><td>Returns the parsed tree, without drawing anything.</td></tr>
+</table>
+</div>
+
+<h2>A bigger example</h2>
+
+<div class="demo">
+<pre class="mindmap">
+CS2103 Software Engineering
+  Requirements
+    Stakeholders
+    User Stories
+    Use Cases
+    Non-Functional
+  Design
+    Architecture
+    OO Design
+    Design Patterns
+    UML Diagrams
+  Implementation
+    Code Quality
+    Refactoring
+    Error Handling
+    Documentation
+  Quality Assurance
+    Unit Testing
+    Integration Testing
+    Test Coverage
+    Code Review
+  Project Management
+    Revision Control
+    Workflows
+    Scheduling
+    Teamwork
+</pre>
+</div>
+
+<h2>Notes</h2>
+
+<ul class="tight">
+  <li>Output is SVG, so it stays sharp at any zoom and prints cleanly.</li>
+  <li>Maps scale down to fit narrow screens and scroll sideways if they still do not fit.</li>
+  <li>Screen readers get the map as a nested list, so the content is not lost.</li>
+  <li>No dependencies, no tracking, no network calls after the script loads.</li>
+  <li>Expand/collapse and dragging nodes are planned. Your existing maps will keep working.</li>
+</ul>
+
+<footer>
+  <p>
+    Mind Maps Helper — <a href="https://github.com/damithc/mind-map-helper">source on GitHub</a>.
+    MIT licensed.
+  </p>
+</footer>
+
+</div>
+
+<script src="mindmap.js"></script>
+</body>
+</html>

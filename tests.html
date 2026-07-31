@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mind Maps Helper — test cases</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+         max-width: 70rem; margin: 0 auto; padding: 2rem 1.25rem 6rem; line-height: 1.6; }
+  h2 { font-size: 1rem; margin: 2.5rem 0 .25rem; border-bottom: 1px solid #ddd; padding-bottom: .3rem; }
+  .want { color: #666; font-size: .85rem; margin: 0 0 .5rem; }
+  .case { border: 1px solid #e2e7ec; border-radius: 6px; padding: .25rem 1rem; }
+  #results { position: sticky; top: 0; background: #fff; border-bottom: 2px solid #333;
+             padding: .75rem 0; font-family: ui-monospace, Menlo, monospace; font-size: .85rem; z-index: 9; }
+  .pass { color: #1a7f4b; } .fail { color: #b3261e; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<h1>Test cases</h1>
+<div id="results">running…</div>
+
+<h2>1. Single node</h2>
+<p class="want">Expect: one dark box, nothing else.</p>
+<div class="case"><pre class="mindmap">Just the root</pre></div>
+
+<h2>2. Root with one child</h2>
+<p class="want">Expect: child on the right, connected by a curve.</p>
+<div class="case"><pre class="mindmap">
+Root
+  Only child
+</pre></div>
+
+<h2>3. Two branches — should split one per side</h2>
+<div class="case"><pre class="mindmap">
+Centre
+  Left-ish branch
+  Right-ish branch
+</pre></div>
+
+<h2>4. Very uneven branch weights</h2>
+<p class="want">Expect: the split balances by leaf count, not by branch count.</p>
+<div class="case"><pre class="mindmap">
+Uneven
+  Heavy
+    a
+    b
+    c
+    d
+    e
+    f
+  Light
+  Also light
+</pre></div>
+
+<h2>5. Deep nesting (6 levels)</h2>
+<p class="want">Expect: columns stay aligned; deepest text is muted.</p>
+<div class="case"><pre class="mindmap">
+L0
+  L1
+    L2
+      L3
+        L4
+          L5
+  Sibling
+</pre></div>
+
+<h2>6. Tall subtree next to a short one — no overlap</h2>
+<div class="case"><pre class="mindmap">
+Overlap check
+  One
+    1
+    2
+    3
+    4
+    5
+    6
+    7
+    8
+  Two
+  Three
+    x
+    y
+  Four
+</pre></div>
+
+<h2>7. Mixed indentation (2 and 4 spaces) plus tabs</h2>
+<div class="case"><pre class="mindmap">
+Mixed
+  Two-space child
+      Four-space grandchild
+  Another
+	Tab grandchild
+</pre></div>
+
+<h2>8. Bullets, blank lines, comments</h2>
+<div class="case"><pre class="mindmap">
+- Bulleted root
+
+  // this comment should not appear
+  * Star bullet
+  + Plus bullet
+
+  - Dash bullet
+    - Nested dash
+</pre></div>
+
+<h2>9. Whole map indented in the HTML source</h2>
+<p class="want">Expect: renders normally; leading indent is ignored.</p>
+<div class="case"><pre class="mindmap">
+        Indented source
+          Child A
+            Grandchild
+          Child B
+</pre></div>
+
+<h2>10. Long labels wrap</h2>
+<div class="case"><pre class="mindmap">
+Wrapping
+  A label long enough that it has to wrap onto more than one line
+  Short
+  Supercalifragilisticexpialidociousunbreakableword
+</pre></div>
+
+<h2>11. data-direction="right"</h2>
+<div class="case"><pre class="mindmap" data-direction="right">
+Right only
+  A
+    a1
+  B
+    b1
+</pre></div>
+
+<h2>12. data-direction="left"</h2>
+<div class="case"><pre class="mindmap" data-direction="left">
+Left only
+  A
+    a1
+  B
+    b1
+</pre></div>
+
+<h2>13. data-max-node-width and data-column-gap</h2>
+<div class="case"><pre class="mindmap" data-max-node-width="80" data-column-gap="16">
+Narrow boxes tight columns
+  A rather long label here
+  Another long one
+</pre></div>
+
+<h2>14. Fenced-code form (simulating a Markdown host)</h2>
+<div class="case"><pre><code class="language-mindmap">
+Markdown host
+  Requirements
+    User stories
+  Design
+</code></pre></div>
+
+<h2>15. div.mindmap form</h2>
+<div class="case"><div class="mindmap">
+Div form
+  Alpha
+  Beta
+</div></div>
+
+<h2>16. More than 8 branches — palette wraps around</h2>
+<div class="case"><pre class="mindmap">
+Palette
+  One
+  Two
+  Three
+  Four
+  Five
+  Six
+  Seven
+  Eight
+  Nine
+  Ten
+</pre></div>
+
+<h2>17. ERROR: two roots</h2>
+<p class="want">Expect: a readable error naming the offending line.</p>
+<div class="case"><pre class="mindmap">
+First root
+  child
+Second root
+</pre></div>
+
+<h2>18. ERROR: empty</h2>
+<p class="want">Expect: "empty" message.</p>
+<div class="case"><pre class="mindmap">
+
+</pre></div>
+
+<h2>19. ERROR: bullet with no text</h2>
+<div class="case"><pre class="mindmap">
+Root
+  -
+</pre></div>
+
+<h2>20. Special characters are treated as plain text</h2>
+<div class="case"><pre class="mindmap">
+Chars &amp; symbols
+  a &lt; b &gt; c
+  100% "quoted"
+  x --&gt; y
+</pre></div>
+
+<h2>21. Inside a narrow grid column — must not blow out the track</h2>
+<p class="want">Expect: the grid column stays 260px; the map scrolls inside it.</p>
+<div id="gridhost" style="display:grid;grid-template-columns:260px 1fr;gap:1rem;width:600px;border:1px dashed #bbb">
+  <div class="case"><pre class="mindmap">
+Narrow column
+  Requirements
+    Stakeholders
+    User Stories
+  Design
+    Architecture
+    Design Patterns
+  Testing
+    Unit
+    Integration
+</pre></div>
+  <div style="background:#f2f4f6">sibling</div>
+</div>
+
+<h2>22. Inside a flex row — same check</h2>
+<div id="flexhost" style="display:flex;gap:1rem;width:600px;border:1px dashed #bbb">
+  <div class="case" style="flex:1"><pre class="mindmap">
+Flex child
+  Alpha
+    a1
+    a2
+  Beta
+    b1
+    b2
+</pre></div>
+  <div style="width:200px;background:#f2f4f6">fixed 200</div>
+</div>
+
+<h2>23. Rouge / GitHub Pages Jekyll output shape</h2>
+<p class="want">Expect: rendered, and the wrapper divs are gone (no leftover chrome).</p>
+<div class="case" id="rouge"><div class="language-mindmap highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Rouge shape
+  Alpha
+  Beta
+</code></pre></div></div></div>
+
+<h2>24. Prism / Docusaurus output shape</h2>
+<div class="case" id="prism"><pre class="language-mindmap"><code>Prism shape
+  Alpha
+  Beta
+</code></pre></div>
+
+<h2>25. MarkBind output shape (hljs + {.mindmap} attrs)</h2>
+<div class="case" id="markbind"><pre><code class="mindmap hljs"><span>MarkBind shape
+</span><span>  Alpha
+</span><span>  Beta
+</span></code></pre></div>
+
+<h2>26. Nested match must not double-render</h2>
+<p class="want">Expect: exactly one container, one root box.</p>
+<div class="case" id="nested"><pre class="mindmap"><code class="mindmap">Nested match
+  Alpha
+</code></pre></div>
+
+<script src="mindmap.js"></script>
+<script>
+// Minimal assertions over the rendered DOM.
+window.addEventListener('load', function () {
+  setTimeout(runChecks, 250);
+
+  function runChecks() {
+    var cases = document.querySelectorAll('.case');
+    var out = [];
+    var fails = 0;
+
+    function check(n, label, ok) {
+      if (!ok) fails++;
+      out.push('<span class="' + (ok ? 'pass' : 'fail') + '">' +
+               (ok ? 'PASS' : 'FAIL') + ' ' + n + ' ' + label + '</span>');
+    }
+
+    function svgOf(i) { return cases[i].querySelector('svg'); }
+    function boxes(i) { return cases[i].querySelectorAll('.mm-box'); }
+    function errOf(i) { return cases[i].querySelector('.mm-error'); }
+    function labels(i) {
+      return Array.prototype.map.call(
+        cases[i].querySelectorAll('.mm-label'),
+        function (t) { return t.textContent; });
+    }
+
+    check(1, 'single node -> 1 box', boxes(0).length === 1);
+    check(2, 'root+child -> 2 boxes, 1 edge',
+      boxes(1).length === 2 && cases[1].querySelectorAll('.mm-edge').length === 1);
+
+    // Case 3: two branches, one each side of the root.
+    (function () {
+      var svg = svgOf(2);
+      var rects = svg.querySelectorAll('.mm-node');
+      var root = svg.querySelector('.mm-root rect');
+      var rootX = parseFloat(root.getAttribute('x'));
+      var xs = [];
+      Array.prototype.forEach.call(rects, function (g) {
+        if (g.classList.contains('mm-root')) return;
+        xs.push(parseFloat(g.querySelector('rect').getAttribute('x')));
+      });
+      check(3, 'branches straddle the root',
+        xs.length === 2 && xs.some(function (x) { return x < rootX; })
+                        && xs.some(function (x) { return x > rootX; }));
+    })();
+
+    check(4, 'uneven: 10 boxes', boxes(3).length === 10);
+    check(5, 'deep nesting: 7 boxes', boxes(4).length === 7);
+
+    // Case 6: no two boxes overlap.
+    (function () {
+      var rects = Array.prototype.map.call(boxes(5), function (r) {
+        return {
+          x: parseFloat(r.getAttribute('x')), y: parseFloat(r.getAttribute('y')),
+          w: parseFloat(r.getAttribute('width')), h: parseFloat(r.getAttribute('height'))
+        };
+      });
+      var overlap = false;
+      for (var i = 0; i < rects.length; i++) {
+        for (var j = i + 1; j < rects.length; j++) {
+          var a = rects[i], b = rects[j];
+          if (a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h) {
+            overlap = true;
+          }
+        }
+      }
+      check(6, 'no overlapping boxes', !overlap);
+    })();
+
+    check(7, 'mixed indent: 5 boxes', boxes(6).length === 5);
+    (function () {
+      var l = labels(7);
+      check(8, 'bullets stripped, comment dropped',
+        l.length === 5 &&
+        l.indexOf('Bulleted root') > -1 && l.indexOf('Star bullet') > -1 &&
+        l.indexOf('Plus bullet') > -1 && l.indexOf('Nested dash') > -1 &&
+        l.join('|').indexOf('comment') === -1);
+    })();
+    check(9, 'indented source: 4 boxes', boxes(8).length === 4);
+
+    (function () {
+      var multiline = Array.prototype.some.call(
+        cases[9].querySelectorAll('.mm-label'),
+        function (t) { return t.querySelectorAll('tspan').length > 1; });
+      check(10, 'long label wraps to >1 line', multiline);
+    })();
+
+    (function () {
+      function allOneSide(i, side) {
+        var svg = svgOf(i);
+        var rootRect = svg.querySelector('.mm-root rect');
+        var rx = parseFloat(rootRect.getAttribute('x'));
+        var rw = parseFloat(rootRect.getAttribute('width'));
+        return Array.prototype.every.call(svg.querySelectorAll('.mm-node'), function (g) {
+          if (g.classList.contains('mm-root')) return true;
+          var x = parseFloat(g.querySelector('rect').getAttribute('x'));
+          return side > 0 ? x >= rx + rw : x <= rx;
+        });
+      }
+      check(11, 'direction=right keeps all nodes right', allOneSide(10, 1));
+      check(12, 'direction=left keeps all nodes left', allOneSide(11, -1));
+    })();
+
+    (function () {
+      var wide = Array.prototype.some.call(boxes(12), function (r) {
+        return parseFloat(r.getAttribute('width')) > 130;
+      });
+      check(13, 'max-node-width honoured', !wide);
+    })();
+
+    check(14, 'fenced code block rendered',
+      !!svgOf(13) && boxes(13).length === 4 &&
+      !cases[13].querySelector('pre'));
+    check(15, 'div.mindmap rendered', !!svgOf(14) && boxes(14).length === 3);
+    check(16, 'palette wraps: 11 boxes', boxes(15).length === 11);
+
+    check(17, 'two roots -> error mentioning the line',
+      !!errOf(16) && errOf(16).textContent.indexOf('Second root') > -1);
+    check(18, 'empty -> error', !!errOf(17) &&
+      errOf(17).textContent.toLowerCase().indexOf('empty') > -1);
+    check(19, 'bare bullet -> error', !!errOf(18));
+
+    (function () {
+      var l = labels(19).join('|');
+      check(20, 'special chars kept as text',
+        l.indexOf('a < b > c') > -1 && l.indexOf('x --> y') > -1 &&
+        l.indexOf('100% "quoted"') > -1);
+    })();
+
+    (function () {
+      var track = getComputedStyle(document.getElementById('gridhost')).gridTemplateColumns;
+      check(21, 'grid track stays 260px (was blown out by svg min-width)',
+        track.indexOf('260px') === 0);
+      var flexhost = document.getElementById('flexhost');
+      var fixedSibling = flexhost.lastElementChild;
+      check(22, 'flex row does not overflow; fixed sibling keeps its 200px',
+        flexhost.scrollWidth <= flexhost.clientWidth + 1 &&
+        Math.round(fixedSibling.getBoundingClientRect().width) === 200);
+    })();
+
+    (function () {
+      function hostCheck(n, id, label, roots) {
+        var host = document.getElementById(id);
+        var ok = host.querySelectorAll('.mm-container').length === 1 &&
+                 host.querySelectorAll('.mm-box').length === roots &&
+                 !host.querySelector('pre') && !host.querySelector('code') &&
+                 !host.querySelector('.highlight') &&
+                 !host.querySelector('[class*="language-"]');
+        check(n, label, ok);
+      }
+      hostCheck(23, 'rouge', 'Rouge shape renders, wrappers removed', 3);
+      hostCheck(24, 'prism', 'Prism shape renders, wrappers removed', 3);
+      hostCheck(25, 'markbind', 'MarkBind shape renders, wrappers removed', 3);
+      hostCheck(26, 'nested', 'nested match renders exactly once', 2);
+    })();
+
+    // Theme resolution: host signals must beat the system preference, and a
+    // per-map data-theme must beat the host.
+    (function () {
+      var root = document.documentElement;
+      var saved = root.getAttribute('data-dark-mode');
+      var host = document.createElement('div');
+      host.innerHTML = '<pre class="mindmap">Theme\n  child</pre>' +
+                       '<pre class="mindmap" data-theme="dark">Theme\n  child</pre>' +
+                       '<pre class="mindmap" data-theme="light">Theme\n  child</pre>';
+      document.body.appendChild(host);
+      MindMap.renderAll(host);
+      var maps = host.querySelectorAll('.mm-container');
+
+      function surface(el) { return getComputedStyle(el).getPropertyValue('--mm-surface').trim(); }
+      var LIGHT = '#ffffff', DARK = '#1b2027';
+
+      root.setAttribute('data-dark-mode', 'true');
+      var darkHost = surface(maps[0]) === DARK;
+      var ownLightWins = surface(maps[2]) === LIGHT;
+
+      root.setAttribute('data-dark-mode', 'false');
+      var lightHost = surface(maps[0]) === LIGHT;
+      var ownDarkWins = surface(maps[1]) === DARK;
+
+      if (saved === null) root.removeAttribute('data-dark-mode');
+      else root.setAttribute('data-dark-mode', saved);
+      host.remove();
+
+      check(27, 'host data-dark-mode=true makes the map dark', darkHost);
+      check(28, 'host data-dark-mode=false makes the map light', lightHost);
+      check(29, 'per-map data-theme beats the host', ownLightWins && ownDarkWins);
+    })();
+
+    document.getElementById('results').innerHTML =
+      '<strong>' + (fails ? fails + ' FAILING' : 'all ' + out.length + ' checks pass') +
+      '</strong><br>' + out.join('<br>');
+  }
+});
+</script>
+</body>
+</html>
