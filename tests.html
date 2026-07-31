@@ -262,6 +262,40 @@ Flex child
   Alpha
 </code></pre></div>
 
+<h2>27. Collapse / expand</h2>
+<p class="want">Expect: toggles on every node with children; click hides the subtree.</p>
+<div class="case" id="collapse"><pre class="mindmap">
+Collapse me
+  Requirements
+    Stakeholders
+    User Stories
+  Design
+    Architecture
+    Patterns
+  Testing
+    Unit
+</pre></div>
+
+<h2>28. data-collapse-level="1"</h2>
+<p class="want">Expect: only the root and its direct branches are visible at first.</p>
+<div class="case" id="preset"><pre class="mindmap" data-collapse-level="1">
+Preset
+  Requirements
+    Stakeholders
+    User Stories
+  Design
+    Architecture
+</pre></div>
+
+<h2>29. data-interactive="false"</h2>
+<p class="want">Expect: no toggles, nothing clickable.</p>
+<div class="case" id="static"><pre class="mindmap" data-interactive="false">
+Static
+  Alpha
+    a1
+  Beta
+</pre></div>
+
 <script src="mindmap.js"></script>
 <script>
 // Minimal assertions over the rendered DOM.
@@ -277,6 +311,13 @@ window.addEventListener('load', function () {
       if (!ok) fails++;
       out.push('<span class="' + (ok ? 'pass' : 'fail') + '">' +
                (ok ? 'PASS' : 'FAIL') + ' ' + n + ' ' + label + '</span>');
+    }
+
+    function boxRect(g) {
+      var m = /translate\(([-\d.]+),([-\d.]+)\)/.exec(g.getAttribute('transform')) || [0, 0, 0];
+      var r = g.querySelector('rect');
+      return { x: parseFloat(m[1]), y: parseFloat(m[2]),
+               w: parseFloat(r.getAttribute('width')), h: parseFloat(r.getAttribute('height')) };
     }
 
     function svgOf(i) { return cases[i].querySelector('svg'); }
@@ -295,13 +336,10 @@ window.addEventListener('load', function () {
     // Case 3: two branches, one each side of the root.
     (function () {
       var svg = svgOf(2);
-      var rects = svg.querySelectorAll('.mm-node');
-      var root = svg.querySelector('.mm-root rect');
-      var rootX = parseFloat(root.getAttribute('x'));
+      var rootX = boxRect(svg.querySelector('.mm-root')).x;
       var xs = [];
-      Array.prototype.forEach.call(rects, function (g) {
-        if (g.classList.contains('mm-root')) return;
-        xs.push(parseFloat(g.querySelector('rect').getAttribute('x')));
+      Array.prototype.forEach.call(svg.querySelectorAll('.mm-node'), function (g) {
+        if (!g.classList.contains('mm-root')) xs.push(boxRect(g).x);
       });
       check(3, 'branches straddle the root',
         xs.length === 2 && xs.some(function (x) { return x < rootX; })
@@ -313,12 +351,8 @@ window.addEventListener('load', function () {
 
     // Case 6: no two boxes overlap.
     (function () {
-      var rects = Array.prototype.map.call(boxes(5), function (r) {
-        return {
-          x: parseFloat(r.getAttribute('x')), y: parseFloat(r.getAttribute('y')),
-          w: parseFloat(r.getAttribute('width')), h: parseFloat(r.getAttribute('height'))
-        };
-      });
+      var rects = Array.prototype.map.call(
+        cases[5].querySelectorAll('.mm-node'), boxRect);
       var overlap = false;
       for (var i = 0; i < rects.length; i++) {
         for (var j = i + 1; j < rects.length; j++) {
@@ -352,13 +386,11 @@ window.addEventListener('load', function () {
     (function () {
       function allOneSide(i, side) {
         var svg = svgOf(i);
-        var rootRect = svg.querySelector('.mm-root rect');
-        var rx = parseFloat(rootRect.getAttribute('x'));
-        var rw = parseFloat(rootRect.getAttribute('width'));
+        var root = boxRect(svg.querySelector('.mm-root'));
         return Array.prototype.every.call(svg.querySelectorAll('.mm-node'), function (g) {
           if (g.classList.contains('mm-root')) return true;
-          var x = parseFloat(g.querySelector('rect').getAttribute('x'));
-          return side > 0 ? x >= rx + rw : x <= rx;
+          var x = boxRect(g).x;
+          return side > 0 ? x >= root.x + root.w : x <= root.x;
         });
       }
       check(11, 'direction=right keeps all nodes right', allOneSide(10, 1));
@@ -451,9 +483,62 @@ window.addEventListener('load', function () {
       check(29, 'per-map data-theme beats the host', ownLightWins && ownDarkWins);
     })();
 
+    // Collapse / expand. Animation is ~300ms, so these await settling.
+    (function () {
+      function visibleLabels(id) {
+        return Array.prototype.filter.call(
+          document.getElementById(id).querySelectorAll('.mm-node'),
+          function (g) { return g.style.display !== 'none'; }
+        ).map(function (g) { return g.querySelector('.mm-label').textContent; });
+      }
+
+      var host = document.getElementById('collapse');
+      var toggles = host.querySelectorAll('.mm-interactive');
+      check(30, 'a toggle on each of the 3 nodes with children', toggles.length === 3);
+      check(31, 'root has no toggle', !host.querySelector('.mm-root.mm-interactive'));
+      check(32, 'everything visible initially', visibleLabels('collapse').length === 9);
+
+      var reqs = Array.prototype.filter.call(toggles, function (g) {
+        return g.querySelector('.mm-label').textContent === 'Requirements';
+      })[0];
+      var before = host.querySelector('svg').getAttribute('viewBox');
+      reqs.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+      setTimeout(function () {
+        var after = visibleLabels('collapse');
+        check(33, 'collapsing hides just that subtree',
+          after.length === 7 && after.indexOf('Stakeholders') === -1 &&
+          after.indexOf('User Stories') === -1 && after.indexOf('Architecture') > -1);
+        check(34, 'collapsed node is marked', reqs.classList.contains('mm-collapsed') &&
+          reqs.getAttribute('aria-expanded') === 'false');
+        check(35, 'canvas shrank', host.querySelector('svg').getAttribute('viewBox') !== before);
+
+        reqs.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        setTimeout(function () {
+          check(36, 'expanding brings it back', visibleLabels('collapse').length === 9 &&
+            reqs.getAttribute('aria-expanded') === 'true');
+
+          check(37, 'collapse-level=1 shows only root + branches',
+            visibleLabels('preset').length === 3);
+          check(38, 'data-interactive=false has no toggles',
+            document.getElementById('static').querySelectorAll('.mm-interactive').length === 0 &&
+            document.getElementById('static').querySelectorAll('.mm-toggle').length === 0);
+
+          MindMap.collapseAll(document.getElementById('collapse').querySelector('.mm-container'));
+          setTimeout(function () {
+            check(39, 'collapseAll leaves root + branches',
+              visibleLabels('collapse').length === 4);
+            finish();
+          }, 420);
+        }, 420);
+      }, 420);
+    })();
+
+    function finish() {
     document.getElementById('results').innerHTML =
       '<strong>' + (fails ? fails + ' FAILING' : 'all ' + out.length + ' checks pass') +
       '</strong><br>' + out.join('<br>');
+    }
   }
 });
 </script>

@@ -28,6 +28,8 @@
     ['#56657a', '#9fb0c4']
   ];
 
+  var TOGGLE_R = 7.5;
+
   // Smallest a map may be shrunk to fit its column before it scrolls instead.
   // Below roughly this, the deepest labels stop being legible.
   var MIN_SCALE = 0.7;
@@ -133,9 +135,13 @@
     return root;
   }
 
-  function assignDepth(node, depth) {
+  function assignDepth(node, depth, parent) {
     node.depth = depth;
-    for (var i = 0; i < node.children.length; i++) assignDepth(node.children[i], depth + 1);
+    node.parent = parent || null;
+    node.collapsed = false;
+    for (var i = 0; i < node.children.length; i++) {
+      assignDepth(node.children[i], depth + 1, node);
+    }
   }
 
   // -------------------------------------------------------------- measurement
@@ -189,9 +195,10 @@
   // ------------------------------------------------------------------- layout
 
   function leafCount(node) {
-    if (!node.children.length) return 1;
+    var kids = node.kids;
+    if (!kids.length) return 1;
     var n = 0;
-    for (var i = 0; i < node.children.length; i++) n += leafCount(node.children[i]);
+    for (var i = 0; i < kids.length; i++) n += leafCount(kids[i]);
     return n;
   }
 
@@ -218,7 +225,7 @@
 
   // Pass 1: how much vertical room each subtree needs.
   function computeExtent(node) {
-    var kids = node.children;
+    var kids = node.kids;
     if (!kids.length) {
       node.extent = node.h;
       node.childrenTotal = 0;
@@ -241,7 +248,7 @@
   // children, because the children block is centred inside the same band.
   function placeVertical(node, top) {
     node.cy = top + node.extent / 2;
-    var kids = node.children;
+    var kids = node.kids;
     if (!kids.length) return;
     var y = top + (node.extent - node.childrenTotal) / 2;
     for (var i = 0; i < kids.length; i++) {
@@ -252,7 +259,7 @@
 
   function collectByDepth(node, bucket) {
     (bucket[node.depth] || (bucket[node.depth] = [])).push(node);
-    for (var i = 0; i < node.children.length; i++) collectByDepth(node.children[i], bucket);
+    for (var i = 0; i < node.kids.length; i++) collectByDepth(node.kids[i], bucket);
   }
 
   function columnWidths(branches) {
@@ -268,13 +275,31 @@
     return widths;
   }
 
+  /** Every node in the tree, collapsed or not. */
   function eachNode(node, fn) {
     fn(node);
     for (var i = 0; i < node.children.length; i++) eachNode(node.children[i], fn);
   }
 
+  /** Only the nodes currently on screen. */
+  function eachVisible(node, fn) {
+    fn(node);
+    for (var i = 0; i < node.kids.length; i++) eachVisible(node.kids[i], fn);
+  }
+
+  /** Refreshes node.kids from the collapsed flags, before a layout pass. */
+  function refreshVisibility(root) {
+    eachNode(root, function (n) { n.kids = n.collapsed ? [] : n.children; });
+  }
+
   /** Assigns .x (left edge), .cy, .side and .accentIndex to every node. */
-  function layout(root, opts) {
+  /**
+   * Decides which branches sit on which side, and paints each branch with its
+   * accent. Done once per map: if the split were recomputed after every
+   * collapse, branches would jump across the root and lose the reader.
+   */
+  function assignSides(root, opts) {
+    refreshVisibility(root);
     var branches = root.children;
     var groups;
 
@@ -292,10 +317,18 @@
       eachNode(branches[b], function (n) { n.accentIndex = idx; });
     }
 
-    var sides = [
+    root.side = 0;
+    groups.right.forEach(function (b) { eachNode(b, function (n) { n.side = 1; }); });
+    groups.left.forEach(function (b) { eachNode(b, function (n) { n.side = -1; }); });
+
+    return [
       { nodes: groups.right, sign: 1 },
       { nodes: groups.left, sign: -1 }
     ];
+  }
+
+  function layout(root, opts, sides) {
+    refreshVisibility(root);
 
     // Vertical: stack each side's branches, then centre both against the root.
     var totals = sides.map(function (side) {
@@ -322,7 +355,6 @@
 
     root.cy = height / 2;
     root.x = 0;
-    root.side = 0;
 
     // Horizontal: one column per depth, per side. Boxes align on the edge
     // facing the root, which keeps the columns visually crisp.
@@ -342,8 +374,7 @@
       }
 
       for (var i = 0; i < side.nodes.length; i++) {
-        eachNode(side.nodes[i], function (n) {
-          n.side = side.sign;
+        eachVisible(side.nodes[i], function (n) {
           n.x = side.sign > 0 ? edges[n.depth] : edges[n.depth] - n.w;
         });
       }
@@ -351,16 +382,19 @@
 
     // Normalise so the drawing starts at (padding, padding).
     var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    eachNode(root, function (n) {
-      minX = Math.min(minX, n.x);
-      maxX = Math.max(maxX, n.x + n.w);
+    eachVisible(root, function (n) {
+      // A toggle sits on the outward edge and pokes past the box, so it has to
+      // count towards the canvas or it clips at the extremes.
+      var bulge = (opts.interactive && n.depth > 0 && n.children.length) ? TOGGLE_R + 1 : 0;
+      minX = Math.min(minX, n.x - (n.side < 0 ? bulge : 0));
+      maxX = Math.max(maxX, n.x + n.w + (n.side > 0 ? bulge : 0));
       minY = Math.min(minY, n.cy - n.h / 2);
       maxY = Math.max(maxY, n.cy + n.h / 2);
     });
 
     var dx = opts.padding - minX;
     var dy = opts.padding - minY;
-    eachNode(root, function (n) { n.x += dx; n.cy += dy; });
+    eachVisible(root, function (n) { n.x += dx; n.cy += dy; });
 
     return {
       width: Math.ceil(maxX - minX + 2 * opts.padding),
@@ -382,38 +416,27 @@
     return el;
   }
 
+  /** Uses the animated position (ax/acy), which equals the layout when idle. */
   function edgePath(parent, child) {
     var fromRight = child.side > 0;
-    var x1 = fromRight ? parent.x + parent.w : parent.x;
-    var x2 = fromRight ? child.x : child.x + child.w;
+    var x1 = fromRight ? parent.ax + parent.w : parent.ax;
+    var x2 = fromRight ? child.ax : child.ax + child.w;
 
-    // Root sits between both sides, so it always exits from the facing edge.
-    if (parent.depth === 0) x1 = fromRight ? parent.x + parent.w : parent.x;
-
-    var y1 = parent.cy;
-    var y2 = child.cy;
+    var y1 = parent.acy;
+    var y2 = child.acy;
     var cx = (x2 - x1) * 0.5;
     return 'M' + x1 + ',' + y1 +
       ' C' + (x1 + cx) + ',' + y1 + ' ' + (x2 - cx) + ',' + y2 + ' ' + x2 + ',' + y2;
   }
 
-  function drawEdges(node, group) {
-    for (var i = 0; i < node.children.length; i++) {
-      var child = node.children[i];
-      var pair = PALETTE[child.accentIndex % PALETTE.length];
-      var path = svgEl('path', {
-        'class': 'mm-edge',
-        d: edgePath(node, child),
-        'stroke-width': strokeWidth(child.depth)
-      });
-      path.style.setProperty('--mm-a', pair[0]);
-      path.style.setProperty('--mm-a-dark', pair[1]);
-      group.appendChild(path);
-      drawEdges(child, group);
-    }
-  }
+  function round(n) { return Math.round(n * 100) / 100; }
 
-  function drawNode(node, group) {
+  /**
+   * Builds one <g> per node, positioned by transform so a collapse can animate
+   * it without rebuilding the DOM. Every node is created up front, including
+   * ones that start collapsed — toggling only changes visibility.
+   */
+  function drawNode(node, group, opts) {
     var isRoot = node.depth === 0;
     var g = svgEl('g', {
       'class': 'mm-node ' + (isRoot ? 'mm-root' : 'mm-d' + Math.min(node.depth, 3))
@@ -427,49 +450,80 @@
 
     g.appendChild(svgEl('rect', {
       'class': 'mm-box',
-      x: round(node.x),
-      y: round(node.cy - node.h / 2),
-      width: node.w,
-      height: node.h,
-      rx: node.radius,
-      ry: node.radius
+      x: 0, y: 0, width: node.w, height: node.h,
+      rx: node.radius, ry: node.radius
     }));
 
     var text = svgEl('text', {
       'class': 'mm-label',
-      x: round(node.x + node.w / 2),
+      x: round(node.w / 2),
       'text-anchor': 'middle',
       'font-size': node.fontSize,
       'font-weight': node.fontWeight
     });
 
-    var blockTop = node.cy - (node.lines.length * node.lineHeight) / 2;
+    var blockTop = node.h / 2 - (node.lines.length * node.lineHeight) / 2;
     for (var i = 0; i < node.lines.length; i++) {
       var baseline = blockTop + i * node.lineHeight + node.lineHeight / 2 + node.fontSize * 0.35;
-      var tspan = svgEl('tspan', {
-        x: round(node.x + node.w / 2),
-        y: round(baseline)
-      });
+      var tspan = svgEl('tspan', { x: round(node.w / 2), y: round(baseline) });
       tspan.textContent = node.lines[i];
       text.appendChild(tspan);
     }
-
     g.appendChild(text);
+
+    // Root has children on both sides, so a toggle there would be ambiguous
+    // and would only ever hide the whole map. Leaves have nothing to hide.
+    var canToggle = opts.interactive && !isRoot && node.children.length > 0;
+    if (canToggle) g.appendChild(buildToggle(node));
+
+    node.el = g;
     group.appendChild(g);
 
-    for (var j = 0; j < node.children.length; j++) drawNode(node.children[j], group);
+    for (var j = 0; j < node.children.length; j++) drawNode(node.children[j], group, opts);
   }
 
-  function round(n) { return Math.round(n * 100) / 100; }
+  function buildToggle(node) {
+    // Sits on the edge facing away from the root, where the subtree extends.
+    var cx = node.side > 0 ? node.w : 0;
+    var t = svgEl('g', {
+      'class': 'mm-toggle',
+      transform: 'translate(' + round(cx) + ',' + round(node.h / 2) + ')'
+    });
+    t.appendChild(svgEl('circle', { 'class': 'mm-toggle-bg', r: TOGGLE_R }));
+    t.appendChild(svgEl('path', { 'class': 'mm-toggle-sign', d: 'M-3.4 0 H3.4' }));
+    t.appendChild(svgEl('path', { 'class': 'mm-toggle-sign mm-toggle-v', d: 'M0 -3.4 V3.4' }));
+    return t;
+  }
 
-  function buildSvg(root, size) {
+  function positionNode(node, x, cy) {
+    node.el.setAttribute('transform',
+      'translate(' + round(x) + ',' + round(cy - node.h / 2) + ')');
+  }
+
+  function drawEdges(node, group) {
+    for (var i = 0; i < node.children.length; i++) {
+      var child = node.children[i];
+      var pair = PALETTE[child.accentIndex % PALETTE.length];
+      var path = svgEl('path', {
+        'class': 'mm-edge',
+        'stroke-width': strokeWidth(child.depth)
+      });
+      path.style.setProperty('--mm-a', pair[0]);
+      path.style.setProperty('--mm-a-dark', pair[1]);
+      child.edge = path;
+      group.appendChild(path);
+      drawEdges(child, group);
+    }
+  }
+
+  function buildSvg(root, size, opts) {
     var svg = svgEl('svg', {
       'class': 'mm-svg',
       xmlns: SVG_NS,
       viewBox: '0 0 ' + size.width + ' ' + size.height,
       width: size.width,
       height: size.height,
-      role: 'img',
+      role: opts.interactive ? 'group' : 'img',
       'aria-label': 'Mind map: ' + root.label
     });
 
@@ -482,7 +536,7 @@
     svg.appendChild(edges);
 
     var nodes = svgEl('g', { 'class': 'mm-nodes' });
-    drawNode(root, nodes);
+    drawNode(root, nodes, opts);
     svg.appendChild(nodes);
 
     // Scale down to fit a narrow column, but only so far — past MIN_SCALE the
@@ -490,6 +544,190 @@
     svg.style.maxWidth = size.width + 'px';
     svg.style.minWidth = Math.round(size.width * MIN_SCALE) + 'px';
     return svg;
+  }
+
+  // -------------------------------------------------------------- interaction
+
+  var ANIM_MS = 300;
+
+  function prefersReducedMotion() {
+    return global.matchMedia &&
+      global.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  function easeInOut(t) {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  }
+
+  /**
+   * Marks which nodes are on screen. A node is visible when no ancestor is
+   * collapsed; the collapsed node itself stays visible, holding its "+".
+   */
+  function markVisible(root) {
+    eachNode(root, function (n) {
+      n.vis = !n.parent ? true : (n.parent.vis && !n.parent.collapsed);
+    });
+  }
+
+  /** Nearest ancestor that is still on screen — where a hidden node flies to. */
+  function visibleAnchor(node) {
+    var p = node.parent;
+    while (p && !p.vis) p = p.parent;
+    return p || node;
+  }
+
+  function syncToggleState(root) {
+    eachNode(root, function (n) {
+      if (!n.el) return;
+      if (n.children.length && n.depth > 0) {
+        n.el.classList.toggle('mm-collapsed', !!n.collapsed);
+        n.el.setAttribute('aria-expanded', n.collapsed ? 'false' : 'true');
+        n.el.setAttribute('aria-label',
+          n.label + ', ' + n.children.length + ' item' +
+          (n.children.length === 1 ? '' : 's') +
+          ', ' + (n.collapsed ? 'collapsed' : 'expanded'));
+      }
+    });
+  }
+
+  /**
+   * Re-lays out after a collapse or expand and glides everything into place.
+   * Nodes appearing grow out of their parent; nodes leaving shrink back into
+   * it, which keeps the reader oriented about where the content went.
+   */
+  function relayout(state, animate) {
+    var root = state.root;
+    var prev = {};
+    eachNode(root, function (n) {
+      prev[nodeKey(n)] = { x: n.ax, cy: n.acy, vis: n.vis, shown: n.shown };
+    });
+    var fromSize = { width: state.size.width, height: state.size.height };
+
+    markVisible(root);
+    var size = layout(root, state.opts, state.sides);
+    state.size = size;
+
+    // Targets, plus a sensible start for anything that was not on screen.
+    eachNode(root, function (n) {
+      var before = prev[nodeKey(n)];
+      n.tx = n.x;
+      n.tcy = n.cy;
+      if (n.vis && !before.vis) {
+        var anchor = visibleAnchor(n);
+        n.ax = anchor.tx !== undefined ? anchor.tx : n.x;
+        n.acy = anchor.tcy !== undefined ? anchor.tcy : n.cy;
+        n.fade = 0;
+      } else if (!n.vis && before.vis) {
+        var out = visibleAnchor(n);
+        n.tx = out.tx !== undefined ? out.tx : n.ax;
+        n.tcy = out.tcy !== undefined ? out.tcy : n.acy;
+        n.fade = 1;
+      } else {
+        n.fade = n.vis ? 1 : 0;
+      }
+      n.fromX = n.ax;
+      n.fromCy = n.acy;
+      n.fromFade = n.fade;
+      n.toFade = n.vis ? 1 : 0;
+    });
+
+    syncToggleState(root);
+
+    if (!animate || prefersReducedMotion()) {
+      eachNode(root, function (n) { n.ax = n.tx; n.acy = n.tcy; n.fade = n.toFade; });
+      paint(state, size);
+      return;
+    }
+
+    if (state.raf) global.cancelAnimationFrame(state.raf);
+    var start = null;
+
+    function step(now) {
+      if (start === null) start = now;
+      var t = Math.min(1, (now - start) / ANIM_MS);
+      var e = easeInOut(t);
+
+      eachNode(root, function (n) {
+        n.ax = n.fromX + (n.tx - n.fromX) * e;
+        n.acy = n.fromCy + (n.tcy - n.fromCy) * e;
+        n.fade = n.fromFade + (n.toFade - n.fromFade) * e;
+      });
+
+      paint(state, {
+        width: fromSize.width + (size.width - fromSize.width) * e,
+        height: fromSize.height + (size.height - fromSize.height) * e
+      });
+
+      if (t < 1) state.raf = global.requestAnimationFrame(step);
+      else { state.raf = null; paint(state, size); }
+    }
+    state.raf = global.requestAnimationFrame(step);
+  }
+
+  var keySeq = 0;
+  function nodeKey(n) {
+    if (n.key === undefined) n.key = ++keySeq;
+    return n.key;
+  }
+
+  /** One frame: transforms, edge curves, opacity, canvas size. */
+  function paint(state, size) {
+    var root = state.root;
+    eachNode(root, function (n) {
+      var drawn = n.fade > 0.001;
+      n.el.style.display = drawn ? '' : 'none';
+      if (drawn) {
+        n.el.style.opacity = n.fade < 0.999 ? n.fade : '';
+        positionNode(n, n.ax, n.acy);
+      }
+      if (n.edge) {
+        var edgeOn = drawn && n.parent.fade > 0.001;
+        n.edge.style.display = edgeOn ? '' : 'none';
+        if (edgeOn) {
+          n.edge.style.opacity = n.fade < 0.999 ? n.fade : '';
+          n.edge.setAttribute('d', edgePath(n.parent, n));
+        }
+      }
+    });
+
+    var svg = state.svg;
+    svg.setAttribute('viewBox', '0 0 ' + round(size.width) + ' ' + round(size.height));
+    svg.setAttribute('width', round(size.width));
+    svg.setAttribute('height', round(size.height));
+    svg.style.maxWidth = round(size.width) + 'px';
+    svg.style.minWidth = Math.round(size.width * MIN_SCALE) + 'px';
+  }
+
+  function toggleNode(state, node) {
+    if (!node.children.length || node.depth === 0) return;
+    node.collapsed = !node.collapsed;
+    relayout(state, true);
+  }
+
+  function attachInteraction(state) {
+    var root = state.root;
+
+    eachNode(root, function (n) {
+      if (!n.children.length || n.depth === 0) return;
+
+      n.el.classList.add('mm-interactive');
+      n.el.setAttribute('tabindex', '0');
+      n.el.setAttribute('role', 'button');
+
+      n.el.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        toggleNode(state, n);
+      });
+      n.el.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') {
+          ev.preventDefault();
+          toggleNode(state, n);
+        }
+      });
+    });
+
+    syncToggleState(root);
   }
 
   /** A plain nested list, hidden visually, so screen readers get the content. */
@@ -570,6 +808,23 @@
 
     '.mm-edge{--mm-accent:var(--mm-a);fill:none;stroke:var(--mm-accent);',
     'stroke-linecap:round;opacity:.85;}',
+
+    // --- collapse / expand ---
+    '.mm-interactive{cursor:pointer;}',
+    '.mm-interactive .mm-box{transition:filter .12s ease;}',
+    '.mm-interactive:hover .mm-box{filter:brightness(.97);}',
+    '.mm-interactive:focus{outline:none;}',
+    '.mm-interactive:focus-visible .mm-box{stroke-width:2.4;}',
+    '.mm-interactive:focus-visible .mm-toggle-bg{stroke-width:2.4;}',
+
+    '.mm-toggle{pointer-events:none;}',
+    '.mm-toggle-bg{fill:var(--mm-surface);stroke:var(--mm-accent);stroke-width:1.3;}',
+    '.mm-toggle-sign{stroke:var(--mm-accent);stroke-width:1.7;stroke-linecap:round;}',
+    // The vertical bar is what turns the minus into a plus.
+    '.mm-toggle-v{display:none;}',
+    '.mm-collapsed .mm-toggle-v{display:inline;}',
+    '.mm-collapsed .mm-toggle-bg{fill:var(--mm-accent);}',
+    '.mm-collapsed .mm-toggle-sign{stroke:var(--mm-surface);}',
 
     '.mm-a11y{position:absolute;width:1px;height:1px;overflow:hidden;',
     'clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;}',
@@ -745,6 +1000,11 @@
     var theme = attr('data-theme');
     if (theme === 'light' || theme === 'dark') opts.theme = theme;
 
+    opts.interactive = attr('data-interactive') !== 'false';
+
+    var level = parseInt(attr('data-collapse-level'), 10);
+    if (level > 0) opts.collapseLevel = level;
+
     return opts;
   }
 
@@ -775,11 +1035,33 @@
     try {
       var opts = readOptions(optionSources);
       if (opts.theme) container.setAttribute('data-theme', opts.theme);
+
       var root = parse(source);
       measureTree(root, opts);
-      var size = layout(root, opts);
-      container.appendChild(buildSvg(root, size));
+
+      if (opts.collapseLevel > 0) {
+        eachNode(root, function (n) {
+          if (n.depth >= opts.collapseLevel && n.children.length) n.collapsed = true;
+        });
+      }
+
+      // The left/right split is fixed once, from the fully expanded tree, so
+      // collapsing never shuffles branches across the root.
+      var sides = assignSides(root, opts);
+      markVisible(root);
+      var size = layout(root, opts, sides);
+      eachNode(root, function (n) {
+        n.ax = n.x; n.acy = n.cy; n.fade = n.vis ? 1 : 0;
+      });
+
+      var svg = buildSvg(root, size, opts);
+      container.appendChild(svg);
       container.appendChild(buildOutline(root));
+
+      var state = { root: root, opts: opts, sides: sides, size: size, svg: svg };
+      paint(state, size);
+      if (opts.interactive) attachInteraction(state);
+      container.mindMap = state;
     } catch (err) {
       if (!(err instanceof MindMapError)) throw err;
       container.appendChild(buildError(err, source));
@@ -862,11 +1144,25 @@
     boot();
   }
 
+  /** Expands or collapses every branch of a rendered map. */
+  function setAllCollapsed(el, collapsed) {
+    var container = el && el.closest ? el.closest('.mm-container') : null;
+    var state = (container && container.mindMap) || (el && el.mindMap);
+    if (!state) return false;
+    eachNode(state.root, function (n) {
+      if (n.depth > 0 && n.children.length) n.collapsed = collapsed;
+    });
+    relayout(state, true);
+    return true;
+  }
+
   global.MindMap = {
     version: VERSION,
     parse: parse,
     render: render,
     renderAll: renderAll,
+    expandAll: function (el) { return setAllCollapsed(el, false); },
+    collapseAll: function (el) { return setAllCollapsed(el, true); },
     palette: PALETTE
   };
 })(typeof window !== 'undefined' ? window : this);

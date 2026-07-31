@@ -75,6 +75,9 @@
   footer { border-top: 1px solid var(--line); margin-top: 4rem; padding-top: 1.5rem; color: var(--soft); font-size: .9rem; }
   ul.tight { margin: 0 0 1rem; padding-left: 1.3rem; }
   ul.tight li { margin-bottom: .3rem; }
+  kbd { font-family: var(--mono); font-size: .82em; background: var(--code-bg);
+        border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px;
+        padding: .1em .4em; }
 </style>
 </head>
 <body>
@@ -92,7 +95,7 @@
   If you can write a bulleted list, you can make a mind map. Drop one
   <code>&lt;script&gt;</code> tag into your page, wrap your list in a
   <code>&lt;pre class="mindmap"&gt;</code>, and it is drawn as clean SVG when
-  the page loads.
+  the page loads. Readers can collapse and expand branches as they go.
 </p>
 
 <h2>Add it to your page</h2>
@@ -203,6 +206,68 @@ Course Admin
 </pre>
 </div>
 
+<h2>Collapsing and expanding</h2>
+
+<p>Any node with children gets a small <strong>&minus;</strong> button on its
+outer edge. Clicking the node (or the button) folds that branch away and leaves
+a <strong>+</strong> behind; clicking again brings it back. Try it on the map
+above, or this one:</p>
+
+<div class="demo">
+<pre class="mindmap">
+Testing
+  Unit Testing
+    Test Drivers
+    Stubs
+    JUnit
+  Integration Testing
+    Top-down
+    Bottom-up
+    Big Bang
+  System Testing
+    Functional
+    Non-Functional
+  Acceptance Testing
+    Alpha
+    Beta
+</pre>
+</div>
+
+<p>It works with the keyboard too: <kbd>Tab</kbd> to a node, then
+<kbd>Enter</kbd> or <kbd>Space</kbd>. The map animates as it re-flows, and
+respects <code>prefers-reduced-motion</code> if the reader has asked for less
+movement.</p>
+
+<h3>Starting a map partly folded</h3>
+
+<p>Big maps are friendlier if they open as an overview. <code>data-collapse-level</code>
+sets how many levels show at first — the rest stay one click away.</p>
+
+<div class="split">
+<pre><code>&lt;pre class="mindmap"
+     data-collapse-level="1"&gt;
+Testing
+  Unit Testing
+    Stubs
+    JUnit
+  Integration Testing
+    Top-down
+&lt;/pre&gt;</code></pre>
+<div class="demo">
+<pre class="mindmap" data-collapse-level="1">
+Testing
+  Unit Testing
+    Stubs
+    JUnit
+  Integration Testing
+    Top-down
+</pre>
+</div>
+</div>
+
+<p>To turn interaction off entirely and get a plain static diagram, set
+<code>data-interactive="false"</code>.</p>
+
 <h2>Options</h2>
 
 <p>Set these as attributes on the container. All are optional.</p>
@@ -226,6 +291,17 @@ Course Admin
     <td><code>data-column-gap</code></td>
     <td><code>46</code></td>
     <td>Horizontal space between levels. Lower it to make a wide map fit.</td>
+  </tr>
+  <tr>
+    <td><code>data-collapse-level</code></td>
+    <td>off</td>
+    <td>Show only this many levels at first. <code>1</code> shows the centre and
+        its branches; deeper nodes start folded.</td>
+  </tr>
+  <tr>
+    <td><code>data-interactive</code></td>
+    <td><code>true</code></td>
+    <td>Set to <code>false</code> for a static diagram with no toggles.</td>
   </tr>
   <tr>
     <td><code>data-theme</code></td>
@@ -349,6 +425,8 @@ entry is a <code>[light, dark]</code> pair.</p>
   <tr><td><code>MindMap.renderAll(el)</code></td><td>Same, but only inside <code>el</code>.</td></tr>
   <tr><td><code>MindMap.render(el)</code></td><td>Draws one specific element.</td></tr>
   <tr><td><code>MindMap.parse(text)</code></td><td>Returns the parsed tree, without drawing anything.</td></tr>
+  <tr><td><code>MindMap.collapseAll(el)</code></td><td>Folds every branch of one rendered map.</td></tr>
+  <tr><td><code>MindMap.expandAll(el)</code></td><td>Unfolds every branch of one rendered map.</td></tr>
 </table>
 </div>
 
@@ -392,7 +470,7 @@ CS2103 Software Engineering
   <li>Maps scale down to fit narrow screens and scroll sideways if they still do not fit.</li>
   <li>Screen readers get the map as a nested list, so the content is not lost.</li>
   <li>No dependencies, no tracking, no network calls after the script loads.</li>
-  <li>Expand/collapse and dragging nodes are planned. Your existing maps will keep working.</li>
+  <li>Dragging nodes to reposition them is next. Your existing maps will keep working.</li>
 </ul>
 
 <footer>

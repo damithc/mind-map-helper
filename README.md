@@ -1,6 +1,7 @@
 # Mind Maps Helper
 
-Write an indented list, get a mind map. One script tag, no build step, no dependencies.
+Write an indented list, get a mind map. Readers can collapse and expand branches.
+One script tag, no build step, no dependencies.
 
 Made for authors of educational sites (course pages, lecture notes, handbooks) who write
 their own HTML or Markdown but are not web developers.
@@ -63,6 +64,18 @@ its child.
 Bad input produces a short on-page message naming the problem and the line, rather than
 a blank space.
 
+## Collapsing and expanding
+
+Any node with children gets a small **&minus;** button on its outer edge. Clicking the
+node or the button folds that branch away and leaves a **+**; clicking again restores it.
+Keyboard works too: <kbd>Tab</kbd> to a node, then <kbd>Enter</kbd> or <kbd>Space</kbd>.
+
+The map animates as it re-flows, and honours `prefers-reduced-motion`.
+
+Big maps read better opening as an overview — `data-collapse-level="1"` shows the centre
+and its branches, with everything deeper one click away. `data-interactive="false"`
+turns it all off for a plain static diagram.
+
 ## Options
 
 Set these as attributes on the container.
@@ -72,6 +85,8 @@ Set these as attributes on the container.
 | `data-direction` | `balanced` | `balanced` splits branches either side of the centre. `right` or `left` puts them all on one side. |
 | `data-max-node-width` | `190` | Pixel width at which a label wraps to another line. |
 | `data-column-gap` | `46` | Horizontal space between levels. |
+| `data-collapse-level` | off | Show only this many levels at first; deeper nodes start folded. |
+| `data-interactive` | `true` | `false` for a static diagram with no toggles. |
 | `data-theme` | follows the page | `light` or `dark`, to pin one map regardless of the site's theme. |
 
 ## Containers recognised
@@ -113,20 +128,22 @@ Only needed for maps added after page load.
 | `MindMap.renderAll(el)` | Same, scoped to `el`. |
 | `MindMap.render(el)` | Draws one element. |
 | `MindMap.parse(text)` | Returns the parsed tree without drawing. |
+| `MindMap.collapseAll(el)` | Folds every branch of one rendered map. |
+| `MindMap.expandAll(el)` | Unfolds every branch of one rendered map. |
 
 ## Notes
 
 - Output is SVG: sharp at any zoom, prints cleanly.
 - Maps shrink to fit a narrow column, down to 70% of natural size, then scroll sideways
   instead of becoming illegible. A scrolled map starts centred on the root.
-- Screen readers get the map as a nested list.
+- Screen readers get the map as a nested list, and toggles report their expanded state.
 - No dependencies and no network calls after the script loads.
 
 ## Development
 
 There is no build step — `mindmap.js` is the shipped file.
 
-Open `tests.html` in a browser. It runs 29 checks over the rendered DOM and prints a
+Open `tests.html` in a browser. It runs 39 checks over the rendered DOM and prints a
 pass/fail summary at the top of the page.
 
 ## Versioning
@@ -136,9 +153,8 @@ under a new path (`/v2/mindmap.js`) so existing pages keep working.
 
 ## Roadmap
 
-Interaction is the next step and will not change the syntax:
+Collapse/expand has shipped. Still to come, without changing the syntax:
 
-- expand/collapse of branches
 - dragging nodes to reposition them
 - richer node content than plain text
 
