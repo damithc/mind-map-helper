@@ -1,5 +1,5 @@
 /*!
- * mind-maps-helper v1.3.0
+ * mind-maps-helper v1.4.0
  * Simple indented-text syntax -> interactive-ready SVG mind maps.
  * PlantUML-style geometry with a refined palette.
  * No dependencies. MIT licensed.
@@ -8,7 +8,7 @@
 (function (global) {
   'use strict';
 
-  var VERSION = '1.3.0';
+  var VERSION = '1.4.0';
 
   // ---------------------------------------------------------------- constants
 
@@ -144,6 +144,216 @@
     }
   }
 
+  // ------------------------------------------------------- inline markup
+
+  var MONO_STACK = 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace';
+
+  var IMAGE_MAX_W = 120;
+  var IMAGE_MAX_H = 90;
+  // Space held for an image whose size is not yet known, so the map can be
+  // drawn immediately and settle once the file arrives.
+  var IMAGE_PLACEHOLDER_W = 64;
+  var IMAGE_PLACEHOLDER_H = 48;
+
+  /**
+   * Only schemes that cannot execute script. Relative paths and anchors have
+   * no scheme at all and are always fine.
+   */
+  function safeUrl(raw, allowData) {
+    var url = String(raw || '').trim();
+    if (!url) return null;
+    var scheme = /^([a-z][a-z0-9+.-]*):/i.exec(url);
+    if (!scheme) return url;                       // relative, absolute path, or #anchor
+    var name = scheme[1].toLowerCase();
+    if (name === 'http' || name === 'https' || name === 'mailto') return url;
+    if (allowData && name === 'data' && /^data:image\//i.test(url)) return url;
+    return null;
+  }
+
+  function textRun(text, style) {
+    return {
+      type: 'text', text: text,
+      bold: !!style.bold, italic: !!style.italic,
+      code: !!style.code, strike: !!style.strike,
+      href: style.href || null
+    };
+  }
+
+  function extend(style, changes) {
+    var out = {};
+    for (var k in style) if (Object.prototype.hasOwnProperty.call(style, k)) out[k] = style[k];
+    for (var c in changes) if (Object.prototype.hasOwnProperty.call(changes, c)) out[c] = changes[c];
+    return out;
+  }
+
+  /** Underscores only delimit emphasis at word boundaries, so snake_case survives. */
+  function wordChar(ch) { return !!ch && /[\w]/.test(ch); }
+
+  /**
+   * Finds the closing run of `marker` starting at `from`, skipping escapes and
+   * code spans. Returns -1 when the marker is never closed, in which case the
+   * opener is treated as literal text.
+   */
+  function findClose(text, marker, from, underscore) {
+    for (var i = from; i <= text.length - marker.length; i++) {
+      if (text.charAt(i) === '\\') { i++; continue; }
+      if (text.charAt(i) === '`') {
+        var end = text.indexOf('`', i + 1);
+        if (end === -1) return -1;
+        i = end;
+        continue;
+      }
+      if (text.substr(i, marker.length) !== marker) continue;
+      if (/\s/.test(text.charAt(i - 1))) continue;              // no space before closer
+      if (underscore && wordChar(text.charAt(i + marker.length))) continue;
+      return i;
+    }
+    return -1;
+  }
+
+  /** Matching bracket that tolerates nesting, e.g. [see [note]](x). */
+  function matchBracket(text, start, open, close) {
+    var depth = 0;
+    for (var i = start; i < text.length; i++) {
+      var ch = text.charAt(i);
+      if (ch === '\\') { i++; continue; }
+      if (ch === open) depth++;
+      else if (ch === close) { depth--; if (!depth) return i; }
+    }
+    return -1;
+  }
+
+  function parseSizeHint(target) {
+    var m = /^(.*?)\s+=(\d*)x(\d*)$/.exec(target);
+    if (!m) return { url: target.trim(), w: 0, h: 0 };
+    return { url: m[1].trim(), w: parseInt(m[2], 10) || 0, h: parseInt(m[3], 10) || 0 };
+  }
+
+  /**
+   * Turns one label into a flat list of styled runs. Deliberately a small
+   * subset of Markdown: emphasis, code, strikethrough, links, images and an
+   * explicit break. Anything unmatched stays literal, so a stray asterisk in a
+   * label renders as an asterisk rather than eating the rest of the line.
+   */
+  function parseInline(text, style, out) {
+    style = style || {};
+    out = out || [];
+    var buffer = '';
+
+    function flush() {
+      if (buffer) { out.push(textRun(buffer, style)); buffer = ''; }
+    }
+
+    for (var i = 0; i < text.length; i++) {
+      var ch = text.charAt(i);
+      var rest = text.substr(i);
+
+      if (ch === '\\') {                                   // escaped literal
+        var next = text.charAt(i + 1);
+        if (next === 'n') { flush(); out.push({ type: 'break' }); i++; continue; }
+        if (next) { buffer += next; i++; continue; }
+        buffer += ch;
+        continue;
+      }
+
+      if (ch === '`') {                                    // code span wins over all
+        var codeEnd = text.indexOf('`', i + 1);
+        if (codeEnd > i) {
+          flush();
+          out.push(textRun(text.slice(i + 1, codeEnd), extend(style, { code: true })));
+          i = codeEnd;
+          continue;
+        }
+      }
+
+      if (ch === '!' && text.charAt(i + 1) === '[') {       // image
+        var altEnd = matchBracket(text, i + 1, '[', ']');
+        if (altEnd > -1 && text.charAt(altEnd + 1) === '(') {
+          var srcEnd = matchBracket(text, altEnd + 1, '(', ')');
+          if (srcEnd > -1) {
+            var hint = parseSizeHint(text.slice(altEnd + 2, srcEnd));
+            var src = safeUrl(hint.url, true);
+            if (src) {
+              flush();
+              out.push({
+                type: 'image', src: src, alt: text.slice(i + 2, altEnd),
+                askedW: hint.w, askedH: hint.h, href: style.href || null
+              });
+              i = srcEnd;
+              continue;
+            }
+          }
+        }
+      }
+
+      if (ch === '[' && !style.href) {                      // link (never nested)
+        var labelEnd = matchBracket(text, i, '[', ']');
+        if (labelEnd > -1 && text.charAt(labelEnd + 1) === '(') {
+          var hrefEnd = matchBracket(text, labelEnd + 1, '(', ')');
+          if (hrefEnd > -1) {
+            var href = safeUrl(text.slice(labelEnd + 2, hrefEnd), false);
+            if (href) {
+              flush();
+              parseInline(text.slice(i + 1, labelEnd), extend(style, { href: href }), out);
+              i = hrefEnd;
+              continue;
+            }
+          }
+        }
+      }
+
+      var marker = null;
+      var changes = null;
+      if (rest.indexOf('**') === 0 && !style.bold) { marker = '**'; changes = { bold: true }; }
+      else if (rest.indexOf('__') === 0 && !style.bold) { marker = '__'; changes = { bold: true }; }
+      else if (rest.indexOf('~~') === 0 && !style.strike) { marker = '~~'; changes = { strike: true }; }
+      else if (ch === '*' && !style.italic) { marker = '*'; changes = { italic: true }; }
+      else if (ch === '_' && !style.italic && !wordChar(text.charAt(i - 1))) {
+        marker = '_'; changes = { italic: true };
+      }
+
+      if (marker) {
+        var after = text.charAt(i + marker.length);
+        var underscore = marker.charAt(0) === '_';
+        if (after && !/\s/.test(after)) {
+          var close = findClose(text, marker, i + marker.length + 1, underscore);
+          if (close > -1) {
+            flush();
+            parseInline(text.slice(i + marker.length, close), extend(style, changes), out);
+            i = close + marker.length - 1;
+            continue;
+          }
+        }
+      }
+
+      buffer += ch;
+    }
+
+    flush();
+    return out;
+  }
+
+  /** Collapses to a single plain run when a label has no markup at all. */
+  function parseLabel(label, enabled) {
+    if (!enabled || !/[*_`~\[\]!\\]/.test(label)) {
+      return [textRun(label, {})];
+    }
+    var runs = parseInline(label, {}, []);
+    return runs.length ? runs : [textRun('', {})];
+  }
+
+  /** Plain-text form of a label, for aria-labels and the outline. */
+  function runsToText(runs) {
+    var out = '';
+    for (var i = 0; i < runs.length; i++) {
+      var r = runs[i];
+      if (r.type === 'text') out += r.text;
+      else if (r.type === 'image') out += r.alt || '';
+      else if (r.type === 'break') out += ' ';
+    }
+    return out.trim();
+  }
+
   // -------------------------------------------------------------- measurement
 
   var measureCtx = null;
@@ -153,42 +363,163 @@
     return measureCtx.measureText(str).width;
   }
 
-  function wrapLabel(label, font, maxWidth) {
-    var words = label.split(/\s+/);
-    var out = [];
-    var current = '';
-    for (var i = 0; i < words.length; i++) {
-      var candidate = current ? current + ' ' + words[i] : words[i];
-      if (current && textWidth(candidate, font) > maxWidth) {
-        out.push(current);
-        current = words[i];
-      } else {
-        current = candidate;
-      }
-    }
-    if (current) out.push(current);
-    return out;
+  /** The CSS font string for a run, given the node's base metrics. */
+  function runFont(run, m) {
+    var size = run.code ? m.size * 0.92 : m.size;
+    var weight = run.bold ? '700' : m.weight;
+    var style = run.italic ? 'italic ' : '';
+    return style + weight + ' ' + size + 'px ' + (run.code ? MONO_STACK : FONT_STACK);
   }
 
-  /** Fills in .lines, .w and .h on every node. */
-  function measureTree(node, opts) {
-    var m = metrics(node.depth);
-    var font = m.weight + ' ' + m.size + 'px ' + FONT_STACK;
-    var lineHeight = m.size * 1.35;
+  function runFontSize(run, m) { return run.code ? m.size * 0.92 : m.size; }
 
-    node.lines = wrapLabel(node.label, font, opts.maxNodeWidth);
-    node.fontSize = m.size;
-    node.fontWeight = m.weight;
-    node.lineHeight = lineHeight;
-    node.radius = m.radius;
+  // A code run carries a chip behind it, which needs a little breathing room.
+  var CODE_PAD_X = 3.5;
 
-    var widest = 0;
-    for (var i = 0; i < node.lines.length; i++) {
-      widest = Math.max(widest, textWidth(node.lines[i], font));
+  function imageSize(run) {
+    var w = run.askedW, h = run.askedH;
+    if (w && h) return { w: w, h: h };
+
+    var natW = run.natW || 0, natH = run.natH || 0;
+    if (!natW || !natH) {
+      // Not loaded yet: hold a placeholder honouring whichever side was given.
+      if (w) return { w: w, h: Math.round(w * 0.75) };
+      if (h) return { w: Math.round(h * 1.33), h: h };
+      return { w: IMAGE_PLACEHOLDER_W, h: IMAGE_PLACEHOLDER_H };
     }
-    node.w = Math.ceil(widest + 2 * m.padX);
-    node.h = Math.ceil(node.lines.length * lineHeight + 2 * m.padY);
 
+    var ratio = natW / natH;
+    if (w) return { w: w, h: Math.round(w / ratio) };
+    if (h) return { w: Math.round(h * ratio), h: h };
+
+    var scale = Math.min(1, IMAGE_MAX_W / natW, IMAGE_MAX_H / natH);
+    return { w: Math.round(natW * scale), h: Math.round(natH * scale) };
+  }
+
+  /**
+   * Splits runs into atomic items: whole words, single spaces, images and
+   * explicit breaks. Wrapping then happens between items, so a line can break
+   * anywhere a space falls even in the middle of a bold phrase.
+   */
+  function runsToItems(runs, m) {
+    var items = [];
+    for (var i = 0; i < runs.length; i++) {
+      var run = runs[i];
+
+      if (run.type === 'break') { items.push({ kind: 'break' }); continue; }
+
+      if (run.type === 'image') {
+        var size = imageSize(run);
+        items.push({ kind: 'image', run: run, w: size.w, h: size.h });
+        continue;
+      }
+
+      var font = runFont(run, m);
+      var size2 = runFontSize(run, m);
+      // Keep the spaces as items so widths stay exact after wrapping, and so
+      // the rendered text still reads correctly when copied.
+      var parts = run.text.split(/(\s+)/);
+      var first = items.length;
+      for (var p = 0; p < parts.length; p++) {
+        if (!parts[p]) continue;
+        var isSpace = /^\s+$/.test(parts[p]);
+        var text = isSpace ? ' ' : parts[p];
+        items.push({
+          kind: isSpace ? 'space' : 'word',
+          run: run, text: text, font: font, w: textWidth(text, font),
+          h: size2 * 1.35, size: size2
+        });
+      }
+      // The chip's breathing room belongs to the run as a whole.
+      if (run.code && items.length > first) {
+        items[first].w += CODE_PAD_X;
+        items[items.length - 1].w += CODE_PAD_X;
+      }
+    }
+    return items;
+  }
+
+  /** Greedy wrap of items into lines, honouring explicit breaks. */
+  function layoutLines(items, maxWidth) {
+    var lines = [];
+    var line = [];
+    var width = 0;
+
+    function push() {
+      // Trailing spaces should not count towards the line's width.
+      while (line.length && line[line.length - 1].kind === 'space') {
+        width -= line.pop().w;
+      }
+      lines.push({ items: line, width: width });
+      line = [];
+      width = 0;
+    }
+
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i];
+
+      if (it.kind === 'break') { push(); continue; }
+      if (it.kind === 'space' && !line.length) continue;      // no leading space
+
+      if (line.length && width + it.w > maxWidth && it.kind !== 'space') {
+        push();
+        if (it.kind === 'space') continue;
+      }
+      line.push(it);
+      width += it.w;
+    }
+    push();
+
+    // An entirely empty label still occupies one line.
+    if (!lines.length) lines.push({ items: [], width: 0 });
+    return lines;
+  }
+
+  /** Positions items within each line and returns the block's size. */
+  function placeLines(lines, m) {
+    var y = 0;
+    var widest = 0;
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i];
+      var height = 0;
+      for (var j = 0; j < line.items.length; j++) {
+        height = Math.max(height, line.items[j].h);
+      }
+      if (!height) height = m.size * 1.35;
+
+      var x = 0;
+      for (var k = 0; k < line.items.length; k++) {
+        line.items[k].x = x;
+        x += line.items[k].w;
+      }
+      line.top = y;
+      line.height = height;
+      y += height;
+      widest = Math.max(widest, line.width);
+    }
+    return { width: widest, height: y };
+  }
+
+  /** Fills in .runs, .lines, .w and .h on every node. */
+  function measureNode(node, opts) {
+    var m = metrics(node.depth);
+    node.metrics = m;
+    node.radius = m.radius;
+    node.fontSize = m.size;
+
+    var items = runsToItems(node.runs, m);
+    node.lines = layoutLines(items, opts.maxNodeWidth);
+    var block = placeLines(node.lines, m);
+
+    node.textWidth = block.width;
+    node.w = Math.ceil(block.width + 2 * m.padX);
+    node.h = Math.ceil(block.height + 2 * m.padY);
+  }
+
+  function measureTree(node, opts) {
+    node.runs = parseLabel(node.label, opts.markup);
+    node.plain = runsToText(node.runs);
+    measureNode(node, opts);
     for (var j = 0; j < node.children.length; j++) measureTree(node.children[j], opts);
   }
 
@@ -454,22 +785,7 @@
       rx: node.radius, ry: node.radius
     }));
 
-    var text = svgEl('text', {
-      'class': 'mm-label',
-      x: round(node.w / 2),
-      'text-anchor': 'middle',
-      'font-size': node.fontSize,
-      'font-weight': node.fontWeight
-    });
-
-    var blockTop = node.h / 2 - (node.lines.length * node.lineHeight) / 2;
-    for (var i = 0; i < node.lines.length; i++) {
-      var baseline = blockTop + i * node.lineHeight + node.lineHeight / 2 + node.fontSize * 0.35;
-      var tspan = svgEl('tspan', { x: round(node.w / 2), y: round(baseline) });
-      tspan.textContent = node.lines[i];
-      text.appendChild(tspan);
-    }
-    g.appendChild(text);
+    g.appendChild(buildLabel(node));
 
     // Root has children on both sides, so a toggle there would be ambiguous
     // and would only ever hide the whole map. Leaves have nothing to hide.
@@ -480,6 +796,160 @@
     group.appendChild(g);
 
     for (var j = 0; j < node.children.length; j++) drawNode(node.children[j], group, opts);
+  }
+
+  /**
+   * Merges consecutive items belonging to the same run into one drawable, so a
+   * styled phrase becomes a single <text> with its spaces intact. Without this
+   * the SVG's textContent would run words together.
+   */
+  function groupItems(items) {
+    var groups = [];
+    var current = null;
+
+    function close() {
+      if (!current) return;
+      // SVG trims leading whitespace when it draws text, so a run beginning
+      // with a space would slide left and butt against its neighbour. Anchor
+      // the drawn text on its first real word instead, and keep the space
+      // aside to be re-inserted as an unrendered node so the element's text
+      // content still reads as separate words.
+      var words = current.parts.filter(function (p) { return p.kind !== 'space'; });
+      if (!words.length) { current = null; return; }
+
+      var lead = '';
+      for (var i = 0; i < current.parts.length && current.parts[i].kind === 'space'; i++) {
+        lead += current.parts[i].text;
+      }
+      var text = '';
+      for (var j = 0; j < current.parts.length; j++) text += current.parts[j].text;
+
+      groups.push({
+        kind: 'text',
+        run: current.run,
+        x: words[0].x,                  // first drawable glyph, not the space
+        w: current.w - (words[0].x - current.parts[0].x),
+        h: current.h,
+        size: current.size,
+        lead: lead,
+        text: text.slice(lead.length)
+      });
+      current = null;
+    }
+
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i];
+
+      if (it.kind === 'image') {
+        close();
+        groups.push({ kind: 'image', run: it.run, x: it.x, w: it.w, h: it.h });
+        continue;
+      }
+      if (current && current.run === it.run) {
+        current.parts.push(it);
+        current.w += it.w;
+        continue;
+      }
+      close();
+      current = {
+        run: it.run, parts: [it], w: it.w, h: it.h, size: it.size
+      };
+    }
+    close();
+    return groups;
+  }
+
+  /**
+   * Draws the label as positioned runs rather than one text element, so bold,
+   * italic, code chips, links and images can sit side by side on a line.
+   * Lines are centred within the box, matching the plain-text look.
+   */
+  function buildLabel(node) {
+    var wrap = svgEl('g', { 'class': 'mm-label' });
+    var m = node.metrics;
+    var blockHeight = 0;
+    var i;
+
+    for (i = 0; i < node.lines.length; i++) blockHeight += node.lines[i].height;
+    var top = node.h / 2 - blockHeight / 2;
+
+    for (i = 0; i < node.lines.length; i++) {
+      var line = node.lines[i];
+      // A bare newline between lines is not rendered by SVG, but it keeps the
+      // element's text content readable when copied or extracted.
+      if (i) wrap.appendChild(document.createTextNode('\n'));
+      var lineTop = top + line.top;
+      var originX = (node.w - line.width) / 2;
+      var baseline = lineTop + line.height / 2 + m.size * 0.35;
+
+      var groups = groupItems(line.items);
+
+      for (var j = 0; j < groups.length; j++) {
+        var it = groups[j];
+
+        var host = wrap;
+        if (it.run && it.run.href) {
+          host = svgEl('a', { 'class': 'mm-link' });
+          host.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', it.run.href);
+          host.setAttribute('href', it.run.href);
+          wrap.appendChild(host);
+        }
+
+        if (it.kind === 'image') {
+          var img = svgEl('image', {
+            'class': 'mm-image',
+            x: round(originX + it.x),
+            y: round(lineTop + (line.height - it.h) / 2),
+            width: it.w, height: it.h,
+            preserveAspectRatio: 'xMidYMid meet'
+          });
+          img.setAttribute('href', it.run.src);
+          img.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', it.run.src);
+          if (it.run.alt) {
+            var title = svgEl('title', {});
+            title.textContent = it.run.alt;
+            img.appendChild(title);
+          }
+          host.appendChild(img);
+          continue;
+        }
+
+        // Unrendered, but keeps the copied text reading as separate words.
+        if (it.lead) wrap.appendChild(document.createTextNode(it.lead));
+
+        var textX = originX + it.x;
+        if (it.run.code) {
+          host.appendChild(svgEl('rect', {
+            'class': 'mm-code-chip',
+            x: round(textX),
+            y: round(baseline - it.size * 0.95),
+            width: round(it.w),
+            height: round(it.size * 1.28),
+            rx: 3, ry: 3
+          }));
+          textX += CODE_PAD_X;      // text starts inside the chip's padding
+        }
+
+        var t = svgEl('text', {
+          x: round(textX),
+          y: round(baseline),
+          'font-size': round(it.size),
+          'font-weight': it.run.bold ? '700' : m.weight
+        });
+        if (it.run.italic) t.setAttribute('font-style', 'italic');
+        if (it.run.code) t.setAttribute('font-family', MONO_STACK);
+        if (it.run.strike) t.setAttribute('text-decoration', 'line-through');
+
+        var cls = [];
+        if (it.run.code) cls.push('mm-code');
+        if (it.run.href) cls.push('mm-link-text');
+        if (cls.length) t.setAttribute('class', cls.join(' '));
+
+        t.textContent = it.text;
+        host.appendChild(t);
+      }
+    }
+    return wrap;
   }
 
   function buildToggle(node) {
@@ -552,11 +1022,11 @@
       width: size.width,
       height: size.height,
       role: opts.interactive ? 'group' : 'img',
-      'aria-label': 'Mind map: ' + root.label
+      'aria-label': 'Mind map: ' + (root.plain || root.label)
     });
 
     var title = svgEl('title', {});
-    title.textContent = 'Mind map: ' + root.label;
+    title.textContent = 'Mind map: ' + (root.plain || root.label);
     svg.appendChild(title);
 
     var edges = svgEl('g', { 'class': 'mm-edges' });
@@ -611,7 +1081,7 @@
         n.el.classList.toggle('mm-collapsed', !!n.collapsed);
         n.el.setAttribute('aria-expanded', n.collapsed ? 'false' : 'true');
         n.el.setAttribute('aria-label',
-          n.label + ', ' + n.children.length + ' item' +
+          (n.plain || n.label) + ', ' + n.children.length + ' item' +
           (n.children.length === 1 ? '' : 's') +
           ', ' + (n.collapsed ? 'collapsed' : 'expanded'));
       }
@@ -827,6 +1297,49 @@
     state.raf = global.requestAnimationFrame(step);
   }
 
+  /**
+   * Images without an explicit size are drawn at a placeholder size, then the
+   * map re-flows once the real dimensions arrive. Several arrivals in the same
+   * frame are coalesced into one re-flow.
+   */
+  function loadImages(state) {
+    var pending = [];
+    eachNode(state.root, function (n) {
+      for (var i = 0; i < n.runs.length; i++) {
+        var run = n.runs[i];
+        if (run.type !== 'image' || (run.askedW && run.askedH)) continue;
+        pending.push({ node: n, run: run });
+      }
+    });
+    if (!pending.length) return;
+
+    var settled = 0;
+    var changed = false;
+
+    function done() {
+      if (++settled < pending.length) return;
+      if (!changed) return;
+      eachNode(state.root, function (n) { measureNode(n, state.opts); });
+      syncTogglePositions(state.root);
+      relayout(state, true);
+    }
+
+    pending.forEach(function (item) {
+      var img = new global.Image();
+      img.onload = function () {
+        if (img.naturalWidth && img.naturalHeight) {
+          item.run.natW = img.naturalWidth;
+          item.run.natH = img.naturalHeight;
+          changed = true;
+        }
+        done();
+      };
+      // A broken image keeps its placeholder rather than collapsing the node.
+      img.onerror = function () { item.run.broken = true; done(); };
+      img.src = item.run.src;
+    });
+  }
+
   function toggleNode(state, node) {
     if (!node.children.length || node.depth === 0) return;
     node.collapsed = !node.collapsed;
@@ -973,6 +1486,15 @@
 
     el.addEventListener('pointerup', release);
     el.addEventListener('pointercancel', release);
+
+    // Without this a link inside a node would still fire after being dragged.
+    el.addEventListener('click', function (ev) {
+      if (!state.suppressClick) return;
+      if (node.children.length && node.depth > 0) return;   // handled by the fold listener
+      state.suppressClick = false;
+      ev.preventDefault();
+      ev.stopPropagation();
+    }, true);
   }
 
   function nudge(state, node, dx, dy) {
@@ -1011,7 +1533,8 @@
         // No toggle to press, but it can still be focused and nudged.
         if (state.opts.draggable) {
           n.el.setAttribute('tabindex', '0');
-          n.el.setAttribute('aria-label', n.label + ', centre node; arrow keys move it');
+          n.el.setAttribute('aria-label',
+            (n.plain || n.label) + ', centre node; arrow keys move it');
           attachArrowKeys(n);
         }
         return;
@@ -1024,9 +1547,17 @@
       n.el.setAttribute('role', 'button');
 
       n.el.addEventListener('click', function (ev) {
+        // A drag that ended on this node must neither fold it nor follow a link.
+        if (state.suppressClick) {
+          state.suppressClick = false;
+          ev.preventDefault();
+          ev.stopPropagation();
+          return;
+        }
+        // Let a real link click through untouched.
+        if (ev.target.closest && ev.target.closest('a')) return;
         ev.preventDefault();
         ev.stopPropagation();
-        if (state.suppressClick) { state.suppressClick = false; return; }
         toggleNode(state, n);
       });
 
@@ -1047,11 +1578,30 @@
     var wrap = document.createElement('div');
     wrap.className = 'mm-a11y';
 
+    /** Mirrors a label's runs as plain DOM, keeping links usable. */
+    function fillLabel(el, node) {
+      var runs = node.runs || [textRun(node.label, {})];
+      for (var i = 0; i < runs.length; i++) {
+        var run = runs[i];
+        var text = run.type === 'image' ? (run.alt || '') :
+                   run.type === 'break' ? ' ' : run.text;
+        if (!text) continue;
+        if (run.href) {
+          var a = document.createElement('a');
+          a.href = run.href;
+          a.textContent = text;
+          el.appendChild(a);
+        } else {
+          el.appendChild(document.createTextNode(text));
+        }
+      }
+    }
+
     (function build(node, parent) {
       var ul = document.createElement('ul');
       for (var i = 0; i < node.children.length; i++) {
         var li = document.createElement('li');
-        li.textContent = node.children[i].label;
+        fillLabel(li, node.children[i]);
         if (node.children[i].children.length) build(node.children[i], li);
         ul.appendChild(li);
       }
@@ -1059,7 +1609,7 @@
     })(root, wrap);
 
     var heading = document.createElement('p');
-    heading.textContent = root.label;
+    fillLabel(heading, root);
     wrap.insertBefore(heading, wrap.firstChild);
     return wrap;
   }
@@ -1096,6 +1646,8 @@
     '.mm-container{',
     '--mm-surface:#ffffff;--mm-text:#1f2933;--mm-muted:#5b6976;',
     '--mm-root-bg:#2c3e50;--mm-root-text:#ffffff;',
+    '--mm-code-bg:#eceff2;--mm-code-text:#8a3033;',
+    '--mm-link:#2563a8;--mm-link-hover:#17406e;',
     'display:block;margin:1.25em 0;',
     // min-width:0 stops the SVG's own min-width from blowing out a flex or
     // grid track on the host page.
@@ -1111,6 +1663,14 @@
     '.mm-node{--mm-accent:var(--mm-a);}',
     '.mm-box{fill:var(--mm-surface);stroke:var(--mm-accent);stroke-width:1.1;}',
     '.mm-label{fill:var(--mm-text);}',
+    '.mm-label text{fill:inherit;}',
+    '.mm-code{fill:var(--mm-code-text);}',
+    '.mm-code-chip{fill:var(--mm-code-bg);}',
+    '.mm-link .mm-link-text,.mm-link-text{fill:var(--mm-link);',
+    'text-decoration:underline;text-underline-offset:2px;}',
+    '.mm-link{cursor:pointer;}',
+    '.mm-link:hover .mm-link-text{fill:var(--mm-link-hover);}',
+    '.mm-image{pointer-events:none;}',
 
     '.mm-d1 .mm-box{fill:var(--mm-surface);',
     'fill:color-mix(in srgb, var(--mm-accent) 11%, var(--mm-surface));',
@@ -1121,6 +1681,9 @@
 
     '.mm-root .mm-box{fill:var(--mm-root-bg);stroke:var(--mm-root-bg);stroke-width:1.5;}',
     '.mm-root .mm-label{fill:var(--mm-root-text);}',
+    '.mm-root .mm-code{fill:var(--mm-root-text);}',
+    '.mm-root .mm-code-chip{fill:rgba(127,127,127,.35);}',
+    '.mm-root .mm-link-text{fill:var(--mm-root-text);}',
 
     '.mm-edge{--mm-accent:var(--mm-a);fill:none;stroke:var(--mm-accent);',
     'stroke-linecap:round;opacity:.85;}',
@@ -1184,11 +1747,15 @@
 
   function lightVars() {
     return '--mm-surface:#ffffff;--mm-text:#1f2933;--mm-muted:#5b6976;' +
-      '--mm-root-bg:#2c3e50;--mm-root-text:#ffffff;';
+      '--mm-root-bg:#2c3e50;--mm-root-text:#ffffff;' +
+      '--mm-code-bg:#eceff2;--mm-code-text:#8a3033;' +
+      '--mm-link:#2563a8;--mm-link-hover:#17406e;';
   }
   function darkVars() {
     return '--mm-surface:#1b2027;--mm-text:#e4e9ef;--mm-muted:#a7b3c0;' +
-      '--mm-root-bg:#dfe6ee;--mm-root-text:#161b22;';
+      '--mm-root-bg:#dfe6ee;--mm-root-text:#161b22;' +
+      '--mm-code-bg:#2b333d;--mm-code-text:#f0a8a2;' +
+      '--mm-link:#7fb0e0;--mm-link-hover:#a9cbee;';
   }
 
   function darkRules(container, accent, error, errorPre) {
@@ -1339,6 +1906,7 @@
     opts.interactive = attr('data-interactive') !== 'false';
     opts.draggable = opts.interactive && attr('data-draggable') !== 'false';
     opts.controls = opts.interactive && attr('data-controls') !== 'false';
+    opts.markup = attr('data-markup') !== 'false';
 
     var level = parseInt(attr('data-collapse-level'), 10);
     if (level > 0) opts.collapseLevel = level;
@@ -1405,6 +1973,7 @@
       };
       paint(state, sizeBounds(size));
       if (opts.interactive) attachInteraction(state);
+      loadImages(state);
 
       if (opts.controls) {
         // A one-sided author default keeps its own side as the alternative.

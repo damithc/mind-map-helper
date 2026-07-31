@@ -1,7 +1,8 @@
 # Mind Maps Helper
 
-Write an indented list, get a mind map. Readers can reshape it, fold branches away, and
-drag nodes around. One script tag, no build step, no dependencies.
+Write an indented list, get a mind map. Labels take a little Markdown; readers can reshape
+the map, fold branches away and drag nodes around. One script tag, no build step, no
+dependencies.
 
 Made for authors of educational sites (course pages, lecture notes, handbooks) who write
 their own HTML or Markdown but are not web developers.
@@ -59,7 +60,7 @@ its child.
 - A leading `-`, `*` or `+` followed by a space is treated as a bullet and dropped.
 - Blank lines are ignored.
 - A line starting with `//` is a comment.
-- Node text is plain text. No Markdown, no HTML.
+- Node text understands a little inline Markdown (below). No HTML.
 
 Bad input produces a short on-page message naming the problem and the line, rather than
 a blank space.
@@ -75,6 +76,38 @@ The map animates as it re-flows, and honours `prefers-reduced-motion`.
 Big maps read better opening as an overview — `data-collapse-level="1"` shows the centre
 and its branches, with everything deeper one click away. `data-interactive="false"`
 turns it all off for a plain static diagram.
+
+## Formatting inside a node
+
+Labels understand a small slice of inline Markdown. Everything else is shown as typed.
+
+| Write | Get |
+|---|---|
+| `**text**` / `__text__` | Bold |
+| `*text*` / `_text_` | Italic |
+| `` `text` `` | Monospace on a tinted chip |
+| `~~text~~` | Struck through |
+| `[text](url)` | A link |
+| `![alt](url)` | An image |
+| `\n` | A line break where you want it |
+| `\*` | A literal marker character |
+
+The rules are conservative, because course material is full of characters that only look
+like markup: `snake_case_name`, `2 * 3 * 4`, `unclosed **bold` and `[not a link]` all stay
+exactly as typed. `data-markup="false"` turns the whole thing off.
+
+**Links.** Clicking the link text follows it; clicking elsewhere on the node folds the
+branch; dragging does neither. Links also appear in the outline screen readers use. Only
+`http`, `https`, `mailto` and relative paths are accepted — `javascript:` is refused.
+
+**Images.** An image sits inline with the text, so one alone on a line becomes the node's
+whole content. Unsized images fit within 120x90; `![logo](logo.png =80x60)` sets it
+yourself, and `=80x` fixes the width alone. Maps draw immediately and re-flow when images
+report their size.
+
+Note that an image referenced by URL is the one thing that stops a map being a
+self-contained SVG — saved elsewhere, the picture is a link rather than part of the file.
+Use a `data:` URI if that matters.
 
 ## Choosing the shape
 
@@ -110,6 +143,7 @@ Set these as attributes on the container.
 | `data-max-node-width` | `190` | Pixel width at which a label wraps to another line. |
 | `data-column-gap` | `46` | Horizontal space between levels. |
 | `data-collapse-level` | off | Show only this many levels at first; deeper nodes start folded. |
+| `data-markup` | `true` | `false` takes every character literally — no bold, links or images. |
 | `data-controls` | `true` | `false` hides the shape switch and pins your chosen shape. |
 | `data-draggable` | `true` | `false` keeps folding but stops readers moving nodes. |
 | `data-interactive` | `true` | `false` for a plain static diagram — no folding, no dragging. |
@@ -137,6 +171,9 @@ follows the reader's system setting. `data-theme` on a map overrides both.
   --mm-muted:     #5b6976;  /* deepest-level text */
   --mm-root-bg:   #2c3e50;  /* centre node fill   */
   --mm-root-text: #ffffff;  /* centre node text   */
+  --mm-code-bg:   #eceff2;  /* code chip fill     */
+  --mm-code-text: #8a3033;  /* code text          */
+  --mm-link:      #2563a8;  /* link text          */
 }
 ```
 
@@ -171,7 +208,7 @@ Only needed for maps added after page load.
 
 There is no build step — `mindmap.js` is the shipped file.
 
-Open `tests.html` in a browser. It runs 62 checks over the rendered DOM and prints a
+Open `tests.html` in a browser. It runs 75 checks over the rendered DOM and prints a
 pass/fail summary at the top of the page.
 
 ## Versioning
@@ -181,9 +218,10 @@ under a new path (`/v2/mindmap.js`) so existing pages keep working.
 
 ## Roadmap
 
-Collapse/expand and dragging have shipped. Still to come, without changing the syntax:
+Collapse/expand, dragging and inline formatting have shipped. Possible next steps:
 
-- richer node content than plain text
+- per-node colour overrides
+- saving a reader's folds and moves across visits
 
 ## Licence
 

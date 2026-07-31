@@ -356,6 +356,51 @@ Centre
     b1
 </pre></div>
 
+<h2>36. Inline markup</h2>
+<p class="want">Expect: bold, italic, code chip, strikethrough, link, manual break.</p>
+<div class="case" id="markup"><pre class="mindmap">
+Rich **text**
+  **Requirements** gathering
+  Run `git rebase` with care
+  *emphasis* and ~~struck~~
+  [Lecture 3](week3.html)
+  Line one\nLine two
+</pre></div>
+
+<h2>37. Markup that should stay literal</h2>
+<p class="want">Expect: no formatting applied; characters shown as typed.</p>
+<div class="case" id="literal"><pre class="mindmap">
+Literal cases
+  snake_case_name
+  2 * 3 * 4
+  unclosed **bold
+  escaped \*not italic\*
+  [not a link]
+</pre></div>
+
+<h2>38. Images</h2>
+<p class="want">Expect: an inline image, and one sized 24x24.</p>
+<div class="case" id="images"><pre class="mindmap">
+Images
+  Icon ![dot](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAOklEQVR42mNkYPhfz0AEYBxVSF+FjP+xAyz6cCnEqxCfQrwKCSnEqZAYhVgVEqsQQyExijAUEqMIAF8VF4tMqNRHAAAAAElFTkSuQmCC =16x16) inline
+  ![dot](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAOklEQVR42mNkYPhfz0AEYBxVSF+FjP+xAyz6cCnEqxCfQrwKCSnEqZAYhVgVEqsQQyExijAUEqMIAF8VF4tMqNRHAAAAAElFTkSuQmCC =24x24)
+</pre></div>
+
+<h2>39. Unsafe URLs are dropped</h2>
+<p class="want">Expect: no anchor; the text renders literally.</p>
+<div class="case" id="unsafe"><pre class="mindmap">
+Safety
+  [click](javascript:alert(1))
+</pre></div>
+
+<h2>40. data-markup="false"</h2>
+<p class="want">Expect: asterisks shown as typed.</p>
+<div class="case" id="nomarkup"><pre class="mindmap" data-markup="false">
+Raw
+  **not bold**
+  `not code`
+</pre></div>
+
 <script>document.write('<script src="mindmap.js?v='+Date.now()+'"><\/script>');</script>
 <script>
 // Minimal assertions over the rendered DOM.
@@ -374,7 +419,7 @@ window.addEventListener('load', function () {
     var cases = document.querySelectorAll('.case');
     var out = [];
     var fails = 0;
-    var pending = 4;   // collapse, drag, shape-switch and root-drag chains
+    var pending = 5;   // collapse, drag, shape-switch, root-drag, markup
     function done() { if (--pending === 0) finish(); }
 
     function check(n, label, ok) {
@@ -449,7 +494,13 @@ window.addEventListener('load', function () {
     (function () {
       var multiline = Array.prototype.some.call(
         cases[9].querySelectorAll('.mm-label'),
-        function (t) { return t.querySelectorAll('tspan').length > 1; });
+        function (label) {
+          var ys = {};
+          Array.prototype.forEach.call(label.querySelectorAll('text'), function (t) {
+            ys[t.getAttribute('y')] = 1;
+          });
+          return Object.keys(ys).length > 1;
+        });
       check(10, 'long label wraps to >1 line', multiline);
     })();
 
@@ -805,6 +856,103 @@ window.addEventListener('load', function () {
           Math.abs(pos(nodeNamed('Centre')).y - rootBefore.y) < 0.6);
         done();
       }, 420);
+    })();
+
+    // Inline markup.
+    (function () {
+      function nodesIn(id) {
+        return Array.prototype.slice.call(
+          document.getElementById(id).querySelectorAll('.mm-node'));
+      }
+      function squash(t) { return t.replace(/\s+/g, ''); }
+      function byText(id, want) {
+        return nodesIn(id).filter(function (g) {
+          return squash(g.textContent) === squash(want);
+        })[0];
+      }
+
+      function distinctRows(g) {
+        var ys = {};
+        Array.prototype.forEach.call(g.querySelectorAll('text'), function (t) {
+          ys[t.getAttribute('y')] = 1;
+        });
+        return Object.keys(ys).length;
+      }
+
+      var host = document.getElementById('markup');
+      var bold = byText('markup', 'Requirements gathering');
+      check(63, 'bold run is heavier than its neighbour', !!bold &&
+        Array.prototype.some.call(bold.querySelectorAll('text'), function (t) {
+          return t.getAttribute('font-weight') === '700' &&
+                 t.textContent === 'Requirements';
+        }));
+
+      var code = byText('markup', 'Run git rebase with care');
+      check(64, 'code run is monospace with a chip behind it', !!code &&
+        !!code.querySelector('.mm-code-chip') &&
+        !!code.querySelector('.mm-code[font-family]'));
+
+      var emph = byText('markup', 'emphasis and struck');
+      check(65, 'italic and strikethrough applied', !!emph &&
+        !!emph.querySelector('text[font-style="italic"]') &&
+        !!emph.querySelector('text[text-decoration="line-through"]'));
+
+      var link = byText('markup', 'Lecture 3');
+      check(66, 'link becomes a real anchor', !!link &&
+        !!link.querySelector('a') &&
+        link.querySelector('a').getAttribute('href') === 'week3.html');
+
+      var brk = byText('markup', 'Line one Line two');
+      check(67, 'manual break splits the label onto two lines', !!brk &&
+        distinctRows(brk) === 2 &&
+        brk.textContent.indexOf('\n') > -1);
+
+      // Literal text must survive untouched.
+      var lit = document.getElementById('literal');
+      var litText = lit.textContent.replace(/\s+/g, ' ');
+      check(68, 'snake_case and lone asterisks stay literal',
+        litText.indexOf('snake_case_name') > -1 &&
+        litText.indexOf('2 * 3 * 4') > -1 &&
+        litText.indexOf('unclosed **bold') > -1 &&
+        litText.indexOf('[not a link]') > -1);
+      check(69, 'backslash escapes the marker',
+        litText.indexOf('escaped *not italic*') > -1);
+      check(70, 'nothing in the literal map got styled',
+        lit.querySelectorAll('text[font-style="italic"]').length === 0 &&
+        lit.querySelectorAll('.mm-code-chip').length === 0 &&
+        lit.querySelectorAll('a').length === 0);
+
+      var imgs = document.getElementById('images').querySelectorAll('.mm-image');
+      check(71, 'both images render at the sizes asked for',
+        imgs.length === 2 &&
+        imgs[0].getAttribute('width') === '16' &&
+        imgs[1].getAttribute('width') === '24');
+
+      check(72, 'javascript: URL is refused',
+        document.getElementById('unsafe').querySelectorAll('a').length === 0 &&
+        document.getElementById('unsafe').textContent.indexOf('[click]') > -1);
+
+      var raw = document.getElementById('nomarkup');
+      check(73, 'data-markup=false leaves the source as typed',
+        raw.textContent.indexOf('**not bold**') > -1 &&
+        raw.querySelectorAll('.mm-code-chip').length === 0);
+
+      check(74, 'the outline exposes links for screen readers',
+        !!host.querySelector('.mm-a11y a[href="week3.html"]'));
+
+      // A link must not fold the node it sits in.
+      var linkParent = byText('markup', 'Lecture 3');
+      var beforeFold = linkParent.classList.contains('mm-collapsed');
+      // Stop the browser actually following the link mid-test, while still
+      // letting the library's own handlers run.
+      var swallow = function (e) { e.preventDefault(); };
+      document.addEventListener('click', swallow, true);
+      var ev = new MouseEvent('click', { bubbles: true, cancelable: true });
+      linkParent.querySelector('a').dispatchEvent(ev);
+      document.removeEventListener('click', swallow, true);
+      check(75, 'clicking a link does not fold its node',
+        linkParent.classList.contains('mm-collapsed') === beforeFold);
+      done();
     })();
 
     function finish() {
