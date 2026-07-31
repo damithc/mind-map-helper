@@ -85,7 +85,7 @@
 <header class="hero">
   <div class="wrap">
     <h1>Mind Maps Helper</h1>
-    <p class="tagline">Write an indented list. Get a mind map. One script tag, no build step, no dependencies.</p>
+    <p class="tagline">Write an indented list. Get an interactive mind map. One script tag, no build step, no dependencies.</p>
   </div>
 </header>
 
@@ -95,7 +95,7 @@
   If you can write a bulleted list, you can make a mind map. Drop one
   <code>&lt;script&gt;</code> tag into your page, wrap your list in a
   <code>&lt;pre class="mindmap"&gt;</code>, and it is drawn as clean SVG when
-  the page loads. Readers can collapse and expand branches as they go.
+  the page loads. Readers can fold branches away and drag nodes around as they read.
 </p>
 
 <h2>Add it to your page</h2>
@@ -268,6 +268,24 @@ Testing
 <p>To turn interaction off entirely and get a plain static diagram, set
 <code>data-interactive="false"</code>.</p>
 
+<h2>Moving nodes</h2>
+
+<p>Readers can drag any node to somewhere clearer. The branch below it comes
+along, and the connecting curves follow. Drag the map above and see.</p>
+
+<ul class="tight">
+  <li>Dragging a node moves its whole subtree, so branches keep their shape.</li>
+  <li>The rest of the map stays exactly where it was — nothing reflows around you.</li>
+  <li>If you drag past the edge, the canvas grows to fit once you let go.</li>
+  <li>A click is still a click: only a real drag moves a node, so folding still works.</li>
+  <li>With a keyboard, focus a node and use the arrow keys. Hold <kbd>Shift</kbd> for fine steps.</li>
+</ul>
+
+<p>Moves are per-reader and per-visit — reloading the page brings the tidy
+layout back. To add your own reset button, call
+<code>MindMap.resetPositions(el)</code>. To turn dragging off but keep folding,
+set <code>data-draggable="false"</code>.</p>
+
 <h2>Options</h2>
 
 <p>Set these as attributes on the container. All are optional.</p>
@@ -299,9 +317,14 @@ Testing
         its branches; deeper nodes start folded.</td>
   </tr>
   <tr>
+    <td><code>data-draggable</code></td>
+    <td><code>true</code></td>
+    <td>Set to <code>false</code> to keep folding but stop readers moving nodes.</td>
+  </tr>
+  <tr>
     <td><code>data-interactive</code></td>
     <td><code>true</code></td>
-    <td>Set to <code>false</code> for a static diagram with no toggles.</td>
+    <td>Set to <code>false</code> for a plain static diagram — no folding, no dragging.</td>
   </tr>
   <tr>
     <td><code>data-theme</code></td>
@@ -427,6 +450,7 @@ entry is a <code>[light, dark]</code> pair.</p>
   <tr><td><code>MindMap.parse(text)</code></td><td>Returns the parsed tree, without drawing anything.</td></tr>
   <tr><td><code>MindMap.collapseAll(el)</code></td><td>Folds every branch of one rendered map.</td></tr>
   <tr><td><code>MindMap.expandAll(el)</code></td><td>Unfolds every branch of one rendered map.</td></tr>
+  <tr><td><code>MindMap.resetPositions(el)</code></td><td>Undoes every drag, returning nodes to the computed layout.</td></tr>
 </table>
 </div>
 
@@ -470,7 +494,7 @@ CS2103 Software Engineering
   <li>Maps scale down to fit narrow screens and scroll sideways if they still do not fit.</li>
   <li>Screen readers get the map as a nested list, so the content is not lost.</li>
   <li>No dependencies, no tracking, no network calls after the script loads.</li>
-  <li>Dragging nodes to reposition them is next. Your existing maps will keep working.</li>
+  <li>Richer node content than plain text is next. Your existing maps will keep working.</li>
 </ul>
 
 <footer>

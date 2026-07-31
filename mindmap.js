@@ -1,5 +1,5 @@
 /*!
- * mind-maps-helper v1.0.0
+ * mind-maps-helper v1.1.0
  * Simple indented-text syntax -> interactive-ready SVG mind maps.
  * PlantUML-style geometry with a refined palette.
  * No dependencies. MIT licensed.
@@ -8,7 +8,7 @@
 (function (global) {
   'use strict';
 
-  var VERSION = '1.0.0';
+  var VERSION = '1.1.0';
 
   // ---------------------------------------------------------------- constants
 
@@ -419,11 +419,11 @@
   /** Uses the animated position (ax/acy), which equals the layout when idle. */
   function edgePath(parent, child) {
     var fromRight = child.side > 0;
-    var x1 = fromRight ? parent.ax + parent.w : parent.ax;
-    var x2 = fromRight ? child.ax : child.ax + child.w;
+    var x1 = fromRight ? nx(parent) + parent.w : nx(parent);
+    var x2 = fromRight ? nx(child) : nx(child) + child.w;
 
-    var y1 = parent.acy;
-    var y2 = child.acy;
+    var y1 = ny(parent);
+    var y2 = ny(child);
     var cx = (x2 - x1) * 0.5;
     return 'M' + x1 + ',' + y1 +
       ' C' + (x1 + cx) + ',' + y1 + ' ' + (x2 - cx) + ',' + y2 + ' ' + x2 + ',' + y2;
@@ -495,9 +495,23 @@
     return t;
   }
 
-  function positionNode(node, x, cy) {
+  /**
+   * Drag offsets accumulate down the tree, so moving a node carries its whole
+   * subtree along and the branch keeps its shape.
+   */
+  function accumulateOffsets(root) {
+    eachNode(root, function (n) {
+      n.edx = (n.parent ? n.parent.edx : 0) + (n.dx || 0);
+      n.edy = (n.parent ? n.parent.edy : 0) + (n.dy || 0);
+    });
+  }
+
+  function nx(n) { return n.ax + (n.edx || 0); }
+  function ny(n) { return n.acy + (n.edy || 0); }
+
+  function positionNode(node) {
     node.el.setAttribute('transform',
-      'translate(' + round(x) + ',' + round(cy - node.h / 2) + ')');
+      'translate(' + round(nx(node)) + ',' + round(ny(node) - node.h / 2) + ')');
   }
 
   function drawEdges(node, group) {
@@ -596,12 +610,13 @@
    * it, which keeps the reader oriented about where the content went.
    */
   function relayout(state, animate) {
+    finishAnimation(state);
     var root = state.root;
     var prev = {};
     eachNode(root, function (n) {
       prev[nodeKey(n)] = { x: n.ax, cy: n.acy, vis: n.vis, shown: n.shown };
     });
-    var fromSize = { width: state.size.width, height: state.size.height };
+    var fromBounds = state.bounds || sizeBounds(state.size);
 
     markVisible(root);
     var size = layout(root, state.opts, state.sides);
@@ -633,13 +648,16 @@
 
     syncToggleState(root);
 
+    var toBounds = targetBounds(state, size);
+
     if (!animate || prefersReducedMotion()) {
       eachNode(root, function (n) { n.ax = n.tx; n.acy = n.tcy; n.fade = n.toFade; });
-      paint(state, size);
+      paint(state, toBounds);
       return;
     }
 
-    if (state.raf) global.cancelAnimationFrame(state.raf);
+    state.pendingNodes = true;
+    state.pendingBounds = toBounds;
     var start = null;
 
     function step(now) {
@@ -653,13 +671,15 @@
         n.fade = n.fromFade + (n.toFade - n.fromFade) * e;
       });
 
-      paint(state, {
-        width: fromSize.width + (size.width - fromSize.width) * e,
-        height: fromSize.height + (size.height - fromSize.height) * e
-      });
+      paint(state, lerpBounds(fromBounds, toBounds, e));
 
       if (t < 1) state.raf = global.requestAnimationFrame(step);
-      else { state.raf = null; paint(state, size); }
+      else {
+        state.raf = null;
+        state.pendingNodes = false;
+        state.pendingBounds = null;
+        paint(state, toBounds);
+      }
     }
     state.raf = global.requestAnimationFrame(step);
   }
@@ -670,15 +690,43 @@
     return n.key;
   }
 
-  /** One frame: transforms, edge curves, opacity, canvas size. */
-  function paint(state, size) {
+  function toggleBulge(n, opts) {
+    return (opts.interactive && n.depth > 0 && n.children.length) ? TOGGLE_R + 1 : 0;
+  }
+
+  /**
+   * The canvas is the laid-out area, widened to take in anything the reader has
+   * dragged outside it. With nothing dragged this is exactly the layout box.
+   */
+  function boundsOf(state, size) {
+    var pad = state.opts.padding;
+    var x0 = 0, y0 = 0, x1 = size.width, y1 = size.height;
+    eachNode(state.root, function (n) {
+      if (n.fade <= 0.001 || (!n.edx && !n.edy)) return;
+      var bulge = toggleBulge(n, state.opts);
+      x0 = Math.min(x0, nx(n) - pad - (n.side < 0 ? bulge : 0));
+      x1 = Math.max(x1, nx(n) + n.w + pad + (n.side > 0 ? bulge : 0));
+      y0 = Math.min(y0, ny(n) - n.h / 2 - pad);
+      y1 = Math.max(y1, ny(n) + n.h / 2 + pad);
+    });
+    return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+  }
+
+  function sizeBounds(size) {
+    return { x: 0, y: 0, w: size.width, h: size.height };
+  }
+
+  /** One frame: transforms, edge curves, opacity, canvas. */
+  function paint(state, bounds) {
     var root = state.root;
+    accumulateOffsets(root);
+
     eachNode(root, function (n) {
       var drawn = n.fade > 0.001;
       n.el.style.display = drawn ? '' : 'none';
       if (drawn) {
         n.el.style.opacity = n.fade < 0.999 ? n.fade : '';
-        positionNode(n, n.ax, n.acy);
+        positionNode(n);
       }
       if (n.edge) {
         var edgeOn = drawn && n.parent.fade > 0.001;
@@ -690,12 +738,79 @@
       }
     });
 
+    state.bounds = bounds;
     var svg = state.svg;
-    svg.setAttribute('viewBox', '0 0 ' + round(size.width) + ' ' + round(size.height));
-    svg.setAttribute('width', round(size.width));
-    svg.setAttribute('height', round(size.height));
-    svg.style.maxWidth = round(size.width) + 'px';
-    svg.style.minWidth = Math.round(size.width * MIN_SCALE) + 'px';
+    svg.setAttribute('viewBox', round(bounds.x) + ' ' + round(bounds.y) + ' ' +
+      round(bounds.w) + ' ' + round(bounds.h));
+    svg.setAttribute('width', round(bounds.w));
+    svg.setAttribute('height', round(bounds.h));
+    svg.style.maxWidth = round(bounds.w) + 'px';
+    svg.style.minWidth = Math.round(bounds.w * MIN_SCALE) + 'px';
+  }
+
+  function lerpBounds(a, b, e) {
+    return {
+      x: a.x + (b.x - a.x) * e, y: a.y + (b.y - a.y) * e,
+      w: a.w + (b.w - a.w) * e, h: a.h + (b.h - a.h) * e
+    };
+  }
+
+  /** Bounds the map will occupy once the pending animation finishes. */
+  function targetBounds(state, size) {
+    var saved = [];
+    eachNode(state.root, function (n) {
+      saved.push([n.ax, n.acy, n.fade]);
+      n.ax = n.tx; n.acy = n.tcy; n.fade = n.toFade;
+    });
+    accumulateOffsets(state.root);
+    var b = boundsOf(state, size);
+    var i = 0;
+    eachNode(state.root, function (n) {
+      var s = saved[i++]; n.ax = s[0]; n.acy = s[1]; n.fade = s[2];
+    });
+    accumulateOffsets(state.root);
+    return b;
+  }
+
+  /**
+   * Jumps any in-flight animation to its end. Starting a new animation without
+   * this would cancel the frame loop and strand nodes part-way there.
+   */
+  function finishAnimation(state) {
+    if (!state.raf) return;
+    global.cancelAnimationFrame(state.raf);
+    state.raf = null;
+    if (state.pendingNodes) {
+      eachNode(state.root, function (n) {
+        n.ax = n.tx; n.acy = n.tcy; n.fade = n.toFade;
+      });
+      state.pendingNodes = false;
+    }
+    if (state.pendingBounds) {
+      paint(state, state.pendingBounds);
+      state.pendingBounds = null;
+    }
+  }
+
+  /** Eases the canvas to a new size, e.g. after a drag pushes past the edge. */
+  function tweenBounds(state, to) {
+    finishAnimation(state);
+    var from = state.bounds;
+    if (Math.abs(from.x - to.x) < 0.5 && Math.abs(from.y - to.y) < 0.5 &&
+        Math.abs(from.w - to.w) < 0.5 && Math.abs(from.h - to.h) < 0.5) return;
+
+    if (prefersReducedMotion()) { paint(state, to); return; }
+
+    state.pendingBounds = to;
+    var start = null;
+    function step(now) {
+      if (start === null) start = now;
+      var t = Math.min(1, (now - start) / ANIM_MS);
+      paint(state, lerpBounds(from, to, easeInOut(t)));
+      if (t < 1) state.raf = global.requestAnimationFrame(step);
+      else { state.raf = null; state.pendingBounds = null; paint(state, to); }
+    }
+    state.raf = global.requestAnimationFrame(step);
   }
 
   function toggleNode(state, node) {
@@ -704,11 +819,90 @@
     relayout(state, true);
   }
 
+  // How far the pointer must travel before a press counts as a drag rather
+  // than a click. Below this, a slightly shaky click still toggles.
+  var DRAG_THRESHOLD = 4;
+  var NUDGE = 12;
+
+  function attachDrag(state, node) {
+    var el = node.el;
+    var active = false, moved = false;
+    var startX = 0, startY = 0, originDx = 0, originDy = 0, scale = 1;
+
+    el.addEventListener('pointerdown', function (ev) {
+      if (ev.button) return;                    // left button / touch / pen only
+      state.suppressClick = false;
+      active = true;
+      moved = false;
+      startX = ev.clientX;
+      startY = ev.clientY;
+      originDx = node.dx || 0;
+      originDy = node.dy || 0;
+
+      // Screen pixels to user units, so the node tracks the cursor exactly.
+      var box = state.svg.getBoundingClientRect();
+      scale = box.width ? state.bounds.w / box.width : 1;
+
+      if (el.setPointerCapture && ev.pointerId !== undefined) {
+        try { el.setPointerCapture(ev.pointerId); } catch (e) { /* no live pointer */ }
+      }
+      ev.preventDefault();
+    });
+
+    el.addEventListener('pointermove', function (ev) {
+      if (!active) return;
+      var dx = ev.clientX - startX;
+      var dy = ev.clientY - startY;
+      if (!moved) {
+        if (Math.sqrt(dx * dx + dy * dy) < DRAG_THRESHOLD) return;
+        moved = true;
+        el.classList.add('mm-dragging');
+        finishAnimation(state);
+      }
+      node.dx = originDx + dx * scale;
+      node.dy = originDy + dy * scale;
+      // Canvas stays put mid-drag: resizing it would rescale the SVG and make
+      // the node slide out from under the cursor.
+      paint(state, state.bounds);
+    });
+
+    function release(ev) {
+      if (!active) return;
+      active = false;
+      el.classList.remove('mm-dragging');
+      if (el.releasePointerCapture && ev.pointerId !== undefined) {
+        try { el.releasePointerCapture(ev.pointerId); } catch (e) { /* already gone */ }
+      }
+      if (moved) {
+        state.suppressClick = true;       // don't let this drag toggle the node
+        tweenBounds(state, boundsOf(state, state.size));
+      }
+    }
+
+    el.addEventListener('pointerup', release);
+    el.addEventListener('pointercancel', release);
+  }
+
+  function nudge(state, node, dx, dy) {
+    finishAnimation(state);
+    node.dx = (node.dx || 0) + dx;
+    node.dy = (node.dy || 0) + dy;
+    paint(state, state.bounds);
+    tweenBounds(state, boundsOf(state, state.size));
+  }
+
   function attachInteraction(state) {
     var root = state.root;
 
     eachNode(root, function (n) {
-      if (!n.children.length || n.depth === 0) return;
+      if (n.depth === 0) return;
+      var togglable = n.children.length > 0;
+
+      if (state.opts.draggable) {
+        n.el.classList.add('mm-draggable');
+        attachDrag(state, n);
+      }
+      if (!togglable) return;
 
       n.el.classList.add('mm-interactive');
       n.el.setAttribute('tabindex', '0');
@@ -717,13 +911,22 @@
       n.el.addEventListener('click', function (ev) {
         ev.preventDefault();
         ev.stopPropagation();
+        if (state.suppressClick) { state.suppressClick = false; return; }
         toggleNode(state, n);
       });
+
       n.el.addEventListener('keydown', function (ev) {
         if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') {
           ev.preventDefault();
           toggleNode(state, n);
+          return;
         }
+        if (!state.opts.draggable) return;
+        var step = ev.shiftKey ? 2 : NUDGE;
+        if (ev.key === 'ArrowLeft') { ev.preventDefault(); nudge(state, n, -step, 0); }
+        else if (ev.key === 'ArrowRight') { ev.preventDefault(); nudge(state, n, step, 0); }
+        else if (ev.key === 'ArrowUp') { ev.preventDefault(); nudge(state, n, 0, -step); }
+        else if (ev.key === 'ArrowDown') { ev.preventDefault(); nudge(state, n, 0, step); }
       });
     });
 
@@ -809,6 +1012,12 @@
     '.mm-edge{--mm-accent:var(--mm-a);fill:none;stroke:var(--mm-accent);',
     'stroke-linecap:round;opacity:.85;}',
 
+    // --- drag ---
+    '.mm-draggable{cursor:grab;touch-action:none;}',
+    '.mm-dragging{cursor:grabbing;}',
+    '.mm-dragging .mm-box{filter:brightness(.94);}',
+    '.mm-svg{overflow:visible;}',
+
     // --- collapse / expand ---
     '.mm-interactive{cursor:pointer;}',
     '.mm-interactive .mm-box{transition:filter .12s ease;}',
@@ -817,7 +1026,7 @@
     '.mm-interactive:focus-visible .mm-box{stroke-width:2.4;}',
     '.mm-interactive:focus-visible .mm-toggle-bg{stroke-width:2.4;}',
 
-    '.mm-toggle{pointer-events:none;}',
+    '.mm-toggle{cursor:pointer;}',
     '.mm-toggle-bg{fill:var(--mm-surface);stroke:var(--mm-accent);stroke-width:1.3;}',
     '.mm-toggle-sign{stroke:var(--mm-accent);stroke-width:1.7;stroke-linecap:round;}',
     // The vertical bar is what turns the minus into a plus.
@@ -1001,6 +1210,7 @@
     if (theme === 'light' || theme === 'dark') opts.theme = theme;
 
     opts.interactive = attr('data-interactive') !== 'false';
+    opts.draggable = opts.interactive && attr('data-draggable') !== 'false';
 
     var level = parseInt(attr('data-collapse-level'), 10);
     if (level > 0) opts.collapseLevel = level;
@@ -1059,7 +1269,7 @@
       container.appendChild(buildOutline(root));
 
       var state = { root: root, opts: opts, sides: sides, size: size, svg: svg };
-      paint(state, size);
+      paint(state, sizeBounds(size));
       if (opts.interactive) attachInteraction(state);
       container.mindMap = state;
     } catch (err) {
@@ -1145,14 +1355,31 @@
   }
 
   /** Expands or collapses every branch of a rendered map. */
+  function stateOf(el) {
+    if (!el) return null;
+    var container = el.closest ? el.closest('.mm-container') : null;
+    if (!container && el.querySelector) container = el.querySelector('.mm-container');
+    return (container && container.mindMap) || el.mindMap || null;
+  }
+
   function setAllCollapsed(el, collapsed) {
-    var container = el && el.closest ? el.closest('.mm-container') : null;
-    var state = (container && container.mindMap) || (el && el.mindMap);
+    var state = stateOf(el);
     if (!state) return false;
     eachNode(state.root, function (n) {
       if (n.depth > 0 && n.children.length) n.collapsed = collapsed;
     });
     relayout(state, true);
+    return true;
+  }
+
+  /** Undoes every drag on a rendered map, returning nodes to their layout. */
+  function resetPositions(el) {
+    var state = stateOf(el);
+    if (!state) return false;
+    finishAnimation(state);
+    eachNode(state.root, function (n) { n.dx = 0; n.dy = 0; });
+    paint(state, state.bounds);
+    tweenBounds(state, boundsOf(state, state.size));
     return true;
   }
 
@@ -1163,6 +1390,7 @@
     renderAll: renderAll,
     expandAll: function (el) { return setAllCollapsed(el, false); },
     collapseAll: function (el) { return setAllCollapsed(el, true); },
+    resetPositions: resetPositions,
     palette: PALETTE
   };
 })(typeof window !== 'undefined' ? window : this);

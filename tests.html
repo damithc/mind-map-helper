@@ -296,7 +296,27 @@ Static
   Beta
 </pre></div>
 
-<script src="mindmap.js"></script>
+<h2>30. Dragging</h2>
+<p class="want">Expect: nodes drag; the subtree follows; a click still toggles.</p>
+<div class="case" id="drag"><pre class="mindmap">
+Drag me
+  Requirements
+    Stakeholders
+    User Stories
+  Design
+    Architecture
+</pre></div>
+
+<h2>31. data-draggable="false"</h2>
+<p class="want">Expect: toggles still work, but nothing is draggable.</p>
+<div class="case" id="nodrag"><pre class="mindmap" data-draggable="false">
+No drag
+  Alpha
+    a1
+  Beta
+</pre></div>
+
+<script>document.write('<script src="mindmap.js?v='+Date.now()+'"><\/script>');</script>
 <script>
 // Minimal assertions over the rendered DOM.
 window.addEventListener('load', function () {
@@ -306,11 +326,13 @@ window.addEventListener('load', function () {
     var cases = document.querySelectorAll('.case');
     var out = [];
     var fails = 0;
+    var pending = 2;                     // the collapse chain and the drag chain
+    function done() { if (--pending === 0) finish(); }
 
     function check(n, label, ok) {
       if (!ok) fails++;
-      out.push('<span class="' + (ok ? 'pass' : 'fail') + '">' +
-               (ok ? 'PASS' : 'FAIL') + ' ' + n + ' ' + label + '</span>');
+      out.push({ n: n, html: '<span class="' + (ok ? 'pass' : 'fail') + '">' +
+               (ok ? 'PASS' : 'FAIL') + ' ' + n + ' ' + label + '</span>' });
     }
 
     function boxRect(g) {
@@ -528,8 +550,89 @@ window.addEventListener('load', function () {
           setTimeout(function () {
             check(39, 'collapseAll leaves root + branches',
               visibleLabels('collapse').length === 4);
-            finish();
+            done();
           }, 420);
+        }, 420);
+      }, 420);
+    })();
+
+    // Dragging.
+    (function () {
+      var host = document.getElementById('drag');
+      function nodeNamed(name) {
+        return Array.prototype.filter.call(host.querySelectorAll('.mm-node'), function (g) {
+          return g.querySelector('.mm-label').textContent === name;
+        })[0];
+      }
+      function pos(g) {
+        var m = /translate\(([-\d.]+),([-\d.]+)\)/.exec(g.getAttribute('transform'));
+        return { x: parseFloat(m[1]), y: parseFloat(m[2]) };
+      }
+      function pointer(el, type, x, y) {
+        el.dispatchEvent(new PointerEvent(type, {
+          bubbles: true, cancelable: true, pointerId: 1, clientX: x, clientY: y, button: 0
+        }));
+      }
+
+      check(40, 'every non-root node is draggable',
+        host.querySelectorAll('.mm-draggable').length === 5 &&
+        !host.querySelector('.mm-root.mm-draggable'));
+
+      var req = nodeNamed('Requirements');
+      var kid = nodeNamed('Stakeholders');
+      var reqBefore = pos(req), kidBefore = pos(kid);
+      var r = req.getBoundingClientRect();
+
+      pointer(req, 'pointerdown', r.left + 5, r.top + 5);
+      pointer(req, 'pointermove', r.left + 45, r.top + 35);
+      pointer(req, 'pointerup', r.left + 45, r.top + 35);
+
+      var reqAfter = pos(req), kidAfter = pos(kid);
+      check(41, 'the dragged node moved',
+        Math.abs(reqAfter.x - reqBefore.x) > 10 && Math.abs(reqAfter.y - reqBefore.y) > 5);
+      check(42, 'its subtree moved by the same amount',
+        Math.abs((kidAfter.x - kidBefore.x) - (reqAfter.x - reqBefore.x)) < 0.6 &&
+        Math.abs((kidAfter.y - kidBefore.y) - (reqAfter.y - reqBefore.y)) < 0.6);
+
+      var sibling = nodeNamed('Design');
+      check(43, 'an unrelated branch stayed put',
+        Math.abs(pos(sibling).x - pos(sibling).x) < 0.001 &&
+        !sibling.classList.contains('mm-dragging'));
+
+      // A drag must not fire the collapse toggle.
+      var visAfterDrag = Array.prototype.filter.call(
+        host.querySelectorAll('.mm-node'), function (g) { return g.style.display !== 'none'; }).length;
+      check(44, 'dragging did not collapse the node', visAfterDrag === 6);
+
+      // A press that barely moves is still a click.
+      var r2 = req.getBoundingClientRect();
+      pointer(req, 'pointerdown', r2.left + 5, r2.top + 5);
+      pointer(req, 'pointermove', r2.left + 6, r2.top + 6);
+      pointer(req, 'pointerup', r2.left + 6, r2.top + 6);
+      req.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+      setTimeout(function () {
+        var vis = Array.prototype.filter.call(host.querySelectorAll('.mm-node'),
+          function (g) { return g.style.display !== 'none'; }).length;
+        check(45, 'a near-still press still toggles', vis === 4);
+
+        // Re-expand first: the collapse above legitimately changed the layout,
+        // so only a fully expanded map is comparable with the starting one.
+        var container = host.querySelector('.mm-container');
+        MindMap.expandAll(container);
+        MindMap.resetPositions(container);
+        setTimeout(function () {
+          var back = pos(nodeNamed('Requirements'));
+          var model = container.mindMap.root.children.filter(function (n) {
+            return n.label === 'Requirements';
+          })[0];
+          check(46, 'resetPositions clears offsets and restores the layout',
+            !model.dx && !model.dy &&
+            Math.abs(back.x - reqBefore.x) < 0.6 && Math.abs(back.y - reqBefore.y) < 0.6);
+          check(47, 'data-draggable=false disables dragging',
+            document.getElementById('nodrag').querySelectorAll('.mm-draggable').length === 0 &&
+            document.getElementById('nodrag').querySelectorAll('.mm-interactive').length === 1);
+          done();
         }, 420);
       }, 420);
     })();
@@ -537,7 +640,9 @@ window.addEventListener('load', function () {
     function finish() {
     document.getElementById('results').innerHTML =
       '<strong>' + (fails ? fails + ' FAILING' : 'all ' + out.length + ' checks pass') +
-      '</strong><br>' + out.join('<br>');
+      '</strong><br>' +
+      out.sort(function (a, b) { return a.n - b.n; })
+         .map(function (r) { return r.html; }).join('<br>');
     }
   }
 });

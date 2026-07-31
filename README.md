@@ -1,7 +1,7 @@
 # Mind Maps Helper
 
-Write an indented list, get a mind map. Readers can collapse and expand branches.
-One script tag, no build step, no dependencies.
+Write an indented list, get a mind map. Readers can fold branches away and drag nodes
+around. One script tag, no build step, no dependencies.
 
 Made for authors of educational sites (course pages, lecture notes, handbooks) who write
 their own HTML or Markdown but are not web developers.
@@ -76,6 +76,18 @@ Big maps read better opening as an overview — `data-collapse-level="1"` shows 
 and its branches, with everything deeper one click away. `data-interactive="false"`
 turns it all off for a plain static diagram.
 
+## Moving nodes
+
+Readers can drag any node somewhere clearer. Its subtree comes along and the connecting
+curves follow; the rest of the map stays put. Drag past the edge and the canvas grows to
+fit on release. A click is still a click — only a real drag moves a node, so folding keeps
+working. With a keyboard, focus a node and use the arrow keys (<kbd>Shift</kbd> for fine
+steps).
+
+Moves last for the visit only; a reload restores the computed layout.
+`MindMap.resetPositions(el)` does the same on demand, and `data-draggable="false"` keeps
+folding while stopping moves.
+
 ## Options
 
 Set these as attributes on the container.
@@ -86,7 +98,8 @@ Set these as attributes on the container.
 | `data-max-node-width` | `190` | Pixel width at which a label wraps to another line. |
 | `data-column-gap` | `46` | Horizontal space between levels. |
 | `data-collapse-level` | off | Show only this many levels at first; deeper nodes start folded. |
-| `data-interactive` | `true` | `false` for a static diagram with no toggles. |
+| `data-draggable` | `true` | `false` keeps folding but stops readers moving nodes. |
+| `data-interactive` | `true` | `false` for a plain static diagram — no folding, no dragging. |
 | `data-theme` | follows the page | `light` or `dark`, to pin one map regardless of the site's theme. |
 
 ## Containers recognised
@@ -130,6 +143,7 @@ Only needed for maps added after page load.
 | `MindMap.parse(text)` | Returns the parsed tree without drawing. |
 | `MindMap.collapseAll(el)` | Folds every branch of one rendered map. |
 | `MindMap.expandAll(el)` | Unfolds every branch of one rendered map. |
+| `MindMap.resetPositions(el)` | Undoes every drag, restoring the computed layout. |
 
 ## Notes
 
@@ -143,7 +157,7 @@ Only needed for maps added after page load.
 
 There is no build step — `mindmap.js` is the shipped file.
 
-Open `tests.html` in a browser. It runs 39 checks over the rendered DOM and prints a
+Open `tests.html` in a browser. It runs 47 checks over the rendered DOM and prints a
 pass/fail summary at the top of the page.
 
 ## Versioning
@@ -153,9 +167,8 @@ under a new path (`/v2/mindmap.js`) so existing pages keep working.
 
 ## Roadmap
 
-Collapse/expand has shipped. Still to come, without changing the syntax:
+Collapse/expand and dragging have shipped. Still to come, without changing the syntax:
 
-- dragging nodes to reposition them
 - richer node content than plain text
 
 ## Licence
