@@ -109,6 +109,47 @@ Note that an image referenced by URL is the one thing that stops a map being a
 self-contained SVG — saved elsewhere, the picture is a link rather than part of the file.
 Use a `data:` URI if that matters.
 
+## Blocks of your own HTML
+
+For content that will not fit in a line — a marks table, a worked example, a styled
+callout — write the block on the page, give it an `id`, and address it the way you would
+address a picture. A `#` means "the element with this id" rather than a file:
+
+```
+![Grade breakdown](#marks-box)
+```
+
+The block is *copied* into the node, so the original stays put and one block can serve
+several maps. It keeps your classes and your CSS, so it looks in the node exactly as it
+looks on the page.
+
+Keep the source out of the way with a `<template>`, which the browser never renders, or
+with `class="mm-source"`, which this script hides:
+
+```html
+<template id="tip-box">
+  <div class="tip"><b>Watch out</b> — coupling is not dependency.</div>
+</template>
+
+<div id="marks-box" class="mm-source"> ... </div>
+```
+
+A block meant to be visible on the page needs neither — point at it and it appears in
+both places.
+
+Blocks lay out within 260px unless told otherwise: `data-embed-max-width` sets that for a
+map, `![](#id =240x160)` fixes one block exactly.
+
+Inside such a node, clicking the block no longer folds the branch — the **&minus;** button
+does that — because the block is there to be read and used. Links and buttons in it work
+normally, and the node can still be dragged by any other part of it. Scripts and `id`s are
+dropped from the copy, so nothing runs twice and no id ends up duplicated.
+
+Two caveats: an embedded block leans on the page's stylesheet, so the map is no longer a
+self-contained SVG; and the id must be in the page's HTML, since a block added later by
+another script is not there when the map is drawn (call `MindMap.renderAll()` afterwards
+in that case).
+
 ## Choosing the shape
 
 Balanced is compact and reads as a figure; one-sided reads top-to-bottom like an indented
@@ -142,6 +183,7 @@ Set these as attributes on the container.
 | `data-direction` | `balanced` | Shape the map *opens* in; readers can switch. `balanced` splits branches either side of the centre, `right`/`left` puts them all on one side. |
 | `data-max-node-width` | `190` | Pixel width at which a label wraps to another line. |
 | `data-column-gap` | `46` | Horizontal space between levels. |
+| `data-embed-max-width` | `260` | Pixel width within which an embedded block of your own HTML lays itself out. |
 | `data-collapse-level` | off | Show only this many levels at first; deeper nodes start folded. |
 | `data-markup` | `true` | `false` takes every character literally — no bold, links or images. |
 | `data-controls` | `true` | `false` hides the shape switch and pins your chosen shape. |
@@ -195,6 +237,7 @@ Only needed for maps added after page load.
 | `MindMap.expandAll(el)` | Unfolds every branch of one rendered map. |
 | `MindMap.resetPositions(el)` | Undoes every drag, restoring the computed layout. |
 | `MindMap.setDirection(el, dir)` | Switches shape: `balanced`, `right` or `left`. |
+| `MindMap.refresh(el)` | Re-measures one map's embedded blocks, after their content changed. |
 
 ## Notes
 
@@ -208,7 +251,7 @@ Only needed for maps added after page load.
 
 There is no build step — `mindmap.js` is the shipped file.
 
-Open `tests.html` in a browser. It runs 78 checks over the rendered DOM and prints a
+Open `tests.html` in a browser. It runs 92 checks over the rendered DOM and prints a
 pass/fail summary at the top of the page.
 
 ## Versioning
@@ -218,7 +261,8 @@ under a new path (`/v2/mindmap.js`) so existing pages keep working.
 
 ## Roadmap
 
-Collapse/expand, dragging and inline formatting have shipped. Possible next steps:
+Collapse/expand, dragging, inline formatting and embedded HTML blocks have shipped.
+Possible next steps:
 
 - per-node colour overrides
 - saving a reader's folds and moves across visits

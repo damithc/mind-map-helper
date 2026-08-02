@@ -4,6 +4,26 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mind Maps Helper — test cases</title>
+<script>
+  // A backgrounded tab stops servicing requestAnimationFrame, so every check
+  // that waits for an animated re-layout would fail for reasons that have
+  // nothing to do with the code. Report reduced motion while the page is
+  // hidden, which is the library's own switch for finishing a re-layout in one
+  // step. Read live on each query, because a tab can be hidden after loading.
+  (function () {
+    var real = window.matchMedia.bind(window);
+    window.matchMedia = function (query) {
+      var result = real(query);
+      if (query.indexOf('prefers-reduced-motion') === -1) return result;
+      return {
+        media: query,
+        get matches() { return result.matches || document.hidden; },
+        addListener: function () {}, removeListener: function () {},
+        addEventListener: function () {}, removeEventListener: function () {}
+      };
+    };
+  })();
+</script>
 <style>
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
          max-width: 70rem; margin: 0 auto; padding: 2rem 1.25rem 6rem; line-height: 1.6; }
@@ -409,6 +429,43 @@ Auto size
   ![missing](img/does-not-exist.svg)
 </pre></div>
 
+<h2>42. Embedded page HTML</h2>
+<p class="want">Expect: the table and the card appear inside nodes, styled as on the page.</p>
+
+<template id="src-template">
+  <div class="probe" id="inner-id" onclick="window.__ranInlineHandler = true">
+    <b>Card</b> title
+    <script>window.__ranEmbeddedScript = true;</script>
+  </div>
+</template>
+
+<div id="src-hidden" class="mm-source">
+  <table><tr><th>A</th><th>B</th></tr><tr><td>1</td><td>2</td></tr></table>
+</div>
+
+<div class="case" id="embed"><pre class="mindmap">
+Embeds
+  ![Marks table](#src-hidden)
+    Deeper
+  ![](#src-template)
+  Plain node
+</pre></div>
+
+<h2>43. Embed sizing</h2>
+<p class="want">Expect: the first is 90px wide as asked; the second is capped at 120.</p>
+<div class="case" id="embedsize"><pre class="mindmap" data-embed-max-width="120">
+Sizes
+  ![](#src-hidden =90x40)
+  ![](#src-hidden)
+</pre></div>
+
+<h2>44. Embed with a missing id</h2>
+<p class="want">Expect: an error naming the id, not a blank space.</p>
+<div class="case" id="embedmissing"><pre class="mindmap">
+Broken
+  ![](#no-such-element)
+</pre></div>
+
 <script>document.write('<script src="mindmap.js?v='+Date.now()+'"><\/script>');</script>
 <script>
 // Minimal assertions over the rendered DOM.
@@ -427,7 +484,7 @@ window.addEventListener('load', function () {
     var cases = document.querySelectorAll('.case');
     var out = [];
     var fails = 0;
-    var pending = 6;   // collapse, drag, shape, root-drag, markup, images
+    var pending = 7;   // collapse, drag, shape, root-drag, markup, images, embeds
     function done() { if (--pending === 0) finish(); }
 
     function check(n, label, ok) {
@@ -985,6 +1042,72 @@ window.addEventListener('load', function () {
           parseFloat(box.getAttribute('height')) >= h);
         done();
       }, 1200);
+    })();
+
+    // --- embedded page HTML ---
+    (function () {
+      var host = document.getElementById('embed');
+      var blocks = host.querySelectorAll('foreignObject.mm-embed-host');
+
+      check(79, 'both references became embedded blocks', blocks.length === 2);
+      check(80, 'the hidden source is copied, not moved',
+        !!document.getElementById('src-hidden') &&
+        host.querySelectorAll('.mm-embed table td').length === 2);
+      check(81, 'a template is unwrapped into the node',
+        host.querySelectorAll('.mm-embed .probe b').length === 1);
+
+      check(82, 'no script came along with the copy',
+        host.querySelectorAll('.mm-embed script').length === 0 &&
+        window.__ranEmbeddedScript === undefined);
+      check(83, 'inline handlers are stripped',
+        !host.querySelector('.mm-embed [onclick]'));
+      check(84, 'ids are stripped, so the page keeps one of each',
+        document.querySelectorAll('#inner-id').length === 0 &&
+        !host.querySelector('.mm-embed [id]'));
+
+      var tableNode = host.querySelector('.mm-embed table').closest('.mm-node');
+      var box = tableNode.querySelector('.mm-box');
+      var fo = tableNode.querySelector('foreignObject');
+      check(85, 'the node box grew to hold the block',
+        parseFloat(box.getAttribute('width')) > parseFloat(fo.getAttribute('width')) &&
+        parseFloat(box.getAttribute('height')) > parseFloat(fo.getAttribute('height')));
+
+      // The block is content, so only the badge folds the branch.
+      check(86, 'a node holding a block is marked and is not click-to-fold',
+        tableNode.classList.contains('mm-has-embed') &&
+        !tableNode.classList.contains('mm-interactive'));
+
+      var badge = tableNode.querySelector('.mm-toggle');
+      check(87, 'the badge carries the button role instead of the node',
+        badge.getAttribute('role') === 'button' &&
+        tableNode.getAttribute('role') !== 'button');
+
+      var beforeFold = tableNode.classList.contains('mm-collapsed');
+      host.querySelector('.mm-embed td').dispatchEvent(
+        new MouseEvent('click', { bubbles: true, cancelable: true }));
+      check(88, 'clicking inside the block does not fold the branch',
+        tableNode.classList.contains('mm-collapsed') === beforeFold);
+
+      badge.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      setTimeout(function () {
+        check(89, 'the badge still folds it',
+          tableNode.classList.contains('mm-collapsed') !== beforeFold);
+
+        var sized = document.getElementById('embedsize')
+          .querySelectorAll('foreignObject.mm-embed-host');
+        check(90, 'an explicit size hint is honoured',
+          parseFloat(sized[0].getAttribute('width')) === 90 &&
+          parseFloat(sized[0].getAttribute('height')) === 40);
+        check(91, 'data-embed-max-width caps an unsized block',
+          parseFloat(sized[1].getAttribute('width')) <= 120);
+
+        var broken = document.getElementById('embedmissing');
+        check(92, 'a missing id gives an error naming it',
+          !!broken.querySelector('.mm-error') &&
+          broken.textContent.indexOf('no-such-element') > -1);
+
+        done();
+      }, 400);
     })();
 
     function finish() {

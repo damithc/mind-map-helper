@@ -1,5 +1,5 @@
 /*!
- * mind-maps-helper v1.4.1
+ * mind-maps-helper v1.5.0
  * Simple indented-text syntax -> interactive-ready SVG mind maps.
  * PlantUML-style geometry with a refined palette.
  * No dependencies. MIT licensed.
@@ -8,7 +8,7 @@
 (function (global) {
   'use strict';
 
-  var VERSION = '1.4.1';
+  var VERSION = '1.5.0';
 
   // ---------------------------------------------------------------- constants
 
@@ -38,7 +38,8 @@
     direction: 'balanced',   // 'balanced' | 'right' | 'left'
     maxNodeWidth: 190,       // px, before a label wraps to a second line
     columnGap: 46,           // horizontal space between depth columns
-    padding: 12              // space around the whole drawing
+    padding: 12,             // space around the whole drawing
+    embedMaxWidth: 260       // px, widest an embedded block may lay itself out
   };
 
   // Per-depth box metrics.
@@ -223,6 +224,9 @@
     return -1;
   }
 
+  // `![](#notes-box)` — the "file" is an element already on the page.
+  var ELEMENT_REF = /^#([A-Za-z][\w:.-]*)$/;
+
   function parseSizeHint(target) {
     var m = /^(.*?)\s+=(\d*)x(\d*)$/.exec(target);
     if (!m) return { url: target.trim(), w: 0, h: 0 };
@@ -266,12 +270,26 @@
         }
       }
 
-      if (ch === '!' && text.charAt(i + 1) === '[') {       // image
+      if (ch === '!' && text.charAt(i + 1) === '[') {       // image or embed
         var altEnd = matchBracket(text, i + 1, '[', ']');
         if (altEnd > -1 && text.charAt(altEnd + 1) === '(') {
           var srcEnd = matchBracket(text, altEnd + 1, '(', ')');
           if (srcEnd > -1) {
             var hint = parseSizeHint(text.slice(altEnd + 2, srcEnd));
+
+            // `#some-id` addresses an element on this page rather than a file,
+            // so the same "embed what is at this address" syntax covers both.
+            var ref = ELEMENT_REF.exec(hint.url);
+            if (ref) {
+              flush();
+              out.push({
+                type: 'embed', ref: ref[1], alt: text.slice(i + 2, altEnd),
+                askedW: hint.w, askedH: hint.h
+              });
+              i = srcEnd;
+              continue;
+            }
+
             var src = safeUrl(hint.url, true);
             if (src) {
               flush();
@@ -349,9 +367,142 @@
       var r = runs[i];
       if (r.type === 'text') out += r.text;
       else if (r.type === 'image') out += r.alt || '';
+      else if (r.type === 'embed') out += r.plain || r.alt || '';
       else if (r.type === 'break') out += ' ';
     }
     return out.trim();
+  }
+
+  // ------------------------------------------------------------ embedded HTML
+
+  /**
+   * A node can hold a block of the page's own HTML — a table, a card, a
+   * formatted definition — pulled in by element id. The content is copied
+   * rather than moved, so the source element stays where the author put it and
+   * one block can appear in several maps.
+   */
+
+  // Room an embedded block gets to lay itself out before it is left to overflow.
+  var EMBED_MAX_H = 400;
+
+  /** Strips anything that would misbehave once copied into the page a second time. */
+  function cleanEmbed(wrap) {
+    var all = wrap.querySelectorAll('*');
+    for (var i = all.length - 1; i >= 0; i--) {
+      var el = all[i];
+
+      // A <script> inside a <template> has never run, so its copy would run on
+      // insertion. Nothing in a mind map node needs one.
+      if (el.tagName === 'SCRIPT') {
+        if (el.parentNode) el.parentNode.removeChild(el);
+        continue;
+      }
+
+      // Duplicate ids would break getElementById on the author's own page.
+      if (el.id) el.removeAttribute('id');
+
+      var attrs = el.attributes;
+      for (var j = attrs.length - 1; j >= 0; j--) {
+        if (/^on/i.test(attrs[j].name)) el.removeAttribute(attrs[j].name);
+      }
+    }
+  }
+
+  /**
+   * The copy of the referenced element, ready to be planted in a node.
+   * A <template> gives up its contents; anything else is copied whole, so the
+   * author's own classes still style it, minus whatever was keeping it hidden.
+   */
+  function embedSource(id) {
+    var el = document.getElementById(id);
+    if (!el) return null;
+
+    var wrap = document.createElement('div');
+    wrap.className = 'mm-embed-body';
+
+    if (el.tagName === 'TEMPLATE' && el.content) {
+      wrap.appendChild(el.content.cloneNode(true));
+    } else {
+      var copy = el.cloneNode(true);
+      if (copy.classList) copy.classList.remove('mm-source');
+      if (copy.removeAttribute) copy.removeAttribute('hidden');
+      if (copy.style && copy.style.display === 'none') copy.style.display = '';
+      wrap.appendChild(copy);
+    }
+
+    cleanEmbed(wrap);
+    return wrap;
+  }
+
+  /**
+   * Measuring happens in a copy parked off-screen next to where the map will
+   * land, so the page's own CSS applies exactly as it will once drawn.
+   */
+  function makeHost(near) {
+    var host = document.createElement('div');
+    host.className = 'mm-container';
+    host.setAttribute('data-mindmap-rendered', '');   // never look for maps in here
+    host.setAttribute('aria-hidden', 'true');
+    host.style.cssText = 'position:absolute;left:-99999px;top:0;width:auto;' +
+      'max-width:none;margin:0;padding:0;visibility:hidden;';
+    (near || document.body).appendChild(host);
+    return host;
+  }
+
+  /** Created on demand, so a map with no embeds never touches the page. */
+  function hostOf(ref) {
+    if (!ref.el) ref.el = makeHost(ref.near);
+    return ref.el;
+  }
+
+  function releaseHost(ref) {
+    if (ref.el && ref.el.parentNode) ref.el.parentNode.removeChild(ref.el);
+    ref.el = null;
+  }
+
+  /** The box an embedded block will occupy, laid out as it will really appear. */
+  function sizeEmbed(run, host, opts) {
+    var box = document.createElement('div');
+    box.className = 'mm-embed';
+    box.style.cssText = 'display:inline-block;max-width:' +
+      (run.askedW || opts.embedMaxWidth) + 'px;';
+    box.appendChild(run.dom.cloneNode(true));
+
+    host.appendChild(box);
+    var rect = box.getBoundingClientRect();
+    host.removeChild(box);
+
+    run.w = Math.max(1, run.askedW || Math.ceil(rect.width));
+    run.h = Math.max(1, run.askedH || Math.min(EMBED_MAX_H, Math.ceil(rect.height)));
+  }
+
+  /** Short stand-in text, for the outline and the node's accessible name. */
+  function embedText(run) {
+    if (run.alt) return run.alt;
+    var text = (run.dom.textContent || '').replace(/\s+/g, ' ').trim();
+    return text.length > 80 ? text.slice(0, 79) + '…' : text;
+  }
+
+  function resolveEmbeds(node, opts, ref) {
+    for (var i = 0; i < node.runs.length; i++) {
+      var run = node.runs[i];
+      if (run.type !== 'embed') continue;
+
+      if (!run.dom) {
+        run.dom = embedSource(run.ref);
+        if (!run.dom) {
+          throw new MindMapError(
+            'This node asks for the page element with id "' + run.ref + '", but no ' +
+            'element with that id exists. Check the spelling, and that the element ' +
+            'appears in the page rather than being added later by a script.',
+            node.lineNo);
+        }
+        run.plain = embedText(run);
+      }
+
+      sizeEmbed(run, hostOf(ref), opts);
+      node.hasEmbed = true;
+    }
   }
 
   // -------------------------------------------------------------- measurement
@@ -411,6 +562,11 @@
       if (run.type === 'image') {
         var size = imageSize(run);
         items.push({ kind: 'image', run: run, w: size.w, h: size.h });
+        continue;
+      }
+
+      if (run.type === 'embed') {
+        items.push({ kind: 'embed', run: run, w: run.w, h: run.h });
         continue;
       }
 
@@ -516,11 +672,12 @@
     node.h = Math.ceil(block.height + 2 * m.padY);
   }
 
-  function measureTree(node, opts) {
+  function measureTree(node, opts, ref) {
     node.runs = parseLabel(node.label, opts.markup);
+    if (ref) resolveEmbeds(node, opts, ref);
     node.plain = runsToText(node.runs);
     measureNode(node, opts);
-    for (var j = 0; j < node.children.length; j++) measureTree(node.children[j], opts);
+    for (var j = 0; j < node.children.length; j++) measureTree(node.children[j], opts, ref);
   }
 
   // ------------------------------------------------------------------- layout
@@ -840,9 +997,9 @@
     for (var i = 0; i < items.length; i++) {
       var it = items[i];
 
-      if (it.kind === 'image') {
+      if (it.kind === 'image' || it.kind === 'embed') {
         close();
-        groups.push({ kind: 'image', run: it.run, x: it.x, w: it.w, h: it.h });
+        groups.push({ kind: it.kind, run: it.run, x: it.x, w: it.w, h: it.h });
         continue;
       }
       if (current && current.run === it.run) {
@@ -893,6 +1050,25 @@
           host.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', it.run.href);
           host.setAttribute('href', it.run.href);
           wrap.appendChild(host);
+        }
+
+        if (it.kind === 'embed') {
+          // <foreignObject> is the one place real HTML is allowed inside SVG.
+          var fo = svgEl('foreignObject', {
+            'class': 'mm-embed-host',
+            x: round(originX + it.x),
+            y: round(lineTop + (line.height - it.h) / 2),
+            width: it.w, height: it.h
+          });
+          var body = document.createElement('div');
+          body.className = 'mm-embed';
+          body.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
+          body.style.width = it.w + 'px';
+          body.style.height = it.h + 'px';
+          body.appendChild(it.run.dom.cloneNode(true));
+          fo.appendChild(body);
+          host.appendChild(fo);
+          continue;
         }
 
         if (it.kind === 'image') {
@@ -1098,8 +1274,11 @@
       if (!n.el) return;
       if (n.children.length && n.depth > 0) {
         n.el.classList.toggle('mm-collapsed', !!n.collapsed);
-        n.el.setAttribute('aria-expanded', n.collapsed ? 'false' : 'true');
-        n.el.setAttribute('aria-label',
+        // Usually the whole node is the button; a node holding embedded HTML
+        // hands that role to its +/- badge instead.
+        var ctl = n.ctl || n.el;
+        ctl.setAttribute('aria-expanded', n.collapsed ? 'false' : 'true');
+        ctl.setAttribute('aria-label',
           (n.plain || n.label) + ', ' + n.children.length + ' item' +
           (n.children.length === 1 ? '' : 's') +
           ', ' + (n.collapsed ? 'collapsed' : 'expanded'));
@@ -1362,6 +1541,61 @@
     });
   }
 
+  /**
+   * Re-measures every embedded block and re-draws the nodes holding them.
+   * Needed whenever something the block's height depends on arrives late —
+   * its own images, or a stylesheet — and after an author edits the source
+   * element and asks for a refresh.
+   */
+  function refreshEmbeds(state) {
+    var container = state.container;
+    if (!container || !container.parentNode) return false;
+
+    var hostRef = { near: container.parentNode, el: null };
+    var changed = false;
+
+    try {
+      eachNode(state.root, function (n) {
+        if (!n.hasEmbed) return;
+        var moved = false;
+        for (var i = 0; i < n.runs.length; i++) {
+          var run = n.runs[i];
+          if (run.type !== 'embed' || !run.dom) continue;
+          var before = run.w + 'x' + run.h;
+          sizeEmbed(run, hostOf(hostRef), state.opts);
+          if (before !== run.w + 'x' + run.h) moved = true;
+        }
+        if (!moved) return;
+        changed = true;
+        measureNode(n, state.opts);
+        redrawNodeBody(n);
+      });
+    } finally {
+      releaseHost(hostRef);
+    }
+
+    if (!changed) return false;
+    syncTogglePositions(state.root);
+    relayout(state, false);
+    return true;
+  }
+
+  /**
+   * An embedded block containing its own images is measured before they load,
+   * so its height is short until they arrive. One re-measure once the page has
+   * finished loading catches that without watching every image.
+   */
+  function settleEmbeds(state) {
+    var any = false;
+    eachNode(state.root, function (n) { if (n.hasEmbed) any = true; });
+    if (!any || document.readyState === 'complete') return;
+
+    global.addEventListener('load', function once() {
+      global.removeEventListener('load', once);
+      refreshEmbeds(state);
+    });
+  }
+
   function toggleNode(state, node) {
     if (!node.children.length || node.depth === 0) return;
     node.collapsed = !node.collapsed;
@@ -1451,6 +1685,15 @@
   var DRAG_THRESHOLD = 4;
   var NUDGE = 12;
 
+  /**
+   * Presses that belong to something other than a drag: the fold badge, and
+   * any real control inside an embedded block. Capturing the pointer for these
+   * would also retarget the click to the node as a whole, so the button they
+   * landed on would never hear about it.
+   */
+  var NO_DRAG_FROM = '.mm-toggle,a[href],button,input,select,textarea,label,' +
+    'summary,[contenteditable]';
+
   function attachDrag(state, node) {
     var el = node.el;
     var active = false, moved = false;
@@ -1458,6 +1701,7 @@
 
     el.addEventListener('pointerdown', function (ev) {
       if (ev.button) return;                    // left button / touch / pen only
+      if (ev.target.closest && ev.target.closest(NO_DRAG_FROM)) return;
       state.suppressClick = false;
       active = true;
       moved = false;
@@ -1512,7 +1756,7 @@
     // Without this a link inside a node would still fire after being dragged.
     el.addEventListener('click', function (ev) {
       if (!state.suppressClick) return;
-      if (node.children.length && node.depth > 0) return;   // handled by the fold listener
+      if (node.ctl === el) return;              // handled by the fold listener
       state.suppressClick = false;
       ev.preventDefault();
       ev.stopPropagation();
@@ -1546,6 +1790,8 @@
       var isRoot = n.depth === 0;
       var togglable = !isRoot && n.children.length > 0;
 
+      if (n.hasEmbed) n.el.classList.add('mm-has-embed');
+
       if (state.opts.draggable) {
         n.el.classList.add('mm-draggable');
         attachDrag(state, n);
@@ -1564,11 +1810,18 @@
 
       if (!togglable) return;
 
-      n.el.classList.add('mm-interactive');
-      n.el.setAttribute('tabindex', '0');
-      n.el.setAttribute('role', 'button');
+      // A node holding embedded HTML is content to be read and used, so a
+      // click anywhere in it must not fold the branch away. Its +/- badge
+      // becomes the only thing that folds it, and the button role goes there
+      // too — a button wrapped around a table reads badly to a screen reader.
+      var byBadge = n.hasEmbed && n.toggleEl;
+      n.ctl = byBadge ? n.toggleEl : n.el;
 
-      n.el.addEventListener('click', function (ev) {
+      if (!byBadge) n.el.classList.add('mm-interactive');
+      n.ctl.setAttribute('tabindex', '0');
+      n.ctl.setAttribute('role', 'button');
+
+      n.ctl.addEventListener('click', function (ev) {
         // A drag that ended on this node must neither fold it nor follow a link.
         if (state.suppressClick) {
           state.suppressClick = false;
@@ -1583,7 +1836,7 @@
         toggleNode(state, n);
       });
 
-      n.el.addEventListener('keydown', function (ev) {
+      n.ctl.addEventListener('keydown', function (ev) {
         if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') {
           ev.preventDefault();
           toggleNode(state, n);
@@ -1605,7 +1858,10 @@
       var runs = node.runs || [textRun(node.label, {})];
       for (var i = 0; i < runs.length; i++) {
         var run = runs[i];
+        // Embedded HTML is already real content in the page, so the outline
+        // only needs to name it rather than repeat it to a screen reader.
         var text = run.type === 'image' ? (run.alt || '') :
+                   run.type === 'embed' ? (run.alt || '') :
                    run.type === 'break' ? ' ' : run.text;
         if (!text) continue;
         if (run.href) {
@@ -1693,6 +1949,25 @@
     '.mm-link{cursor:pointer;}',
     '.mm-link:hover .mm-link-text{fill:var(--mm-link-hover);}',
     '.mm-image{pointer-events:none;}',
+
+    // --- embedded HTML ---
+    // Authors park the source of an embed in one of these; both keep it off
+    // the page without the author needing any CSS of their own.
+    '.mm-source{display:none!important;}',
+    // Measurement overrides display to inline-block so the block shrinks to
+    // fit; once drawn it fills the box that measurement produced.
+    // Deliberately no colour here: the block should look exactly as it does on
+    // the page, and a map theme forced onto author-styled content fights it.
+    '.mm-embed{display:block;box-sizing:border-box;overflow:auto;',
+    'font-size:12.5px;line-height:1.45;text-align:left;}',
+    '.mm-embed-body{display:block;}',
+    '.mm-embed-host{overflow:visible;}',
+    // The block is content to read rather than a button, so it keeps a normal
+    // cursor even though the node around it can still be dragged.
+    '.mm-has-embed{cursor:default;}',
+    '.mm-has-embed .mm-embed{cursor:auto;}',
+    '.mm-toggle:focus-visible{outline:none;}',
+    '.mm-toggle:focus-visible .mm-toggle-bg{stroke:var(--mm-root-bg);stroke-width:2.4;}',
 
     '.mm-d1 .mm-box{fill:var(--mm-surface);',
     'fill:color-mix(in srgb, var(--mm-accent) 11%, var(--mm-surface));',
@@ -1910,7 +2185,8 @@
       direction: DEFAULTS.direction,
       maxNodeWidth: DEFAULTS.maxNodeWidth,
       columnGap: DEFAULTS.columnGap,
-      padding: DEFAULTS.padding
+      padding: DEFAULTS.padding,
+      embedMaxWidth: DEFAULTS.embedMaxWidth
     };
 
     var dir = attr('data-direction');
@@ -1921,6 +2197,9 @@
 
     var gap = parseFloat(attr('data-column-gap'));
     if (gap >= 0) opts.columnGap = gap;
+
+    var embedWidth = parseFloat(attr('data-embed-max-width'));
+    if (embedWidth > 40) opts.embedMaxWidth = embedWidth;
 
     var theme = attr('data-theme');
     if (theme === 'light' || theme === 'dark') opts.theme = theme;
@@ -1960,12 +2239,16 @@
     container.className = 'mm-container';
     if (target.id) container.id = target.id;
 
+    // Embeds are measured next to where the map will land, so the page's own
+    // CSS applies. Created only if the map actually has one.
+    var hostRef = { near: target.parentNode, el: null };
+
     try {
       var opts = readOptions(optionSources);
       if (opts.theme) container.setAttribute('data-theme', opts.theme);
 
       var root = parse(source);
-      measureTree(root, opts);
+      measureTree(root, opts, hostRef);
 
       if (opts.collapseLevel > 0) {
         eachNode(root, function (n) {
@@ -1991,11 +2274,12 @@
 
       var state = {
         root: root, opts: opts, sides: sides, size: size, svg: svg,
-        direction: opts.direction
+        direction: opts.direction, container: container
       };
       paint(state, sizeBounds(size));
       if (opts.interactive) attachInteraction(state);
       loadImages(state);
+      settleEmbeds(state);
 
       if (opts.controls) {
         // A one-sided author default keeps its own side as the alternative.
@@ -2009,6 +2293,8 @@
     } catch (err) {
       if (!(err instanceof MindMapError)) throw err;
       container.appendChild(buildError(err, source));
+    } finally {
+      releaseHost(hostRef);
     }
 
     container.setAttribute('data-mindmap-rendered', '');
@@ -2083,6 +2369,10 @@
     }
   }
 
+  // Injected now rather than at first render, so `.mm-source` hides an embed's
+  // source element before the page ever paints it.
+  injectStyles();
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', boot);
   } else {
@@ -2126,6 +2416,10 @@
     expandAll: function (el) { return setAllCollapsed(el, false); },
     collapseAll: function (el) { return setAllCollapsed(el, true); },
     resetPositions: resetPositions,
+    refresh: function (el) {
+      var state = stateOf(el);
+      return state ? refreshEmbeds(state) : false;
+    },
     setDirection: function (el, dir) {
       var state = stateOf(el);
       return state ? setDirection(state, dir) : false;

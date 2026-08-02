@@ -67,6 +67,12 @@
   th, td { text-align: left; padding: .5rem .7rem; border-bottom: 1px solid var(--line); vertical-align: top; }
   th { font-weight: 600; }
   td code { white-space: nowrap; }
+  /* Blocks embedded into map nodes. Both opt out of the page-wide table and
+     paragraph sizing, which is meant for full-width prose. */
+  .demo-table { width: auto; min-width: 0; font-size: .78rem; }
+  .demo-table th, .demo-table td { padding: .18rem .5rem; border: 1px solid var(--line); }
+  .demo-tip { border-left: 3px solid #b0563a; padding: .2rem .55rem; font-size: .78rem; }
+  .demo-tip p { margin: .1rem 0 0; }
   .note {
     border-left: 3px solid var(--accent); background: var(--panel);
     padding: .75rem 1rem; margin: 0 0 1rem; font-size: .94rem;
@@ -325,6 +331,96 @@ no size, so it is scaled to fit the 120&times;90 box on its own.</p>
   as a <code>data:</code> URI if that matters to you.</p>
 </div>
 
+<h2>Blocks of your own HTML</h2>
+
+<p>Some things do not fit in a line of text — a marks table, a worked example,
+a styled callout. Write that block anywhere on the page, give it an
+<code>id</code>, and address it the same way you would address a picture. A
+<code>#</code> means "the element with this id" rather than a file:</p>
+
+<pre><code>![Grade breakdown](#marks-box)</code></pre>
+
+<p>The block is <em>copied</em> into the node, so the original stays where you
+put it and one block can appear in several maps. It keeps your own classes and
+your own CSS, so it looks in the node exactly as it looks on the page.</p>
+
+<h3>Where the block lives</h3>
+
+<p>Usually you do not want the source showing up twice. Either put it in a
+<code>&lt;template&gt;</code>, which the browser never renders:</p>
+
+<pre><code>&lt;template id="tip-box"&gt;
+  &lt;div class="tip"&gt;&lt;b&gt;Watch out&lt;/b&gt; — coupling is not dependency.&lt;/div&gt;
+&lt;/template&gt;</code></pre>
+
+<p>or mark an ordinary element with <code>class="mm-source"</code>, which this
+script hides for you:</p>
+
+<pre><code>&lt;div id="marks-box" class="mm-source"&gt;
+  &lt;table&gt; ... &lt;/table&gt;
+&lt;/div&gt;</code></pre>
+
+<p>A block that is <em>meant</em> to be visible on the page needs neither: point
+at it and it appears in both places.</p>
+
+<div class="split">
+<pre><code>Week 5
+  Assessment
+    ![Marks](#marks-box)
+  Design
+    Coupling
+      ![](#tip-box)
+    Cohesion</code></pre>
+<div class="demo">
+<div id="marks-box" class="mm-source">
+  <table class="demo-table">
+    <tr><th>Component</th><th>Weight</th></tr>
+    <tr><td>Project</td><td>40%</td></tr>
+    <tr><td>Exam</td><td>35%</td></tr>
+    <tr><td>Participation</td><td>25%</td></tr>
+  </table>
+</div>
+<template id="tip-box">
+  <div class="demo-tip">
+    <b>Watch out</b>
+    <p>Coupling is not the same as <em>dependency</em>.</p>
+  </div>
+</template>
+<pre class="mindmap" data-direction="right">
+Week 5
+  Assessment
+    ![Marks](#marks-box)
+  Design
+    Coupling
+      ![](#tip-box)
+    Cohesion
+</pre>
+</div>
+</div>
+
+<p>A block lays itself out within 260px unless you say otherwise —
+<code>data-embed-max-width</code> changes that for a whole map, and
+<code>![](#id =240x160)</code> fixes one block's size exactly.</p>
+
+<h3>What changes inside such a node</h3>
+
+<ul>
+  <li>Clicking the block does not fold the branch, since you are meant to read
+      and use what is in it. The <strong>&minus;</strong> button still folds it.</li>
+  <li>Links and buttons inside the block work normally. The node can still be
+      dragged by any other part of the block.</li>
+  <li>Scripts and <code>id</code>s are dropped from the copy, so nothing runs
+      twice and nothing on your page ends up with a duplicate id.</li>
+</ul>
+
+<div class="note">
+  <p><strong>Two caveats.</strong> An embedded block leans on the page's
+  stylesheet, so — like an image referenced by URL — the map is no longer a
+  self-contained SVG. And the id has to exist in the page's HTML: a block that
+  some other script adds later is not there yet when the map is drawn. Call
+  <code>MindMap.renderAll()</code> yourself afterwards in that case.</p>
+</div>
+
 <h2>Collapsing and expanding</h2>
 
 <p>Any node with children gets a small <strong>&minus;</strong> button on its
@@ -461,6 +557,12 @@ set <code>data-draggable="false"</code>.</p>
     <td><code>data-column-gap</code></td>
     <td><code>46</code></td>
     <td>Horizontal space between levels. Lower it to make a wide map fit.</td>
+  </tr>
+  <tr>
+    <td><code>data-embed-max-width</code></td>
+    <td><code>260</code></td>
+    <td>How wide (in pixels) an embedded block of your own HTML may lay itself
+        out before it wraps.</td>
   </tr>
   <tr>
     <td><code>data-collapse-level</code></td>
@@ -619,6 +721,7 @@ entry is a <code>[light, dark]</code> pair.</p>
   <tr><td><code>MindMap.expandAll(el)</code></td><td>Unfolds every branch of one rendered map.</td></tr>
   <tr><td><code>MindMap.resetPositions(el)</code></td><td>Undoes every drag, returning nodes to the computed layout.</td></tr>
   <tr><td><code>MindMap.setDirection(el, dir)</code></td><td>Switches shape from your own control: <code>balanced</code>, <code>right</code> or <code>left</code>.</td></tr>
+  <tr><td><code>MindMap.refresh(el)</code></td><td>Re-measures the embedded blocks of one map, after you have changed what is in them.</td></tr>
 </table>
 </div>
 
@@ -674,7 +777,7 @@ CS2103 Software Engineering
 
 </div>
 
-<script src="mindmap.js?v=1.4.1"></script>
+<script src="mindmap.js?v=1.5.0"></script>
 <script>
   // Taken from the library itself, so the badge can never drift from the
   // script actually loaded (and a stale cache is visible at a glance).
