@@ -825,8 +825,17 @@ window.addEventListener('load', function () {
 
       check(48, 'switch present with balanced selected',
         !!btn('balanced') && !!btn('right') &&
-        btn('balanced').getAttribute('aria-pressed') === 'true');
+        btn('balanced').getAttribute('aria-checked') === 'true');
       check(49, 'balanced really does straddle the root', !allOneSide());
+      check(93, 'the two shapes sit in one radio group', (function () {
+        var seg = host.querySelector('.mm-seg[role="radiogroup"]');
+        return !!seg && seg.contains(btn('balanced')) && seg.contains(btn('right')) &&
+          btn('balanced').getAttribute('role') === 'radio' &&
+          btn('right').getAttribute('role') === 'radio';
+      })());
+      check(94, 'the pair costs one tab stop, on the shape in use',
+        btn('balanced').getAttribute('tabindex') === '0' &&
+        btn('right').getAttribute('tabindex') === '-1');
 
       // Fold one branch first: the fold must survive a shape change.
       nodeNamed('Requirements').dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -835,8 +844,8 @@ window.addEventListener('load', function () {
         setTimeout(function () {
           check(50, 'one-sided puts every branch on one side', allOneSide());
           check(51, 'the switch reflects the new shape',
-            btn('right').getAttribute('aria-pressed') === 'true' &&
-            btn('balanced').getAttribute('aria-pressed') === 'false');
+            btn('right').getAttribute('aria-checked') === 'true' &&
+            btn('balanced').getAttribute('aria-checked') === 'false');
           check(52, 'a folded branch stays folded through the switch',
             nodeNamed('Requirements').classList.contains('mm-collapsed') &&
             nodeNamed('Stakeholders').style.display === 'none');
@@ -850,17 +859,36 @@ window.addEventListener('load', function () {
           btn('balanced').click();
           setTimeout(function () {
             check(54, 'switching back restores the balanced shape', !allOneSide());
-            check(55, 'left-default map offers left as the alternative',
-              !!document.querySelector('#leftdefault .mm-ctl[data-dir="left"]') &&
-              !document.querySelector('#leftdefault .mm-ctl[data-dir="right"]'));
-            check(56, 'data-controls=false hides the switch but keeps folding',
-              document.querySelectorAll('#nocontrols .mm-controls').length === 0 &&
-              document.querySelectorAll('#nocontrols .mm-interactive').length === 1 &&
-              document.querySelectorAll('#nocontrols .mm-draggable').length === 4);
-            check(57, 'setDirection API works and rejects nonsense',
-              MindMap.setDirection(container, 'right') === true &&
-              MindMap.setDirection(container, 'sideways') === false);
-            done();
+
+            // Arrow keys move within the group, the way a radio group works.
+            function arrow(dir, key) {
+              btn(dir).dispatchEvent(new KeyboardEvent('keydown',
+                { key: key, bubbles: true }));
+            }
+            arrow('balanced', 'ArrowRight');
+            setTimeout(function () {
+              check(95, 'an arrow key picks the neighbouring shape',
+                allOneSide() &&
+                btn('right').getAttribute('aria-checked') === 'true' &&
+                btn('right').getAttribute('tabindex') === '0' &&
+                btn('balanced').getAttribute('tabindex') === '-1');
+              arrow('right', 'ArrowLeft');
+              setTimeout(function () {
+                check(96, 'the opposite arrow comes back', !allOneSide() &&
+                  btn('balanced').getAttribute('aria-checked') === 'true');
+                check(55, 'left-default map offers left as the alternative',
+                  !!document.querySelector('#leftdefault .mm-ctl[data-dir="left"]') &&
+                  !document.querySelector('#leftdefault .mm-ctl[data-dir="right"]'));
+                check(56, 'data-controls=false hides the switch but keeps folding',
+                  document.querySelectorAll('#nocontrols .mm-controls').length === 0 &&
+                  document.querySelectorAll('#nocontrols .mm-interactive').length === 1 &&
+                  document.querySelectorAll('#nocontrols .mm-draggable').length === 4);
+                check(57, 'setDirection API works and rejects nonsense',
+                  MindMap.setDirection(container, 'right') === true &&
+                  MindMap.setDirection(container, 'sideways') === false);
+                done();
+              }, 420);
+            }, 420);
           }, 420);
         }, 420);
       }, 420);

@@ -489,7 +489,9 @@ Testing
 <strong>Balanced</strong> is compact and works well as a figure;
 <strong>one-sided</strong> reads top-to-bottom like an indented outline, which
 some readers find easier to follow. Rather than deciding for everyone, each map
-carries a small switch in its top corner — it fades in when you hover the map.</p>
+carries a small switch in its top corner — it fades in when you hover the map.
+The two shapes share one outline, because they are alternatives rather than two
+separate settings: picking one drops the other.</p>
 
 <div class="demo">
 <pre class="mindmap">
@@ -512,6 +514,9 @@ Requirements
 just lets a reader try the other one. Folded branches stay folded across a
 switch. If you would rather pin one shape, set
 <code>data-controls="false"</code>.</p>
+
+<p>By keyboard, the switch is a single stop: <kbd>Tab</kbd> to it and the arrow
+keys move between the two shapes, the way a set of radio buttons works.</p>
 
 <h2>Moving nodes</h2>
 
@@ -777,7 +782,7 @@ CS2103 Software Engineering
 
 </div>
 
-<script src="mindmap.js?v=1.5.0"></script>
+<script src="mindmap.js?v=1.6.0"></script>
 <script>
   // Taken from the library itself, so the badge can never drift from the
   // script actually loaded (and a stale cache is visible at a glance).

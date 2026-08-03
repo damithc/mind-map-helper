@@ -1,5 +1,5 @@
 /*!
- * mind-maps-helper v1.5.0
+ * mind-maps-helper v1.6.0
  * Simple indented-text syntax -> interactive-ready SVG mind maps.
  * PlantUML-style geometry with a refined palette.
  * No dependencies. MIT licensed.
@@ -8,7 +8,7 @@
 (function (global) {
   'use strict';
 
-  var VERSION = '1.5.0';
+  var VERSION = '1.6.0';
 
   // ---------------------------------------------------------------- constants
 
@@ -1627,7 +1627,11 @@
     var buttons = state.controls.querySelectorAll('.mm-ctl');
     for (var i = 0; i < buttons.length; i++) {
       var on = buttons[i].getAttribute('data-dir') === state.direction;
-      buttons[i].setAttribute('aria-pressed', on ? 'true' : 'false');
+      buttons[i].setAttribute('aria-checked', on ? 'true' : 'false');
+      // One tab stop for the pair, landing on the shape in use; the arrow
+      // keys move within it. That is how a radio group behaves, and stops a
+      // page of maps costing two tab stops each.
+      buttons[i].setAttribute('tabindex', on ? '0' : '-1');
       buttons[i].classList.toggle('mm-ctl-on', on);
     }
   }
@@ -1640,14 +1644,30 @@
 
   /**
    * A two-way switch so the reader, not just the author, picks the shape.
+   * The shapes are alternatives rather than two settings, so the buttons
+   * share one outline and answer to the arrow keys as a radio group does.
    * Kept quiet until the map is hovered or focused, so a page full of
    * diagrams does not turn into a page full of buttons.
    */
   function buildControls(state, altDirection) {
     var bar = document.createElement('div');
     bar.className = 'mm-controls';
-    bar.setAttribute('role', 'group');
-    bar.setAttribute('aria-label', 'Mind map shape');
+
+    var seg = document.createElement('div');
+    seg.className = 'mm-seg';
+    seg.setAttribute('role', 'radiogroup');
+    seg.setAttribute('aria-label', 'Mind map shape');
+
+    var buttons = [];
+
+    // Moves to the neighbouring shape and picks it, which is what a radio
+    // group does: for a pair, either arrow lands on the other one.
+    function step(from, delta) {
+      var i = buttons.indexOf(from);
+      var next = buttons[(i + delta + buttons.length) % buttons.length];
+      next.focus();
+      setDirection(state, next.getAttribute('data-dir'));
+    }
 
     [['balanced', 'Balanced', 'Branches on both sides'],
      [altDirection, 'One-sided', 'All branches on one side']
@@ -1655,6 +1675,7 @@
       var b = document.createElement('button');
       b.type = 'button';
       b.className = 'mm-ctl';
+      b.setAttribute('role', 'radio');
       b.setAttribute('data-dir', spec[0]);
       b.title = spec[2];
 
@@ -1674,9 +1695,19 @@
       b.appendChild(icon);
       b.appendChild(text);
       b.addEventListener('click', function () { setDirection(state, spec[0]); });
-      bar.appendChild(b);
+      b.addEventListener('keydown', function (ev) {
+        var delta = 0;
+        if (ev.key === 'ArrowRight' || ev.key === 'ArrowDown') delta = 1;
+        else if (ev.key === 'ArrowLeft' || ev.key === 'ArrowUp') delta = -1;
+        else return;
+        ev.preventDefault();      // or the page scrolls under the map
+        step(this, delta);
+      });
+      seg.appendChild(b);
+      buttons.push(b);
     });
 
+    bar.appendChild(seg);
     return bar;
   }
 
@@ -1986,18 +2017,31 @@
     'stroke-linecap:round;opacity:.85;}',
 
     // --- shape switch ---
-    '.mm-controls{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:2px;',
-    'margin:0 0 2px;opacity:.4;transition:opacity .15s ease;}',
+    '.mm-controls{display:flex;justify-content:flex-end;',
+    'margin:0 0 3px;opacity:.4;transition:opacity .15s ease;}',
     '.mm-container:hover .mm-controls,.mm-controls:focus-within{opacity:1;}',
+    // The two shapes are alternatives, so they share one outline: separate
+    // buttons read as two independent settings that happen to be adjacent.
+    '.mm-seg{display:inline-flex;align-items:stretch;overflow:hidden;',
+    'border:1px solid color-mix(in srgb, var(--mm-muted) 35%, transparent);',
+    'border-radius:5px;background:var(--mm-surface);}',
+    '.mm-container:hover .mm-seg,.mm-seg:focus-within',
+    '{border-color:var(--mm-muted);}',
     '.mm-ctl{display:inline-flex;align-items:center;gap:4px;',
     'font:inherit;font-size:11px;line-height:1;color:var(--mm-muted);',
-    'background:none;border:1px solid transparent;border-radius:4px;',
-    'padding:3px 6px;cursor:pointer;}',
-    '.mm-ctl:hover{color:var(--mm-text);border-color:var(--mm-muted);}',
-    '.mm-ctl:focus-visible{outline:2px solid var(--mm-root-bg);outline-offset:1px;}',
+    'background:none;border:0;padding:3.5px 7px;cursor:pointer;}',
+    // The divider tracks the outline, so the pill reads as one object.
+    '.mm-ctl+.mm-ctl{border-left:1px solid ',
+    'color-mix(in srgb, var(--mm-muted) 35%, transparent);}',
+    '.mm-container:hover .mm-ctl+.mm-ctl,.mm-seg:focus-within .mm-ctl+.mm-ctl',
+    '{border-left-color:var(--mm-muted);}',
+    '.mm-ctl:hover{color:var(--mm-text);}',
+    // Inset, because an outline outside the button would fall outside the
+    // pill that clips it.
+    '.mm-ctl:focus-visible{outline:2px solid var(--mm-root-bg);outline-offset:-2px;}',
     '.mm-ctl-icon{width:16px;height:14px;stroke:currentColor;flex:none;}',
-    '.mm-ctl-on{color:var(--mm-text);border-color:var(--mm-muted);',
-    'background:color-mix(in srgb, var(--mm-muted) 12%, transparent);}',
+    '.mm-ctl-on{color:var(--mm-text);',
+    'background:color-mix(in srgb, var(--mm-muted) 15%, transparent);}',
     // --- drag ---
     '.mm-draggable{cursor:grab;touch-action:none;}',
     '.mm-dragging{cursor:grabbing;}',

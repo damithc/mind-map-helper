@@ -154,12 +154,16 @@ in that case).
 
 Balanced is compact and reads as a figure; one-sided reads top-to-bottom like an indented
 outline. Rather than deciding for every reader, each map carries a small switch in its top
-corner that fades in on hover.
+corner that fades in on hover. The two shapes share one outline, because they are
+alternatives rather than two separate settings: picking one drops the other.
 
 `data-direction` still sets the shape the map *opens* in — the switch just offers the other
 one. Folded branches survive a switch; drags are cleared, since a nudged position means
 nothing in the other arrangement. `data-controls="false"` pins one shape and hides the
 switch.
+
+By keyboard the switch is a single tab stop, and the arrow keys move between the two
+shapes, the way a set of radio buttons works.
 
 ## Moving nodes
 
@@ -251,7 +255,7 @@ Only needed for maps added after page load.
 
 There is no build step — `mindmap.js` is the shipped file.
 
-Open `tests.html` in a browser. It runs 92 checks over the rendered DOM and prints a
+Open `tests.html` in a browser. It runs 96 checks over the rendered DOM and prints a
 pass/fail summary at the top of the page.
 
 ## Versioning
