@@ -8,7 +8,7 @@ library *does*.
 
 A script that turns an indented list into an interactive SVG mind map. It is published as
 a *provider site* on GitHub Pages: other people's pages link one script tag at
-`https://damithch.github.io/mind-map-helper/mindmap.js`, so **every page on the internet
+`https://damithc.github.io/mind-map-helper/mindmap.js`, so **every page on the internet
 that uses this library loads whatever is on `main`.** A broken commit is a broken
 production deploy for everyone at once.
 
@@ -127,11 +127,22 @@ gh api repos/damithc/mind-map-helper/pages/builds/latest --jq '{commit:.commit,s
 ```
 
 Wait for `status: "built"`, and check the commit matches what you pushed — the API
-sometimes reports the parent commit for a while. Note that **the sandbox cannot load
-`github.io` at all** (the unrelated account root 404s too, which is the control proving
-it is the network path and not the site). So a green build is build-state evidence, not a
-page you loaded. Say so plainly rather than implying you saw the live page, and ask the
-user to confirm the version badge.
+sometimes reports the parent commit for a while.
+
+Then confirm the deploy by fetching the live files, which *is* reachable:
+
+```bash
+curl -s https://damithc.github.io/mind-map-helper/mindmap.js | head -3
+```
+
+The version badge on the landing page is written by script, so a fetch of the HTML will
+not show it; check `VERSION` in the served `mindmap.js` instead, and ask the user to
+confirm the badge in a real browser.
+
+**The account is `damithc`, with no trailing `h`.** The Mac user directory is
+`/Users/damithch/`, and mixing the two gives a 404 from the API and from the site — which
+looks exactly like a missing deploy or a blocked network. Check the spelling before
+concluding anything is wrong.
 
 ## Design commitments
 
