@@ -429,6 +429,18 @@ Week 5
   <code>MindMap.renderAll()</code> yourself afterwards in that case.</p>
 </div>
 
+<div class="note">
+  <p><strong>What the copy is, is a copy.</strong> Anything wired up with
+  <code>addEventListener</code> stays behind on the original, so a button whose
+  handler was attached that way does nothing in the node — a listener on a
+  container the block sits inside still fires, since the click bubbles out of
+  the map. And dropping the <code>id</code>s costs whatever depended on them: a
+  <code>&lt;label for&gt;</code>, an <code>aria-labelledby</code>, a link to
+  <code>#somewhere</code> inside the block, a rule written as
+  <code>#id .thing</code>. Blocks meant to be read — a table, a card, a worked
+  example — copy cleanly; a working widget is worth checking in the node.</p>
+</div>
+
 <h2>Collapsing and expanding</h2>
 
 <p>Any node with children gets a small <strong>&minus;</strong> button on its

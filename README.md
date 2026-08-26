@@ -154,6 +154,14 @@ self-contained SVG; and the id must be in the page's HTML, since a block added l
 another script is not there when the map is drawn (call `MindMap.renderAll()` afterwards
 in that case).
 
+What the copy is, is a copy. Anything wired up with `addEventListener` stays behind on
+the original, so a button whose handler was attached that way does nothing in the node —
+a listener on a container the block sits inside still fires, since the click bubbles out
+of the map. Dropping the `id`s costs whatever depended on them: a `<label for>`, an
+`aria-labelledby`, a link to `#somewhere` inside the block, a rule written as `#id .thing`.
+Blocks meant to be read — a table, a card, a worked example — copy cleanly; a working
+widget is worth checking in the node.
+
 ## Choosing the shape
 
 Balanced is compact and reads as a figure; one-sided reads top-to-bottom like an indented
