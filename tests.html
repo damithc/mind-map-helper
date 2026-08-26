@@ -550,6 +550,22 @@ Refresh
 })();
 </script>
 
+<h2>51. Link back to the project site</h2>
+<p class="want">Expect: a hairline rule under the map, with a small "Made with Mind Maps Helper" chip sitting astride it near the right. Neither appears in the browser's print preview.</p>
+<div class="case" id="credit"><pre class="mindmap">
+Credited
+  Alpha
+  Beta
+</pre></div>
+
+<h2>52. data-credit="false"</h2>
+<p class="want">Expect: the same map with no rule and no chip under it.</p>
+<div class="case" id="nocredit"><pre class="mindmap" data-credit="false">
+Uncredited
+  Alpha
+  Beta
+</pre></div>
+
 <script>document.write('<script src="mindmap.js?v='+Date.now()+'"><\/script>');</script>
 <script>
 // Minimal assertions over the rendered DOM.
@@ -1208,7 +1224,9 @@ window.addEventListener('load', function () {
       check(70, 'nothing in the literal map got styled',
         lit.querySelectorAll('text[font-style="italic"]').length === 0 &&
         lit.querySelectorAll('.mm-code-chip').length === 0 &&
-        lit.querySelectorAll('a').length === 0);
+        // :not() past the credit chip — it is chrome the container carries,
+        // not a link the source asked for.
+        lit.querySelectorAll('a:not(.mm-credit-link)').length === 0);
 
       var imgs = document.getElementById('images').querySelectorAll('.mm-image');
       check(71, 'both images render at the sizes asked for',
@@ -1217,7 +1235,8 @@ window.addEventListener('load', function () {
         imgs[1].getAttribute('width') === '24');
 
       check(72, 'javascript: URL is refused',
-        document.getElementById('unsafe').querySelectorAll('a').length === 0 &&
+        document.getElementById('unsafe')
+          .querySelectorAll('a:not(.mm-credit-link)').length === 0 &&
         document.getElementById('unsafe').textContent.indexOf('[click]') > -1);
 
       var raw = document.getElementById('nomarkup');
@@ -1265,6 +1284,65 @@ window.addEventListener('load', function () {
           parseFloat(box.getAttribute('height')) >= h);
         done();
       }, 1200);
+    })();
+
+    // --- credit chip ---
+    (function () {
+      var link = document.querySelector('#credit .mm-credit-link');
+      check(113, 'a map carries one link back to the project site',
+        !!link && document.querySelectorAll('#credit .mm-credit-link').length === 1 &&
+        link.getAttribute('href') === 'https://se-education.org/mind-maps-helper/' &&
+        link.textContent.indexOf('Mind Maps Helper') > -1);
+      // Opening in the same tab would take the reader off whatever page the
+      // map was sitting on, which is more than a credit line is entitled to do.
+      check(114, 'the link opens away from the page it sits on, safely',
+        !!link && link.target === '_blank' && /noopener/.test(link.rel));
+      check(115, 'data-credit="false" leaves nothing behind',
+        !document.querySelector('#nocredit .mm-credit'));
+      // The chip is appended inside render()'s try, so a map that never drew
+      // does not sign its name to the error box.
+      check(116, 'a map that failed to draw is not credited',
+        !!document.querySelector('#toodeep .mm-error') &&
+        !document.querySelector('#toodeep .mm-credit') &&
+        // Three maps in the isolation case, one of which never drew.
+        document.querySelectorAll('#isolation .mm-credit').length === 2);
+      // Nothing to do with interaction: a static map is still worth tracing
+      // back to whatever drew it.
+      check(117, 'a static map is credited too',
+        !!document.querySelector('#static .mm-credit-link'));
+
+      // The chip is meant to sit astride the rule, not below it, so check the
+      // geometry rather than the declarations: the rule is drawn at the bar's
+      // half-height and the chip is centred in the same bar.
+      var bar = document.querySelector('#credit .mm-credit');
+      var rule = getComputedStyle(bar, '::before');
+      var barBox = bar.getBoundingClientRect();
+      var chipBox = link.getBoundingClientRect();
+      check(118, 'the chip straddles the rule closing off the map',
+        parseFloat(rule.borderTopWidth) > 0 &&
+        Math.abs((chipBox.top + chipBox.height / 2) -
+                 (barBox.top + barBox.height / 2)) < 1);
+
+      // Print media cannot be emulated from a page, so this reads the rule out
+      // of the sheet rather than measuring it. What that still catches is the
+      // failure that matters: the rule dropped, or aimed at the wrong
+      // selector and so hiding the chip nowhere.
+      (function () {
+        var sheet = document.getElementById('mind-maps-helper-styles').sheet;
+        var hidden = false;
+        for (var i = 0; i < sheet.cssRules.length; i++) {
+          var group = sheet.cssRules[i];
+          if (!group.media || group.media.mediaText.indexOf('print') === -1) continue;
+          for (var j = 0; j < group.cssRules.length; j++) {
+            if (group.cssRules[j].selectorText === '.mm-credit' &&
+                group.cssRules[j].style.display === 'none') hidden = true;
+          }
+        }
+        // ...and that the selector it names is one a drawn map really carries,
+        // which a sheet-level check on its own would not catch.
+        check(119, 'the chip and its rule are dropped when the page prints',
+          hidden && document.querySelectorAll('#credit .mm-credit').length === 1);
+      })();
     })();
 
     // --- embedded page HTML ---

@@ -192,6 +192,18 @@ Moves last for the visit only; a reload restores the computed layout.
 `MindMap.resetPositions(el)` does the same on demand, and `data-draggable="false"` keeps
 folding while stopping moves.
 
+## Credit link
+
+A hairline rule closes off the bottom of every map, with a small chip sitting astride it
+near the right, reading *Made with Mind Maps Helper* and linking back to this site. A
+reader who runs into a mind map on somebody's course page has no other way of finding out
+what drew it.
+
+The rule and the chip are chrome rather than part of the drawing, so a wide map scrolls
+underneath them rather than carrying them off the screen, and the link opens in a new tab
+rather than taking a reader off the page they were reading. Neither prints, since a link
+nobody can click is dead ink. `data-credit="false"` drops both from the screen as well.
+
 ## Options
 
 Set these as attributes on the container.
@@ -208,6 +220,7 @@ Set these as attributes on the container.
 | `data-draggable` | `true` | `false` keeps folding but stops readers moving nodes. |
 | `data-interactive` | `true` | `false` for a plain static diagram — no folding, no dragging. |
 | `data-theme` | follows the page | `light` or `dark`, to pin one map regardless of the site's theme. |
+| `data-credit` | `true` | `false` drops the rule and the small link back to this project from under the map. |
 
 ## Containers recognised
 

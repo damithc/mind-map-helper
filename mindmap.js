@@ -10,6 +10,9 @@
 
   var VERSION = '1.7.0';
 
+  // Where the credit chip under a map points.
+  var HOME = 'https://se-education.org/mind-maps-helper/';
+
   // ---------------------------------------------------------------- constants
 
   var FONT_STACK = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, ' +
@@ -2029,6 +2032,49 @@
     return wrap;
   }
 
+  /**
+   * One small link home, sitting astride a hairline rule that closes off the
+   * bottom of the map. A reader who meets a map on a course page has no other
+   * way of finding out what drew it; the author who would rather not carry it
+   * says data-credit="false".
+   *
+   * Muted, but not dimmed at rest the way the shape switch above the map is.
+   * That one fades back because it is a control, and a page of maps must not
+   * read as a page of buttons. This is a caption, and a caption nobody sees
+   * until they hover has not done its job.
+   */
+  function buildCredit() {
+    var bar = document.createElement('div');
+    bar.className = 'mm-credit';
+
+    var link = document.createElement('a');
+    link.className = 'mm-credit-link';
+    link.href = HOME;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    link.title = 'Mind Maps Helper \u2014 mind maps for your web page, from indented text';
+
+    var text = document.createElement('span');
+    text.textContent = 'Made with Mind Maps Helper';
+    link.appendChild(text);
+
+    // Drawn rather than typed: the arrow glyphs land on a fallback font often
+    // enough to sit at the wrong size next to 10.5px text.
+    var icon = document.createElementNS(SVG_NS, 'svg');
+    icon.setAttribute('class', 'mm-credit-icon');
+    icon.setAttribute('viewBox', '0 0 10 10');
+    icon.setAttribute('aria-hidden', 'true');
+    icon.appendChild(svgEl('path', {
+      d: 'M2.6 7.4 7.4 2.6M4.2 2.6h3.2v3.2',
+      fill: 'none', 'stroke-width': 1.3,
+      'stroke-linecap': 'round', 'stroke-linejoin': 'round'
+    }));
+    link.appendChild(icon);
+
+    bar.appendChild(link);
+    return bar;
+  }
+
   function buildError(err, source) {
     var box = document.createElement('div');
     box.className = 'mm-error';
@@ -2158,6 +2204,43 @@
     // its fill alone — which has to be enough on its own.
     '.mm-ctl-on{background:rgba(127,127,127,.24);',
     'background:color-mix(in srgb, var(--mm-muted) 24%, transparent);}',
+
+    // --- credit ---
+    // Right-aligned under the map, so it balances the shape switch above it
+    // and reads as chrome rather than as part of the drawing. The container
+    // is in the selector so a host page's own `a` rules — which routinely
+    // reach a link through a content wrapper — cannot recolour or underline
+    // it out of shape.
+    '.mm-credit{position:relative;display:flex;align-items:center;',
+    'justify-content:flex-end;margin:6px 0 0;padding-right:14px;}',
+    // The rule the chip straddles. A map has no frame of its own, so without
+    // one the chip is just a second control hanging below the drawing; astride
+    // a bottom edge it reads as the edge's label, the way a caption does.
+    // Absolutely positioned, so the bar's height stays the chip's own and
+    // nothing below it is overlapped when a narrow column wraps the label.
+    '.mm-credit::before{content:"";position:absolute;left:0;right:0;top:50%;',
+    'border-top:1px solid rgba(127,127,127,.35);',
+    'border-top-color:color-mix(in srgb, var(--mm-muted) 35%, transparent);}',
+    // Positioned, or the rule above would paint over the chip's own fill
+    // instead of stopping at it.
+    '.mm-container .mm-credit-link{position:relative;',
+    'display:inline-flex;align-items:center;gap:4px;',
+    'font:inherit;font-size:10.5px;font-weight:600;line-height:1;',
+    'color:var(--mm-muted);text-decoration:none;',
+    'padding:4px 8px;border-radius:5px;background:var(--mm-surface);',
+    'border:1px solid rgba(127,127,127,.4);',
+    'border-color:color-mix(in srgb, var(--mm-muted) 40%, transparent);}',
+    '.mm-container:hover .mm-credit-link{border-color:var(--mm-muted);}',
+    '.mm-container .mm-credit-link:hover{color:var(--mm-text);',
+    'background:rgba(127,127,127,.1);',
+    'background:color-mix(in srgb, var(--mm-muted) 10%, transparent);}',
+    '.mm-credit-link:focus-visible{outline:2px solid var(--mm-root-bg);outline-offset:2px;}',
+    '.mm-credit-icon{width:9px;height:9px;flex:none;stroke:currentColor;fill:none;}',
+    // On paper the link is dead ink, and a rule drawn only to carry it is
+    // decoration around nothing. The map itself prints as it always has.
+    // Emitted after the rules above so it wins inside a print context.
+    '@media print{.mm-credit{display:none;}}',
+
     // --- drag ---
     // pan-y, not none: on a phone a map can fill the screen, and a finger
     // landing on a node still has to be able to scroll the page past it. The
@@ -2381,6 +2464,10 @@
     var theme = attr('data-theme');
     if (theme === 'light' || theme === 'dark') opts.theme = theme;
 
+    // Independent of data-interactive: a static map is still a map somebody
+    // may want to trace back to its source.
+    opts.credit = attr('data-credit') !== 'false';
+
     opts.interactive = attr('data-interactive') !== 'false';
     opts.draggable = opts.interactive && attr('data-draggable') !== 'false';
     opts.controls = opts.interactive && attr('data-controls') !== 'false';
@@ -2465,6 +2552,11 @@
         container.insertBefore(state.controls, scroller);
         syncControls(state);
       }
+
+      // Last, so a screen reader reaches the map's own outline first; and
+      // inside the try, so a map that failed to draw does not sign its name
+      // to the error box.
+      if (opts.credit) container.appendChild(buildCredit());
 
       container.mindMap = state;
     } catch (err) {

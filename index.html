@@ -139,7 +139,7 @@ Software Engineering
 <p>That produces this:</p>
 
 <div class="demo">
-<pre class="mindmap">
+<pre class="mindmap" data-credit="false">
 Software Engineering
   Requirements
     Elicitation
@@ -212,7 +212,7 @@ Course Admin
 &lt;/pre&gt;</code></pre>
 
 <div class="demo">
-<pre class="mindmap" data-max-node-width="110">
+<pre class="mindmap" data-credit="false" data-max-node-width="110">
 Course Admin
   Weekly deadlines are strictly enforced
   Late submissions lose 10% per day
@@ -233,7 +233,7 @@ block-level. Everything else is shown exactly as typed.</p>
   [Lecture 3](week3.html)
   Week 1\nWeek 2</code></pre>
 <div class="demo">
-<pre class="mindmap" data-direction="right">
+<pre class="mindmap" data-credit="false" data-direction="right">
 Software Engineering
   **Requirements** first
   Run `git rebase` with care
@@ -309,7 +309,7 @@ that is the whole of its node:</p>
   Reading
     Chapter 4</code></pre>
 <div class="demo">
-<pre class="mindmap" data-direction="right">
+<pre class="mindmap" data-credit="false" data-direction="right">
 Week 5
   ![](img/icon-notes.svg =18x18) Lecture notes
   Architecture
@@ -388,7 +388,7 @@ at it and it appears in both places.</p>
     <p>Coupling is not the same as <em>dependency</em>.</p>
   </div>
 </template>
-<pre class="mindmap" data-direction="right">
+<pre class="mindmap" data-credit="false" data-direction="right">
 Week 5
   Assessment
     ![Marks](#marks-box)
@@ -450,7 +450,7 @@ a <strong>+</strong> behind; clicking again brings it back. Try it on the map
 above, or this one:</p>
 
 <div class="demo">
-<pre class="mindmap">
+<pre class="mindmap" data-credit="false">
 Testing
   Unit Testing
     Test Drivers
@@ -490,7 +490,7 @@ Testing
     Top-down
 &lt;/pre&gt;</code></pre>
 <div class="demo">
-<pre class="mindmap" data-collapse-level="1">
+<pre class="mindmap" data-credit="false" data-collapse-level="1">
 Testing
   Unit Testing
     Stubs
@@ -515,7 +515,7 @@ The two shapes share one outline, because they are alternatives rather than two
 separate settings: picking one drops the other.</p>
 
 <div class="demo">
-<pre class="mindmap">
+<pre class="mindmap" data-credit="false">
 Requirements
   Gathering
     Interviews
@@ -561,6 +561,38 @@ along, and the connecting curves follow. Drag the map above and see.</p>
 layout back. To add your own reset button, call
 <code>MindMap.resetPositions(el)</code>. To turn dragging off but keep folding,
 set <code>data-draggable="false"</code>.</p>
+
+<h2>Credit link</h2>
+
+<p>A hairline rule closes off the bottom of every map, with a small chip
+sitting astride it near the right, reading <em>Made with Mind Maps Helper</em>
+and linking back to this page. A reader who runs into a mind map in somebody's
+lecture notes has no other way of finding out what drew it.</p>
+
+<div class="split">
+<pre><code>&lt;pre class="mindmap"&gt;
+Testing
+  Unit
+  Integration
+  System
+&lt;/pre&gt;</code></pre>
+<div class="demo">
+<pre class="mindmap">
+Testing
+  Unit
+  Integration
+  System
+</pre>
+</div>
+</div>
+
+<p>The rule and the chip are chrome rather than part of the drawing, so a wide
+map scrolls underneath them rather than carrying them off the screen, and the
+link opens in a new tab rather than taking your reader off your page. Neither
+prints: on paper the link is dead ink, so the map goes to the printer on its
+own. To drop both from the screen as well, set
+<code>data-credit="false"</code> — which is what every other demo on this page
+does, since a link from this site back to this site helps nobody.</p>
 
 <h2>Options</h2>
 
@@ -627,6 +659,12 @@ set <code>data-draggable="false"</code>.</p>
     <td><code>light</code> or <code>dark</code>, to pin this one map regardless
         of the site's theme.</td>
   </tr>
+  <tr>
+    <td><code>data-credit</code></td>
+    <td><code>true</code></td>
+    <td>Set to <code>false</code> to drop the rule and the small link back to
+        this project from under the map.</td>
+  </tr>
 </table>
 </div>
 
@@ -646,7 +684,7 @@ Git
     pull
 &lt;/pre&gt;</code></pre>
 <div class="demo">
-<pre class="mindmap" data-direction="right">
+<pre class="mindmap" data-credit="false" data-direction="right">
 Git
   Local
     commit
@@ -757,7 +795,7 @@ entry is a <code>[light, dark]</code> pair.</p>
 <h2>A bigger example</h2>
 
 <div class="demo">
-<pre class="mindmap">
+<pre class="mindmap" data-credit="false">
 CS2103 Software Engineering
   Requirements
     Stakeholders
