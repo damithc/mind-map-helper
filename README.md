@@ -175,7 +175,9 @@ curves follow; the rest of the map stays put. The centre node is the exception â
 on its own, since taking its branches along would just slide the whole map. Drag past the
 edge and the canvas grows to fit on release. A click is still a click â€” only a real drag
 moves a node, so folding keeps working. With a keyboard, focus any node with children (or
-the centre) and use the arrow keys (<kbd>Shift</kbd> for fine steps).
+the centre) and use the arrow keys (<kbd>Shift</kbd> for fine steps). On a touch screen a
+straight-up-or-down swipe scrolls the page as usual, even starting on a node; anything
+else drags.
 
 Moves last for the visit only; a reload restores the computed layout.
 `MindMap.resetPositions(el)` does the same on demand, and `data-draggable="false"` keeps

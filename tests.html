@@ -892,6 +892,9 @@ window.addEventListener('load', function () {
         }));
       }
 
+      check(110, 'a draggable node leaves vertical page scrolling alone',
+        getComputedStyle(host.querySelector('.mm-draggable')).touchAction === 'pan-y');
+
       check(40, 'every node including the root is draggable',
         host.querySelectorAll('.mm-draggable').length === 6 &&
         !!host.querySelector('.mm-root.mm-draggable'));

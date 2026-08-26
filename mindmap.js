@@ -2145,7 +2145,11 @@
     '.mm-ctl-on{color:var(--mm-text);',
     'background:color-mix(in srgb, var(--mm-muted) 15%, transparent);}',
     // --- drag ---
-    '.mm-draggable{cursor:grab;touch-action:none;}',
+    // pan-y, not none: on a phone a map can fill the screen, and a finger
+    // landing on a node still has to be able to scroll the page past it. The
+    // browser keeps vertical swipes and hands us everything else, which is
+    // enough to drag by.
+    '.mm-draggable{cursor:grab;touch-action:pan-y;}',
     '.mm-dragging{cursor:grabbing;}',
     '.mm-dragging .mm-box{filter:brightness(.94);}',
     '.mm-svg{overflow:visible;}',
