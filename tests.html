@@ -485,7 +485,17 @@ Broken
   ![](#no-such-element)
 </pre></div>
 
-<h2>46. Refresh picks up an edited source</h2>
+<h2>46. Palette override</h2>
+<p class="want">Expect: the first map is red/green; the second keeps the built-in accents.</p>
+<div class="case" id="palette">
+  <pre id="pal-custom">Custom palette
+  One
+  Two</pre>
+  <pre id="pal-bad">Unusable palette
+  One</pre>
+</div>
+
+<h2>47. Refresh picks up an edited source</h2>
 <p class="want">Expect: after the check runs, this node reads "After ..." rather than "Before".</p>
 <template id="src-editable"><div class="probe">Before</div></template>
 <div class="case" id="embedrefresh"><pre class="mindmap">
@@ -494,11 +504,11 @@ Refresh
     Child
 </pre></div>
 
-<h2>47. ERROR: nested past the depth limit</h2>
+<h2>48. ERROR: nested past the depth limit</h2>
 <p class="want">Expect: an error naming the depth and the line, not a stalled page.</p>
 <div class="case" id="toodeep"><pre class="mindmap"></pre></div>
 
-<h2>48. One failing map does not stop the maps after it</h2>
+<h2>49. One failing map does not stop the maps after it</h2>
 <p class="want">Expect: the first and last draw; the middle one shows an error box.</p>
 <div class="case" id="isolation">
   <pre class="mindmap">Before the failure</pre>
@@ -665,6 +675,24 @@ window.addEventListener('load', function () {
         !!deep.querySelector('.mm-error') &&
         deep.textContent.indexOf('100 deep') > -1 &&
         deep.textContent.indexOf('Line ') > -1);
+
+      // Rendered here rather than on load, so the rest of the gallery keeps
+      // the built-in accents to look at.
+      var saved = MindMap.palette;
+      MindMap.palette = [['#ff0000', '#00ff00']];
+      var custom = MindMap.render(document.getElementById('pal-custom'));
+      MindMap.palette = ['not a pair'];
+      var fallback = MindMap.render(document.getElementById('pal-bad'));
+      MindMap.palette = saved;
+
+      var painted = custom.querySelector('.mm-node:not(.mm-root)');
+      check(105, 'an assigned palette reaches the branches',
+        painted.style.getPropertyValue('--mm-a') === '#ff0000' &&
+        painted.style.getPropertyValue('--mm-a-dark') === '#00ff00' &&
+        custom.querySelector('.mm-edge').style.getPropertyValue('--mm-a') === '#ff0000');
+      check(106, 'an unusable palette falls back to the built-in one',
+        fallback.querySelector('.mm-node:not(.mm-root)')
+          .style.getPropertyValue('--mm-a') === '#3b6ea5');
 
       var refreshHost = document.getElementById('embedrefresh');
       function embedText() {

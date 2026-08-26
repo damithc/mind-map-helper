@@ -28,6 +28,28 @@
     ['#56657a', '#9fb0c4']
   ];
 
+  function isArray(v) {
+    return Object.prototype.toString.call(v) === '[object Array]';
+  }
+
+  /**
+   * The palette in force. Read through here rather than closed over, because
+   * the documented way to change the accents is to assign a new array to
+   * `MindMap.palette`, and an assignment cannot reach a captured variable.
+   * Anything that is not a usable palette falls back to the built-in one, the
+   * same way an unusable data-* value falls back to its default.
+   */
+  function palette() {
+    var custom = global.MindMap && global.MindMap.palette;
+    if (!isArray(custom) || !custom.length) return PALETTE;
+    for (var i = 0; i < custom.length; i++) {
+      var pair = custom[i];
+      if (!isArray(pair) || pair.length < 2 ||
+          typeof pair[0] !== 'string' || typeof pair[1] !== 'string') return PALETTE;
+    }
+    return custom;
+  }
+
   var TOGGLE_R = 7.5;
 
   // Every stage of a render walks the tree recursively, so nesting depth is
@@ -839,7 +861,7 @@
 
     // Branch accents follow the author's original order, not the split.
     for (var b = 0; b < branches.length; b++) {
-      var idx = b % PALETTE.length;
+      var idx = b % palette().length;
       eachNode(branches[b], function (n) { n.accentIndex = idx; });
     }
 
@@ -957,6 +979,12 @@
 
   function round(n) { return Math.round(n * 100) / 100; }
 
+  /** Wraps, so a palette shorter than the one in force at layout still fits. */
+  function accentPair(index) {
+    var list = palette();
+    return list[index % list.length];
+  }
+
   /**
    * Builds one <g> per node, positioned by transform so a collapse can animate
    * it without rebuilding the DOM. Every node is created up front, including
@@ -969,7 +997,7 @@
     });
 
     if (!isRoot) {
-      var pair = PALETTE[node.accentIndex % PALETTE.length];
+      var pair = accentPair(node.accentIndex);
       g.style.setProperty('--mm-a', pair[0]);
       g.style.setProperty('--mm-a-dark', pair[1]);
     }
@@ -1234,7 +1262,7 @@
   function drawEdges(node, group) {
     for (var i = 0; i < node.children.length; i++) {
       var child = node.children[i];
-      var pair = PALETTE[child.accentIndex % PALETTE.length];
+      var pair = accentPair(child.accentIndex);
       var path = svgEl('path', {
         'class': 'mm-edge',
         'stroke-width': strokeWidth(child.depth)
