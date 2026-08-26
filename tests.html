@@ -888,7 +888,8 @@ window.addEventListener('load', function () {
 
       var req = nodeNamed('Requirements');
       var kid = nodeNamed('Stakeholders');
-      var reqBefore = pos(req), kidBefore = pos(kid);
+      var sibling = nodeNamed('Design');
+      var reqBefore = pos(req), kidBefore = pos(kid), siblingBefore = pos(sibling);
       var r = req.getBoundingClientRect();
 
       pointer(req, 'pointerdown', r.left + 5, r.top + 5);
@@ -902,9 +903,10 @@ window.addEventListener('load', function () {
         Math.abs((kidAfter.x - kidBefore.x) - (reqAfter.x - reqBefore.x)) < 0.6 &&
         Math.abs((kidAfter.y - kidBefore.y) - (reqAfter.y - reqBefore.y)) < 0.6);
 
-      var sibling = nodeNamed('Design');
+      var siblingAfter = pos(sibling);
       check(43, 'an unrelated branch stayed put',
-        Math.abs(pos(sibling).x - pos(sibling).x) < 0.001 &&
+        Math.abs(siblingAfter.x - siblingBefore.x) < 0.001 &&
+        Math.abs(siblingAfter.y - siblingBefore.y) < 0.001 &&
         !sibling.classList.contains('mm-dragging'));
 
       // A drag must not fire the collapse toggle.
