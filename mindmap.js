@@ -385,15 +385,34 @@
   // Room an embedded block gets to lay itself out before it is left to overflow.
   var EMBED_MAX_H = 400;
 
+  // Elements that run code or bring a document of their own with them. The
+  // reasoning is the same one that drops <script>: inside a <template> none of
+  // these has ever been live, so the copy is where they would start — and an
+  // <iframe srcdoc> or a <base href> starting late is a surprise the author
+  // did not ask for by writing a node label. <base>, <meta> and <link> also
+  // reach past the node and retarget or restyle the whole page. Matched
+  // case-insensitively because an SVG <script> reports a lower-case tagName
+  // and runs just as happily as an HTML one.
+  var ACTIVE_TAGS =
+    /^(script|iframe|frame|frameset|object|embed|applet|portal|base|meta|link)$/i;
+
+  // Attributes a `javascript:` URL can hide in. Checked by name rather than by
+  // scanning every attribute, so a title reading "javascript: the language"
+  // survives as typed.
+  var URL_ATTRS =
+    /^(xlink:)?(href|src|srcdoc|srcset|action|formaction|data|poster|ping|background)$/i;
+
+  // Leading control characters and whitespace are ignored by URL parsers, so
+  // `java\tscript:` is still a javascript: URL and has to be seen as one.
+  var UNSAFE_URL = /^[\u0000-\u0020]*(javascript|vbscript)[\u0000-\u0020]*:/i;
+
   /** Strips anything that would misbehave once copied into the page a second time. */
   function cleanEmbed(wrap) {
     var all = wrap.querySelectorAll('*');
     for (var i = all.length - 1; i >= 0; i--) {
       var el = all[i];
 
-      // A <script> inside a <template> has never run, so its copy would run on
-      // insertion. Nothing in a mind map node needs one.
-      if (el.tagName === 'SCRIPT') {
+      if (ACTIVE_TAGS.test(el.tagName)) {
         if (el.parentNode) el.parentNode.removeChild(el);
         continue;
       }
@@ -403,7 +422,11 @@
 
       var attrs = el.attributes;
       for (var j = attrs.length - 1; j >= 0; j--) {
-        if (/^on/i.test(attrs[j].name)) el.removeAttribute(attrs[j].name);
+        var name = attrs[j].name;
+        if (/^on/i.test(name)) { el.removeAttribute(name); continue; }
+        if (URL_ATTRS.test(name) && UNSAFE_URL.test(attrs[j].value)) {
+          el.removeAttribute(name);
+        }
       }
     }
   }

@@ -451,7 +451,26 @@ Embeds
   Plain node
 </pre></div>
 
-<h2>43. Embed sizing</h2>
+<h2>43. Embedded HTML that would start running</h2>
+<p class="want">Expect: only the safe parts arrive — no frame, no base, no javascript: link.</p>
+
+<template id="src-active">
+  <div class="probe">
+    <iframe srcdoc="&lt;script&gt;parent.__ranEmbeddedFrame = true;&lt;/script&gt;"></iframe>
+    <base href="https://example.com/broken-every-relative-link/">
+    <svg width="4" height="4"><script>window.__ranEmbeddedSvgScript = true;</script></svg>
+    <a href="javascript:window.__ranEmbeddedUrl = true">jump</a>
+    <a href="#somewhere" title="javascript: the language">stay</a>
+    <b>Safe</b>
+  </div>
+</template>
+
+<div class="case" id="embedactive"><pre class="mindmap">
+Active
+  ![](#src-active)
+</pre></div>
+
+<h2>44. Embed sizing</h2>
 <p class="want">Expect: the first is 90px wide as asked; the second is capped at 120.</p>
 <div class="case" id="embedsize"><pre class="mindmap" data-embed-max-width="120">
 Sizes
@@ -459,7 +478,7 @@ Sizes
   ![](#src-hidden)
 </pre></div>
 
-<h2>44. Embed with a missing id</h2>
+<h2>45. Embed with a missing id</h2>
 <p class="want">Expect: an error naming the id, not a blank space.</p>
 <div class="case" id="embedmissing"><pre class="mindmap">
 Broken
@@ -1092,6 +1111,21 @@ window.addEventListener('load', function () {
       check(84, 'ids are stripped, so the page keeps one of each',
         document.querySelectorAll('#inner-id').length === 0 &&
         !host.querySelector('.mm-embed [id]'));
+
+      // The same reasoning that drops a <script> drops everything else that has
+      // never been live inside a <template> and would start on insertion.
+      var active = document.getElementById('embedactive');
+      check(97, 'nothing that would start running survives the copy',
+        !active.querySelector('.mm-embed iframe,.mm-embed base,.mm-embed script') &&
+        window.__ranEmbeddedFrame === undefined &&
+        window.__ranEmbeddedSvgScript === undefined &&
+        !!active.querySelector('.mm-embed b'));
+      check(98, 'javascript: URLs go, ordinary attributes stay',
+        !active.querySelector('.mm-embed a[href^="javascript"]') &&
+        window.__ranEmbeddedUrl === undefined &&
+        !!active.querySelector('.mm-embed a[href="#somewhere"]') &&
+        active.querySelector('.mm-embed a[title]').getAttribute('title')
+          .indexOf('javascript:') === 0);
 
       var tableNode = host.querySelector('.mm-embed table').closest('.mm-node');
       var box = tableNode.querySelector('.mm-box');

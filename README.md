@@ -141,9 +141,12 @@ Blocks lay out within 260px unless told otherwise: `data-embed-max-width` sets t
 map, `![](#id =240x160)` fixes one block exactly.
 
 Inside such a node, clicking the block no longer folds the branch — the **&minus;** button
-does that — because the block is there to be read and used. Links and buttons in it work
-normally, and the node can still be dragged by any other part of it. Scripts and `id`s are
-dropped from the copy, so nothing runs twice and no id ends up duplicated.
+does that — because the block is there to be read and used. Links in it work normally, and
+the node can still be dragged by any other part of it. `id`s are dropped from the copy, so
+no id ends up duplicated, and so is anything that would start running when the copy is
+inserted: `<script>`, `<iframe>`, `<object>`, `<embed>`, `<base>`, `<meta>`, `<link>`,
+`on*` handlers and `javascript:` URLs. Inside a `<template>` none of those has ever been
+live, so the copy is where they would start.
 
 Two caveats: an embedded block leans on the page's stylesheet, so the map is no longer a
 self-contained SVG; and the id must be in the page's HTML, since a block added later by
@@ -255,7 +258,7 @@ Only needed for maps added after page load.
 
 There is no build step — `mindmap.js` is the shipped file.
 
-Open `tests.html` in a browser. It runs 96 checks over the rendered DOM and prints a
+Open `tests.html` in a browser. It runs 98 checks over the rendered DOM and prints a
 pass/fail summary at the top of the page.
 
 ## Versioning
