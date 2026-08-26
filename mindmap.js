@@ -1996,6 +1996,11 @@
           var a = document.createElement('a');
           a.href = run.href;
           a.textContent = text;
+          // The outline is a one-pixel clipped copy, so a tab stop in here is
+          // a focus ring nobody can see landing on a link nobody can read.
+          // The same link in the drawing is focusable and visible; a screen
+          // reader still reaches this one through the outline itself.
+          a.setAttribute('tabindex', '-1');
           el.appendChild(a);
         } else {
           el.appendChild(document.createTextNode(text));

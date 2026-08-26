@@ -687,6 +687,16 @@ window.addEventListener('load', function () {
     check(19, 'bare bullet -> error', !!errOf(18));
 
     (function () {
+      var hidden = document.querySelectorAll('.mm-a11y a');
+      var visible = document.querySelectorAll('.mm-svg a.mm-link');
+      check(109, 'the hidden outline costs no tab stops',
+        hidden.length > 0 && visible.length > 0 &&
+        Array.prototype.every.call(hidden, function (a) {
+          return a.getAttribute('tabindex') === '-1';
+        }));
+    })();
+
+    (function () {
       var deep = document.getElementById('toodeep');
       check(99, 'nesting past the depth limit is an error, not a crash',
         !!deep.querySelector('.mm-error') &&
