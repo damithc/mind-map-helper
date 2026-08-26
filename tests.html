@@ -396,6 +396,7 @@ Literal cases
   unclosed **bold
   escaped \*not italic\*
   [not a link]
+  \[+] not a fold marker
 </pre></div>
 
 <h2>38. Images</h2>
@@ -419,6 +420,8 @@ Safety
 Raw
   **not bold**
   `not code`
+  [-] Status
+  \[+] Escaped
 </pre></div>
 
 <h2>41. Unsized image resizes once it loads</h2>
@@ -566,6 +569,46 @@ Uncredited
   Beta
 </pre></div>
 
+<h2>53. Fold markers</h2>
+<p class="want">Expect: Requirements and Design open folded, each holding a "+"; Testing open; no marker visible in any label.</p>
+<div class="case" id="foldmark"><pre class="mindmap">
+Fold markers
+  [+] Requirements
+    Stakeholders
+    User Stories
+  - [+] Design
+    Architecture
+  Testing
+    Unit
+  [+] Notes
+</pre></div>
+
+<h2>54. [-] against data-collapse-level="1"</h2>
+<p class="want">Expect: Design open with both its children; Requirements folded by the level.</p>
+<div class="case" id="foldkeep"><pre class="mindmap" data-collapse-level="1">
+Overview
+  [-] Design
+    Architecture
+    Patterns
+  Requirements
+    Stakeholders
+</pre></div>
+
+<h2>55. ERROR: fold marker with no text</h2>
+<div class="case" id="foldempty"><pre class="mindmap">
+Root
+  [+]
+</pre></div>
+
+<h2>56. A marker needs its space, and can be escaped</h2>
+<p class="want">Expect: <code>[+]NoSpace</code> shown as typed with its child visible, and one node reading <code>[+] Escaped</code>.</p>
+<div class="case" id="foldliteral"><pre class="mindmap">
+Literal markers
+  [+]NoSpace
+    Child
+  \[+] Escaped
+</pre></div>
+
 <script>document.write('<script src="mindmap.js?v='+Date.now()+'"><\/script>');</script>
 <script>
 // Minimal assertions over the rendered DOM.
@@ -584,7 +627,7 @@ window.addEventListener('load', function () {
     var cases = document.querySelectorAll('.case');
     var out = [];
     var fails = 0;
-    var pending = 7;   // collapse, drag, shape, root-drag, markup, images, embeds
+    var pending = 8;   // collapse, drag, shape, root-drag, markup, images, embeds, folds
     function done() { if (--pending === 0) finish(); }
 
     function check(n, label, ok) {
@@ -1240,6 +1283,8 @@ window.addEventListener('load', function () {
         litText.indexOf('[not a link]') > -1);
       check(69, 'backslash escapes the marker',
         litText.indexOf('escaped *not italic*') > -1);
+      check(127, 'a backslash keeps a literal fold marker in the label',
+        litText.indexOf('[+] not a fold marker') > -1);
       check(70, 'nothing in the literal map got styled',
         lit.querySelectorAll('text[font-style="italic"]').length === 0 &&
         lit.querySelectorAll('.mm-code-chip').length === 0 &&
@@ -1350,6 +1395,76 @@ window.addEventListener('load', function () {
       check(120, 'the shape switch is dropped when the page prints',
         printHides('.mm-controls') &&
         document.querySelectorAll('#credit .mm-controls').length === 1);
+    })();
+
+    // --- fold markers ---
+    (function () {
+      function visibleIn(id) {
+        return Array.prototype.filter.call(
+          document.getElementById(id).querySelectorAll('.mm-node'),
+          function (g) { return g.style.display !== 'none'; }
+        ).map(function (g) { return g.querySelector('.mm-label').textContent; });
+      }
+      function nodeIn(id, name) {
+        return Array.prototype.filter.call(
+          document.getElementById(id).querySelectorAll('.mm-node'),
+          function (g) { return g.querySelector('.mm-label').textContent === name; })[0];
+      }
+
+      var open = visibleIn('foldmark');
+      check(121, 'a marked branch opens folded, an unmarked one open',
+        open.length === 6 &&
+        open.indexOf('Stakeholders') === -1 && open.indexOf('User Stories') === -1 &&
+        open.indexOf('Architecture') === -1 && open.indexOf('Unit') > -1);
+      // `- [+] Design` has to lose both the bullet and the marker.
+      check(122, 'the marker leaves the label, bullet or no bullet',
+        open.join('|').indexOf('[+]') === -1 &&
+        open.indexOf('Requirements') > -1 && open.indexOf('Design') > -1);
+
+      var notes = nodeIn('foldmark', 'Notes');
+      check(123, 'a marker on a node with nothing under it is simply dropped',
+        !!notes && !notes.querySelector('.mm-toggle') &&
+        !notes.classList.contains('mm-collapsed'));
+
+      var reqs = nodeIn('foldmark', 'Requirements');
+      check(124, 'a branch that opens folded says so to a screen reader',
+        !!reqs && reqs.classList.contains('mm-collapsed') &&
+        reqs.getAttribute('aria-expanded') === 'false');
+
+      var lvl = visibleIn('foldkeep');
+      check(125, '[-] keeps its branch open where the level would fold it',
+        lvl.length === 5 &&
+        lvl.indexOf('Architecture') > -1 && lvl.indexOf('Patterns') > -1 &&
+        lvl.indexOf('Stakeholders') === -1);
+
+      // A marker is structure, not markup: `data-markup="false"` governs bold,
+      // links and images, and leaves the parser's own syntax — bullets,
+      // comments, markers — alone. Which is why the escape has to work there.
+      var rawFold = visibleIn('nomarkup');
+      check(129, 'a marker is read whatever data-markup says',
+        rawFold.indexOf('Status') > -1 && rawFold.join('|').indexOf('[-]') === -1);
+      check(130, 'the escape works with markup off, backslash and all',
+        rawFold.indexOf('[+] Escaped') > -1);
+
+      var tight = visibleIn('foldliteral');
+      check(131, 'a marker without its space is just a label',
+        tight.indexOf('[+]NoSpace') > -1 && tight.indexOf('Child') > -1);
+      check(132, 'the escape survives the inline parser too',
+        tight.indexOf('[+] Escaped') > -1);
+
+      var bad = document.querySelector('#foldempty .mm-error');
+      check(126, 'a fold marker with no text after it names the line',
+        !!bad && bad.textContent.indexOf('Line 2') > -1 &&
+        bad.textContent.indexOf('fold marker') > -1);
+
+      // An author's fold is an opening state, not a lock.
+      reqs.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      setTimeout(function () {
+        check(128, 'the reader can open a branch the author folded',
+          visibleIn('foldmark').indexOf('Stakeholders') > -1 &&
+          reqs.getAttribute('aria-expanded') === 'true');
+        done();
+      }, 420);
     })();
 
     // --- embedded page HTML ---

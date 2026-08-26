@@ -193,6 +193,7 @@ Software Engineering
   <li>A leading <code>-</code>, <code>*</code> or <code>+</code> followed by a space is treated as a bullet and dropped.</li>
   <li>Blank lines are ignored, so you can use them to group things while writing.</li>
   <li>A line starting with <code>//</code> is a comment and is not drawn.</li>
+  <li><code>[+]</code> in front of the text makes that branch open folded, <code>[-]</code> open — see below.</li>
   <li>Node text understands a little inline Markdown — see below. No HTML.</li>
 </ul>
 
@@ -271,7 +272,9 @@ the rules are deliberately conservative:</p>
 </ul>
 
 <p>If a map still fights you, turn the whole thing off with
-<code>data-markup="false"</code> and every character is taken literally.</p>
+<code>data-markup="false"</code> and the label text is taken literally. What it
+turns off is the markup — indenting, bullets, comments and fold markers are how
+the list is built, and stay.</p>
 
 <h3>Links</h3>
 
@@ -501,6 +504,74 @@ Testing
 </div>
 </div>
 
+<h3>Folding one branch</h3>
+
+<p>To fold one branch rather than a whole level, put <code>[+]</code> in front of
+its text. It is the sign the fold badge itself shows, so what you write is the
+state the reader opens on.</p>
+
+<div class="split">
+<pre><code>Testing
+  Unit Testing
+    Stubs
+    JUnit
+  [+] Integration Testing
+    Top-down
+    Bottom-up
+  System Testing
+    Functional</code></pre>
+<div class="demo">
+<pre class="mindmap" data-credit="false">
+Testing
+  Unit Testing
+    Stubs
+    JUnit
+  [+] Integration Testing
+    Top-down
+    Bottom-up
+  System Testing
+    Functional
+</pre>
+</div>
+</div>
+
+<p><code>[-]</code> does the opposite: it holds a branch open where
+<code>data-collapse-level</code> would have folded it. That is how a map can open
+as an overview and still show the one branch the page is about.</p>
+
+<div class="split">
+<pre><code>&lt;pre class="mindmap"
+     data-collapse-level="1"&gt;
+Testing
+  [-] Unit Testing
+    Stubs
+    JUnit
+  Integration Testing
+    Top-down
+&lt;/pre&gt;</code></pre>
+<div class="demo">
+<pre class="mindmap" data-credit="false" data-collapse-level="1">
+Testing
+  [-] Unit Testing
+    Stubs
+    JUnit
+  Integration Testing
+    Top-down
+</pre>
+</div>
+</div>
+
+<p>A marker goes after any bullet — <code>- [+] Design</code> — and never reaches
+the label. It sets only the state the map <em>opens</em> in; the reader folds and
+unfolds as usual afterwards. A node with nothing under it has nothing to fold, so
+there the marker is simply dropped.</p>
+
+<p>Like a bullet, a marker needs a space after it, which leaves
+<code>[+](notes.html)</code> a link. Write <code>\[+]</code> for a label that
+really does begin with one. Markers are part of how the list is built rather than
+markup inside a label, so both the marker and its escape work whatever
+<code>data-markup</code> says.</p>
+
 <p>To turn interaction off entirely and get a plain static diagram, set
 <code>data-interactive="false"</code>.</p>
 
@@ -632,13 +703,15 @@ does, since a link from this site back to this site helps nobody.</p>
     <td><code>data-collapse-level</code></td>
     <td>off</td>
     <td>Show only this many levels at first. <code>1</code> shows the centre and
-        its branches; deeper nodes start folded.</td>
+        its branches; deeper nodes start folded. A node's own <code>[+]</code> or
+        <code>[-]</code> wins over it.</td>
   </tr>
   <tr>
     <td><code>data-markup</code></td>
     <td><code>true</code></td>
-    <td>Set to <code>false</code> to take every character literally, with no
-        bold, links or images.</td>
+    <td>Set to <code>false</code> to take the label text literally, with no
+        bold, links or images. Bullets, comments and fold markers are
+        structure, and stay.</td>
   </tr>
   <tr>
     <td><code>data-controls</code></td>

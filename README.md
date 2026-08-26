@@ -60,6 +60,7 @@ its child.
 - A leading `-`, `*` or `+` followed by a space is treated as a bullet and dropped.
 - Blank lines are ignored.
 - A line starting with `//` is a comment.
+- `[+]` in front of the text makes that branch open folded, `[-]` open.
 - Node text understands a little inline Markdown (below). No HTML.
 
 Bad input produces a short on-page message naming the problem and the line, rather than
@@ -74,8 +75,34 @@ Keyboard works too: <kbd>Tab</kbd> to a node, then <kbd>Enter</kbd> or <kbd>Spac
 The map animates as it re-flows, and honours `prefers-reduced-motion`.
 
 Big maps read better opening as an overview — `data-collapse-level="1"` shows the centre
-and its branches, with everything deeper one click away. `data-interactive="false"`
-turns it all off for a plain static diagram.
+and its branches, with everything deeper one click away.
+
+To fold one branch rather than a whole level, put `[+]` in front of its text. It is the
+sign the fold badge itself shows, so what you write is the state the reader opens on.
+
+```
+Testing
+  Unit Testing
+    Stubs
+  [+] Integration Testing
+    Top-down
+    Bottom-up
+```
+
+`[-]` does the opposite: it holds a branch open where `data-collapse-level` would have
+folded it, so a map can open as an overview and still show the one branch the page is
+about.
+
+A marker goes after any bullet — `- [+] Design` — and never reaches the label. It sets
+only the state the map *opens* in; the reader folds and unfolds as usual afterwards. A
+node with nothing under it has nothing to fold, so there the marker is simply dropped.
+
+Like a bullet, a marker needs a space after it, which leaves `[+](notes.html)` a link.
+Write `\[+]` for a label that really does begin with one. Markers are part of how the
+list is built rather than markup inside a label, so both the marker and its escape work
+whatever `data-markup` says.
+
+`data-interactive="false"` turns it all off for a plain static diagram.
 
 ## Formatting inside a node
 
@@ -215,8 +242,8 @@ Set these as attributes on the container.
 | `data-max-node-width` | `190` | Pixel width at which a label wraps to another line. |
 | `data-column-gap` | `46` | Horizontal space between levels. |
 | `data-embed-max-width` | `260` | Pixel width within which an embedded block of your own HTML lays itself out. |
-| `data-collapse-level` | off | Show only this many levels at first; deeper nodes start folded. |
-| `data-markup` | `true` | `false` takes every character literally — no bold, links or images. |
+| `data-collapse-level` | off | Show only this many levels at first; deeper nodes start folded. A node's own `[+]`/`[-]` wins over it. |
+| `data-markup` | `true` | `false` takes the label text literally — no bold, links or images. Bullets, comments and fold markers are structure, and stay. |
 | `data-controls` | `true` | `false` hides the shape switch and pins your chosen shape. |
 | `data-draggable` | `true` | `false` keeps folding but stops readers moving nodes. |
 | `data-interactive` | `true` | `false` for a plain static diagram — no folding, no dragging. |

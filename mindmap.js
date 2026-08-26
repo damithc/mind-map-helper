@@ -130,7 +130,30 @@
         throw new MindMapError('This line has a bullet but no text after it.', i + 1);
       }
       var label = body.replace(/^[-*+][ ]+/, '').trim();
-      lines.push({ indent: indent, label: label, lineNo: i + 1 });
+
+      // `[+]` / `[-]` in front of the text says how the node should start:
+      // folded away, or open. They are the signs the fold badge itself shows,
+      // so an author writes the state the reader will see. A marker is
+      // structure rather than markup, like the bullet above it, so it is read
+      // whatever `data-markup` says — and needs the same space after it that a
+      // bullet does, which keeps `[+](note.html)` a link.
+      //
+      // A label that really does begin with one escapes it as `\[+]`. The
+      // backslash comes off here rather than in the inline parser, because a
+      // map with markup turned off still has markers to escape.
+      var fold = null;
+      var mark = /^\[([-+])\]([ \t]|$)/.exec(label);
+      if (mark) {
+        fold = mark[1];
+        label = label.slice(3).trim();
+        if (!label) {
+          throw new MindMapError('This line has a fold marker but no text after it.', i + 1);
+        }
+      } else if (/^\\\[[-+]\]([ \t]|$)/.test(label)) {
+        label = label.slice(1);
+      }
+
+      lines.push({ indent: indent, label: label, fold: fold, lineNo: i + 1 });
     }
 
     if (!lines.length) {
@@ -149,7 +172,7 @@
 
     for (var k = 0; k < lines.length; k++) {
       var ln = lines[k];
-      var node = { label: ln.label, children: [], lineNo: ln.lineNo };
+      var node = { label: ln.label, children: [], fold: ln.fold, lineNo: ln.lineNo };
 
       while (stack.length && ln.indent <= stack[stack.length - 1].indent) stack.pop();
 
@@ -2518,11 +2541,15 @@
       var root = parse(source);
       measureTree(root, opts, hostRef);
 
-      if (opts.collapseLevel > 0) {
-        eachNode(root, function (n) {
-          if (n.depth >= opts.collapseLevel && n.children.length) n.collapsed = true;
-        });
-      }
+      // A node's own `[+]`/`[-]` beats the map-wide level in both directions,
+      // so an overview map can still open the one branch the page is about.
+      // The root is left alone: it has no toggle, and folding it would leave
+      // the reader a map of one box.
+      eachNode(root, function (n) {
+        if (!n.depth || !n.children.length) return;
+        if (n.fold) n.collapsed = n.fold === '+';
+        else if (opts.collapseLevel > 0 && n.depth >= opts.collapseLevel) n.collapsed = true;
+      });
 
       // The left/right split is fixed once, from the fully expanded tree, so
       // collapsing never shuffles branches across the root.
