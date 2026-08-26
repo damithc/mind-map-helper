@@ -422,11 +422,12 @@ Week 5
 </ul>
 
 <div class="note">
-  <p><strong>Two caveats.</strong> An embedded block leans on the page's
-  stylesheet, so — like an image referenced by URL — the map is no longer a
-  self-contained SVG. And the id has to exist in the page's HTML: a block that
-  some other script adds later is not there yet when the map is drawn. Call
-  <code>MindMap.renderAll()</code> yourself afterwards in that case.</p>
+  <p><strong>Two caveats.</strong> An embedded block leans on your own
+  stylesheet as well as the script's, so it is one more thing that does not
+  travel with an <code>&lt;svg&gt;</code> copied out of the page. And the id has
+  to exist in the page's HTML: a block that some other script adds later is not
+  there yet when the map is drawn. Call <code>MindMap.renderAll()</code>
+  yourself afterwards in that case.</p>
 </div>
 
 <div class="note">

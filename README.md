@@ -149,10 +149,10 @@ inserted: `<script>`, `<iframe>`, `<object>`, `<embed>`, `<base>`, `<meta>`, `<l
 `on*` handlers and `javascript:` URLs. Inside a `<template>` none of those has ever been
 live, so the copy is where they would start.
 
-Two caveats: an embedded block leans on the page's stylesheet, so the map is no longer a
-self-contained SVG; and the id must be in the page's HTML, since a block added later by
-another script is not there when the map is drawn (call `MindMap.renderAll()` afterwards
-in that case).
+Two caveats: an embedded block leans on your own stylesheet as well as the script's, so it
+is one more thing that does not travel with an `<svg>` copied out of the page; and the id
+must be in the page's HTML, since a block added later by another script is not there when
+the map is drawn (call `MindMap.renderAll()` afterwards in that case).
 
 What the copy is, is a copy. Anything wired up with `addEventListener` stays behind on
 the original, so a button whose handler was attached that way does nothing in the node —
