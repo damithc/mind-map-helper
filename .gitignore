@@ -1,5 +1,6 @@
 .DS_Store
 _site/
 _markbind/
+_temp
 node_modules/
 .claude/settings.local.json
