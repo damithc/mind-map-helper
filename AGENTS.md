@@ -29,6 +29,62 @@ error messages that say what to fix rather than what went wrong.
 
 The repo is `se-edu/mind-maps-helper`, and the local directory matches.
 
+## How a render works
+
+`render()` in *element glue* is the whole pipeline, and each stage hangs more fields on
+the same node objects rather than producing a new shape. Reading it top to bottom is the
+fastest way into the file.
+
+1. **Resolve the target.** `resolveTarget` walks up from the matched element to the
+   outermost wrapper that exists only to hold this code block — that whole wrapper is
+   what gets replaced. `resolveSource` finds the element whose text is the map, and
+   `readOptions` reads `data-*` off everything between the two, innermost winning.
+2. **Parse.** `parse` turns indented lines into a tree of
+   `{ label, children, parent, depth, lineNo, collapsed }`. It knows nothing about
+   inline markup yet; the label is still raw text here.
+3. **Measure.** `measureTree` parses each label into styled *runs*, resolves embedded
+   HTML, wraps the runs into lines, and arrives at `node.w` / `node.h`. Nothing can be
+   laid out before this, because every position downstream is derived from box sizes.
+4. **Split sides.** `assignSides` decides which top-level branches go left and which go
+   right, and gives each branch its accent.
+5. **Lay out.** `layout` assigns `node.x` (left edge) and `node.cy` (vertical centre) in
+   two passes: one computing each subtree's vertical extent, one placing each subtree
+   inside the band that extent earned it.
+6. **Draw and attach.** `buildSvg` builds the SVG, `paint` sets the viewBox, then
+   interaction, images, embeds and controls attach.
+
+The `state` object built at the end — `root`, `opts`, `sides`, `size`, `svg`,
+`direction`, `container` — is the handle for everything afterwards, and is parked on the
+container as `container.mindMap`. Folding and dragging take it as their first argument.
+
+Re-renders are partial, and which stages re-run is the thing to get right:
+
+- **Folding** (`relayout`) re-runs `markVisible` and `layout` only, then animates from
+  the old positions to the new ones. Sizes and sides are reused.
+- **The shape switch** (`setDirection`) re-runs `assignSides` first, then `relayout`.
+  It is the only thing that moves branches across the root, which is why a collapse
+  cannot reshuffle the map under the reader.
+- **Nothing re-measures** after the first pass except the embed and image callbacks,
+  which do it precisely because their content arrived late.
+
+### Node fields worth knowing
+
+| Field | Set by | Meaning |
+|---|---|---|
+| `children` | parser | Every child, folded away or not. |
+| `kids` | `refreshVisibility` | The *visible* children — `[]` when the node is collapsed. |
+| `w`, `h` | measurement | Box size. |
+| `x`, `cy` | layout | Where the node belongs once the map settles. |
+| `tx`, `tcy` | `relayout` | Where the current animation is taking it. |
+| `ax`, `acy` | animation | Where it is drawn *this frame*. |
+| `dx`, `dy` | dragging | One node's own manual offset. |
+| `edx`, `edy` | `accumulateOffsets` | `dx`/`dy` plus every ancestor's, so dragging a node carries its subtree. |
+| `vis` | `markVisible` | Whether some ancestor has folded it out of sight. |
+
+`children` versus `kids` is the pair that bites. The parser builds `children` and never
+touches it again; layout walks `kids` and so only ever sees the unfolded tree. Walk the
+wrong one and collapsed nodes either disappear from a count or get laid out invisibly.
+
 ## Code style in `mindmap.js`
 
 One IIFE, `'use strict'`, no dependencies, no build step, no ES6. `var` and `function`
@@ -64,6 +120,15 @@ There is a preview server configured in `.claude/launch.json`. Start it with the
 tools (`preview_start` with `{name: "mindmap-static"}`) rather than Bash, then open
 `http://127.0.0.1:8099/tests.html`. `file://` will not do: some behaviour depends on a
 real HTTP origin.
+
+Without those tools it is the same server by hand, from the repo root:
+
+```
+python3 -m http.server 8099 --bind 127.0.0.1
+```
+
+There is nothing to install and nothing to build — the page loads `mindmap.js` straight
+off disk.
 
 Read the result out of `#results`, which reads `all N checks pass` or `N FAILING`.
 Two things will bite you:
