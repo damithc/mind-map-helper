@@ -2437,9 +2437,33 @@
     var out = [];
     for (var j = 0; j < targets.length; j++) {
       if (!targets[j].isConnected) continue;
-      out.push(render(sources[j]));
+      try {
+        out.push(render(sources[j]));
+      } catch (err) {
+        // A map that fails in a way render() never anticipated must not take
+        // the rest of the page down with it: the maps further down are someone
+        // else's section, and leaving them as raw indented text is a far more
+        // visible failure than one error box.
+        if (global.console && global.console.error) {
+          global.console.error('Mind map could not be drawn:', err);
+        }
+        if (targets[j].parentNode) {
+          targets[j].parentNode.replaceChild(unexpectedError(), targets[j]);
+        }
+      }
     }
     return out;
+  }
+
+  /** Stands in for a map that failed for a reason the reader cannot act on. */
+  function unexpectedError() {
+    var container = document.createElement('div');
+    container.className = 'mm-container';
+    container.setAttribute('data-mindmap-rendered', '');
+    container.appendChild(buildError(new MindMapError(
+      'Something went wrong while drawing this mind map. The details are in ' +
+      'the browser console.'), ''));
+    return container;
   }
 
   function boot() {

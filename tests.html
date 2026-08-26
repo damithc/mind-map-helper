@@ -489,6 +489,14 @@ Broken
 <p class="want">Expect: an error naming the depth and the line, not a stalled page.</p>
 <div class="case" id="toodeep"><pre class="mindmap"></pre></div>
 
+<h2>47. One failing map does not stop the maps after it</h2>
+<p class="want">Expect: the first and last draw; the middle one shows an error box.</p>
+<div class="case" id="isolation">
+  <pre class="mindmap">Before the failure</pre>
+  <pre class="mindmap" id="willfail">Doomed</pre>
+  <pre class="mindmap">After the failure</pre>
+</div>
+
 <script>
 // Built here rather than typed out: 200 levels of indent is not a fixture
 // anyone can read, and the point is only that it is past MAX_DEPTH.
@@ -496,6 +504,13 @@ Broken
   var lines = ['Too deep'];
   for (var i = 1; i < 200; i++) lines.push(new Array(i + 1).join('  ') + 'level ' + i);
   document.querySelector('#toodeep pre').textContent = lines.join('\n');
+
+  // No input can still reach the unexpected-failure path — that is what the
+  // guards are for. Read the source through a getter that throws instead,
+  // which is where render() reads it and is outside its own try block.
+  Object.defineProperty(document.getElementById('willfail'), 'textContent', {
+    get: function () { throw new Error('deliberate failure, expected by check 101'); }
+  });
 })();
 </script>
 
@@ -641,6 +656,13 @@ window.addEventListener('load', function () {
         !!deep.querySelector('.mm-error') &&
         deep.textContent.indexOf('100 deep') > -1 &&
         deep.textContent.indexOf('Line ') > -1);
+
+      var maps = document.getElementById('isolation').children;
+      check(100, 'a map that fails unexpectedly shows an error box',
+        maps.length === 3 && !!maps[1].querySelector('.mm-error') &&
+        !maps[1].querySelector('.mm-svg'));
+      check(101, 'the maps either side of it still drew',
+        !!maps[0].querySelector('.mm-svg') && !!maps[2].querySelector('.mm-svg'));
     })();
 
     (function () {
