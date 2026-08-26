@@ -1,5 +1,5 @@
 /*!
- * mind-maps-helper v1.6.0
+ * mind-maps-helper v1.7.0
  * Simple indented-text syntax -> interactive-ready SVG mind maps.
  * PlantUML-style geometry with a refined palette.
  * No dependencies. MIT licensed.
@@ -8,7 +8,7 @@
 (function (global) {
   'use strict';
 
-  var VERSION = '1.6.0';
+  var VERSION = '1.7.0';
 
   // ---------------------------------------------------------------- constants
 
