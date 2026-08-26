@@ -8,7 +8,7 @@ library *does*.
 
 A script that turns an indented list into an interactive SVG mind map. It is published as
 a *provider site* on GitHub Pages: other people's pages link one script tag at
-`https://damithc.github.io/mind-map-helper/mindmap.js`, so **every page on the internet
+`https://se-education.org/mind-maps-helper/mindmap.js`, so **every page on the internet
 that uses this library loads whatever is on `main`.** A broken commit is a broken
 production deploy for everyone at once.
 
@@ -27,8 +27,7 @@ error messages that say what to fix rather than what went wrong.
 | `README.md` | GitHub-facing docs, roughly mirroring `index.html`. |
 | `.nojekyll` | Stops Pages running Jekyll over the site. Do not delete. |
 
-The GitHub remote is `mind-map-helper` (singular "map"); the local directory is
-`mind-maps-helper`. Both spellings are correct in their own context.
+The repo is `se-edu/mind-maps-helper`, and the local directory matches.
 
 ## Code style in `mindmap.js`
 
@@ -123,7 +122,7 @@ path (`/v2/mindmap.js`) so existing pages keep working — do not break the curr
 ### Checking a deploy
 
 ```bash
-gh api repos/damithc/mind-map-helper/pages/builds/latest --jq '{commit:.commit,status:.status,error:.error.message}'
+gh api repos/se-edu/mind-maps-helper/pages/builds/latest --jq '{commit:.commit,status:.status,error:.error.message}'
 ```
 
 Wait for `status: "built"`, and check the commit matches what you pushed — the API
@@ -132,17 +131,18 @@ sometimes reports the parent commit for a while.
 Then confirm the deploy by fetching the live files, which *is* reachable:
 
 ```bash
-curl -s https://damithc.github.io/mind-map-helper/mindmap.js | head -3
+curl -s https://se-education.org/mind-maps-helper/mindmap.js | head -3
 ```
 
 The version badge on the landing page is written by script, so a fetch of the HTML will
 not show it; check `VERSION` in the served `mindmap.js` instead, and ask the user to
 confirm the badge in a real browser.
 
-**The account is `damithc`, with no trailing `h`.** The Mac user directory is
-`/Users/damithch/`, and mixing the two gives a 404 from the API and from the site — which
-looks exactly like a missing deploy or a blocked network. Check the spelling before
-concluding anything is wrong.
+**The org and the domain are spelled differently.** The GitHub org is `se-edu`; the site
+is served from the custom domain `se-education.org`, not `se-edu.github.io` — that host
+redirects, but only for URLs that exist. `gh api` wants `se-edu`, `curl` wants
+`se-education.org`, and swapping them gives a 404 that looks exactly like a missing
+deploy or a blocked network.
 
 ## Design commitments
 

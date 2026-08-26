@@ -3,7 +3,7 @@
  * Simple indented-text syntax -> interactive-ready SVG mind maps.
  * PlantUML-style geometry with a refined palette.
  * No dependencies. MIT licensed.
- * https://github.com/damithc/mind-maps-helper
+ * https://github.com/se-edu/mind-maps-helper
  */
 (function (global) {
   'use strict';

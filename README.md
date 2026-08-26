@@ -7,14 +7,14 @@ dependencies.
 Made for authors of educational sites (course pages, lecture notes, handbooks) who write
 their own HTML or Markdown but are not web developers.
 
-**Live docs and examples: <https://damithc.github.io/mind-map-helper/>**
+**Live docs and examples: <https://se-education.org/mind-maps-helper/>**
 
 ## Use it
 
 Add the script once per page:
 
 ```html
-<script src="https://damithc.github.io/mind-map-helper/mindmap.js"></script>
+<script src="https://se-education.org/mind-maps-helper/mindmap.js"></script>
 ```
 
 Then write a map wherever you want one:
