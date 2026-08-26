@@ -600,6 +600,25 @@ window.addEventListener('load', function () {
                w: parseFloat(r.getAttribute('width')), h: parseFloat(r.getAttribute('height')) };
     }
 
+    /**
+     * Whether the injected sheet drops `selector` from a printed page. Print
+     * media cannot be emulated from inside a page, so this reads the rule
+     * rather than measuring it. What it still catches is the failure that
+     * matters: the rule dropped, or aimed at a selector nothing carries.
+     */
+    function printHides(selector) {
+      var sheet = document.getElementById('mind-maps-helper-styles').sheet;
+      for (var i = 0; i < sheet.cssRules.length; i++) {
+        var group = sheet.cssRules[i];
+        if (!group.media || group.media.mediaText.indexOf('print') === -1) continue;
+        for (var j = 0; j < group.cssRules.length; j++) {
+          if (group.cssRules[j].selectorText === selector &&
+              group.cssRules[j].style.display === 'none') return true;
+        }
+      }
+      return false;
+    }
+
     function svgOf(i) { return cases[i].querySelector('.mm-svg'); }
     function boxes(i) { return cases[i].querySelectorAll('.mm-box'); }
     function errOf(i) { return cases[i].querySelector('.mm-error'); }
@@ -1323,26 +1342,14 @@ window.addEventListener('load', function () {
         Math.abs((chipBox.top + chipBox.height / 2) -
                  (barBox.top + barBox.height / 2)) < 1);
 
-      // Print media cannot be emulated from a page, so this reads the rule out
-      // of the sheet rather than measuring it. What that still catches is the
-      // failure that matters: the rule dropped, or aimed at the wrong
-      // selector and so hiding the chip nowhere.
-      (function () {
-        var sheet = document.getElementById('mind-maps-helper-styles').sheet;
-        var hidden = false;
-        for (var i = 0; i < sheet.cssRules.length; i++) {
-          var group = sheet.cssRules[i];
-          if (!group.media || group.media.mediaText.indexOf('print') === -1) continue;
-          for (var j = 0; j < group.cssRules.length; j++) {
-            if (group.cssRules[j].selectorText === '.mm-credit' &&
-                group.cssRules[j].style.display === 'none') hidden = true;
-          }
-        }
-        // ...and that the selector it names is one a drawn map really carries,
-        // which a sheet-level check on its own would not catch.
-        check(119, 'the chip and its rule are dropped when the page prints',
-          hidden && document.querySelectorAll('#credit .mm-credit').length === 1);
-      })();
+      // The second half is what a sheet-level check misses on its own: that
+      // the selector names something a drawn map really carries.
+      check(119, 'the chip and its rule are dropped when the page prints',
+        printHides('.mm-credit') &&
+        document.querySelectorAll('#credit .mm-credit').length === 1);
+      check(120, 'the shape switch is dropped when the page prints',
+        printHides('.mm-controls') &&
+        document.querySelectorAll('#credit .mm-controls').length === 1);
     })();
 
     // --- embedded page HTML ---

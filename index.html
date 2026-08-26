@@ -539,6 +539,9 @@ switch. If you would rather pin one shape, set
 <p>By keyboard, the switch is a single stop: <kbd>Tab</kbd> to it and the arrow
 keys move between the two shapes, the way a set of radio buttons works.</p>
 
+<p>The switch does not print. A printed map keeps whichever shape the reader
+left it in, which is the one they chose to print.</p>
+
 <h2>Moving nodes</h2>
 
 <p>Readers can drag any node to somewhere clearer. The branch below it comes
@@ -828,7 +831,10 @@ CS2103 Software Engineering
 <h2>Notes</h2>
 
 <ul class="tight">
-  <li>Output is SVG, so it stays sharp at any zoom and prints cleanly.</li>
+  <li>Output is SVG, so it stays sharp at any zoom and prints cleanly. The
+      drawing is all that prints: the shape switch and the credit chip are
+      controls and captions for a reader who can click, so they stay off the
+      page.</li>
   <li>Maps scale down to fit narrow screens and scroll sideways if they still do not fit.</li>
   <li>Screen readers get the map as a nested list, so the content is not lost.</li>
   <li>No dependencies and no tracking: the script makes no calls of its own

@@ -2204,6 +2204,10 @@
     // its fill alone — which has to be enough on its own.
     '.mm-ctl-on{background:rgba(127,127,127,.24);',
     'background:color-mix(in srgb, var(--mm-muted) 24%, transparent);}',
+    // Paper cannot be switched, so on paper the pair is a mystery in the
+    // corner of the figure. The map prints in whichever shape the reader left
+    // it in, which is the one they chose to print.
+    '@media print{.mm-controls{display:none;}}',
 
     // --- credit ---
     // Right-aligned under the map, so it balances the shape switch above it

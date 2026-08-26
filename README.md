@@ -175,7 +175,8 @@ nothing in the other arrangement. `data-controls="false"` pins one shape and hid
 switch.
 
 By keyboard the switch is a single tab stop, and the arrow keys move between the two
-shapes, the way a set of radio buttons works.
+shapes, the way a set of radio buttons works. The switch does not print: a printed map
+keeps whichever shape the reader left it in, which is the one they chose to print.
 
 ## Moving nodes
 
@@ -272,7 +273,9 @@ Only needed for maps added after page load.
 
 ## Notes
 
-- Output is SVG: sharp at any zoom, prints cleanly.
+- Output is SVG: sharp at any zoom, prints cleanly. The drawing is all that prints —
+  the shape switch and the credit chip are for a reader who can click, so they stay off
+  the page.
 - Maps shrink to fit a narrow column, down to 70% of natural size, then scroll sideways
   instead of becoming illegible. A scrolled map starts centred on the root.
 - Screen readers get the map as a nested list, and toggles report their expanded state.
