@@ -30,6 +30,12 @@
 
   var TOGGLE_R = 7.5;
 
+  // Every stage of a render walks the tree recursively, so nesting depth is
+  // call-stack depth. Far past anything readable as a mind map, and far short
+  // of where a browser gives up, so a runaway file gets a message with a line
+  // number instead of a RangeError from somewhere in the middle of a render.
+  var MAX_DEPTH = 100;
+
   // Smallest a map may be shrunk to fit its column before it scrolls instead.
   // Below roughly this, the deepest labels stop being legible.
   var MIN_SCALE = 0.7;
@@ -116,6 +122,15 @@
       var node = { label: ln.label, children: [], lineNo: ln.lineNo };
 
       while (stack.length && ln.indent <= stack[stack.length - 1].indent) stack.pop();
+
+      if (stack.length > MAX_DEPTH) {
+        throw new MindMapError(
+          'This line is nested ' + stack.length + ' levels deep, and a mind map ' +
+          'can go ' + MAX_DEPTH + ' deep. Check the indenting — a line indented ' +
+          'further than the one above it starts a new level.',
+          ln.lineNo
+        );
+      }
 
       if (!stack.length) {
         if (root) {

@@ -253,6 +253,8 @@ Only needed for maps added after page load.
   instead of becoming illegible. A scrolled map starts centred on the root.
 - Screen readers get the map as a nested list, and toggles report their expanded state.
 - No dependencies and no network calls after the script loads.
+- Nesting goes 100 levels deep. Past that a map reports the offending line rather than
+  running out of stack part-way through drawing.
 
 ## Development
 

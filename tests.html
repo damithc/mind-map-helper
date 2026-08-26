@@ -485,6 +485,20 @@ Broken
   ![](#no-such-element)
 </pre></div>
 
+<h2>46. ERROR: nested past the depth limit</h2>
+<p class="want">Expect: an error naming the depth and the line, not a stalled page.</p>
+<div class="case" id="toodeep"><pre class="mindmap"></pre></div>
+
+<script>
+// Built here rather than typed out: 200 levels of indent is not a fixture
+// anyone can read, and the point is only that it is past MAX_DEPTH.
+(function () {
+  var lines = ['Too deep'];
+  for (var i = 1; i < 200; i++) lines.push(new Array(i + 1).join('  ') + 'level ' + i);
+  document.querySelector('#toodeep pre').textContent = lines.join('\n');
+})();
+</script>
+
 <script>document.write('<script src="mindmap.js?v='+Date.now()+'"><\/script>');</script>
 <script>
 // Minimal assertions over the rendered DOM.
@@ -620,6 +634,14 @@ window.addEventListener('load', function () {
     check(18, 'empty -> error', !!errOf(17) &&
       errOf(17).textContent.toLowerCase().indexOf('empty') > -1);
     check(19, 'bare bullet -> error', !!errOf(18));
+
+    (function () {
+      var deep = document.getElementById('toodeep');
+      check(99, 'nesting past the depth limit is an error, not a crash',
+        !!deep.querySelector('.mm-error') &&
+        deep.textContent.indexOf('100 deep') > -1 &&
+        deep.textContent.indexOf('Line ') > -1);
+    })();
 
     (function () {
       var l = labels(19).join('|');
