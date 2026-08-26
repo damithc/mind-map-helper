@@ -52,6 +52,11 @@
 
   var TOGGLE_R = 7.5;
 
+  // The largest length an author can ask for, in any of the places one can be
+  // asked for. Well past any map a reader can take in, and short of the point
+  // where the numbers stop describing something a browser will draw.
+  var MAX_LENGTH = 4000;
+
   // Every stage of a render walks the tree recursively, so nesting depth is
   // call-stack depth. Far past anything readable as a mind map, and far short
   // of where a browser gives up, so a runaway file gets a message with a line
@@ -267,7 +272,11 @@
   function parseSizeHint(target) {
     var m = /^(.*?)\s+=(\d*)x(\d*)$/.exec(target);
     if (!m) return { url: target.trim(), w: 0, h: 0 };
-    return { url: m[1].trim(), w: parseInt(m[2], 10) || 0, h: parseInt(m[3], 10) || 0 };
+    return {
+      url: m[1].trim(),
+      w: Math.min(parseInt(m[2], 10) || 0, MAX_LENGTH),
+      h: Math.min(parseInt(m[3], 10) || 0, MAX_LENGTH)
+    };
   }
 
   /**
@@ -2313,6 +2322,17 @@
       return null;
     }
 
+    /**
+     * parseFloat, with Infinity treated as the typo it is. NaN comes back for
+     * anything unusable, and fails every comparison below — which is how a
+     * value the layout cannot work with falls back to its default instead of
+     * reaching the drawing as a viewBox of "0 0 Infinity 63".
+     */
+    function number(name) {
+      var n = parseFloat(attr(name));
+      return isFinite(n) ? n : NaN;
+    }
+
     var opts = {
       direction: DEFAULTS.direction,
       maxNodeWidth: DEFAULTS.maxNodeWidth,
@@ -2324,14 +2344,14 @@
     var dir = attr('data-direction');
     if (dir === 'right' || dir === 'left' || dir === 'balanced') opts.direction = dir;
 
-    var width = parseFloat(attr('data-max-node-width'));
-    if (width > 40) opts.maxNodeWidth = width;
+    var width = number('data-max-node-width');
+    if (width > 40 && width <= MAX_LENGTH) opts.maxNodeWidth = width;
 
-    var gap = parseFloat(attr('data-column-gap'));
-    if (gap >= 0) opts.columnGap = gap;
+    var gap = number('data-column-gap');
+    if (gap >= 0 && gap <= MAX_LENGTH) opts.columnGap = gap;
 
-    var embedWidth = parseFloat(attr('data-embed-max-width'));
-    if (embedWidth > 40) opts.embedMaxWidth = embedWidth;
+    var embedWidth = number('data-embed-max-width');
+    if (embedWidth > 40 && embedWidth <= MAX_LENGTH) opts.embedMaxWidth = embedWidth;
 
     var theme = attr('data-theme');
     if (theme === 'light' || theme === 'dark') opts.theme = theme;
