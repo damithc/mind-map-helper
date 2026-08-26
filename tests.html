@@ -485,11 +485,20 @@ Broken
   ![](#no-such-element)
 </pre></div>
 
-<h2>46. ERROR: nested past the depth limit</h2>
+<h2>46. Refresh picks up an edited source</h2>
+<p class="want">Expect: after the check runs, this node reads "After ..." rather than "Before".</p>
+<template id="src-editable"><div class="probe">Before</div></template>
+<div class="case" id="embedrefresh"><pre class="mindmap">
+Refresh
+  ![](#src-editable)
+    Child
+</pre></div>
+
+<h2>47. ERROR: nested past the depth limit</h2>
 <p class="want">Expect: an error naming the depth and the line, not a stalled page.</p>
 <div class="case" id="toodeep"><pre class="mindmap"></pre></div>
 
-<h2>47. One failing map does not stop the maps after it</h2>
+<h2>48. One failing map does not stop the maps after it</h2>
 <p class="want">Expect: the first and last draw; the middle one shows an error box.</p>
 <div class="case" id="isolation">
   <pre class="mindmap">Before the failure</pre>
@@ -656,6 +665,23 @@ window.addEventListener('load', function () {
         !!deep.querySelector('.mm-error') &&
         deep.textContent.indexOf('100 deep') > -1 &&
         deep.textContent.indexOf('Line ') > -1);
+
+      var refreshHost = document.getElementById('embedrefresh');
+      function embedText() {
+        return refreshHost.querySelector('.mm-embed-body').textContent.trim();
+      }
+      var before = embedText();
+      document.getElementById('src-editable').content.firstElementChild
+        .textContent = 'After, and a good deal wider than it was';
+      var refreshed = MindMap.refresh(refreshHost);
+      check(102, 'refresh re-reads the source element it was given',
+        before === 'Before' && refreshed === true &&
+        embedText().indexOf('After') === 0);
+      check(103, 'the branch renames itself after the content changed',
+        refreshHost.querySelector('.mm-node[role="button"],.mm-toggle[role="button"]')
+          .getAttribute('aria-label').indexOf('After') === 0);
+      check(104, 'a second refresh with nothing changed reports no change',
+        MindMap.refresh(refreshHost) === false);
 
       var maps = document.getElementById('isolation').children;
       check(100, 'a map that fails unexpectedly shows an error box',

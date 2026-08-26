@@ -1580,10 +1580,15 @@
   }
 
   /**
-   * Re-measures every embedded block and re-draws the nodes holding them.
-   * Needed whenever something the block's height depends on arrives late —
-   * its own images, or a stylesheet — and after an author edits the source
+   * Re-reads and re-measures every embedded block, and re-draws the nodes
+   * holding them. Needed whenever something the block depends on arrives late
+   * — its own images, or a stylesheet — and after an author edits the source
    * element and asks for a refresh.
+   *
+   * The source is read again rather than the first copy re-measured, because
+   * the edit an author makes is to the element they wrote, not to the copy
+   * this map is holding. A source that has since been deleted keeps the copy
+   * already drawn: a refresh should not blank a node.
    */
   function refreshEmbeds(state) {
     var container = state.container;
@@ -1591,20 +1596,32 @@
 
     var hostRef = { near: container.parentNode, el: null };
     var changed = false;
+    var resized = false;
 
     try {
       eachNode(state.root, function (n) {
         if (!n.hasEmbed) return;
+        var touched = false;
         var moved = false;
         for (var i = 0; i < n.runs.length; i++) {
           var run = n.runs[i];
           if (run.type !== 'embed' || !run.dom) continue;
+
+          var fresh = embedSource(run.ref);
+          if (fresh && fresh.innerHTML !== run.dom.innerHTML) {
+            run.dom = fresh;
+            run.plain = embedText(run);
+            touched = true;
+          }
+
           var before = run.w + 'x' + run.h;
           sizeEmbed(run, hostOf(hostRef), state.opts);
-          if (before !== run.w + 'x' + run.h) moved = true;
+          if (before !== run.w + 'x' + run.h) { touched = true; moved = true; }
         }
-        if (!moved) return;
+        if (!touched) return;
         changed = true;
+        if (moved) resized = true;
+        n.plain = runsToText(n.runs);
         measureNode(n, state.opts);
         redrawNodeBody(n);
       });
@@ -1613,6 +1630,11 @@
     }
 
     if (!changed) return false;
+
+    // A branch names itself by its content, replaced content included.
+    syncToggleState(state.root);
+
+    if (!resized) return true;
     syncTogglePositions(state.root);
     relayout(state, false);
     return true;
