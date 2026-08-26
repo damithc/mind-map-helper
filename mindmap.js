@@ -2119,31 +2119,36 @@
     'stroke-linecap:round;opacity:.85;}',
 
     // --- shape switch ---
+    // Quiet at rest, but still legible at rest: the label has to carry its own
+    // contrast, because a reader who never hovers is the common case.
     '.mm-controls{display:flex;justify-content:flex-end;',
-    'margin:0 0 3px;opacity:.4;transition:opacity .15s ease;}',
+    'margin:0 0 3px;opacity:.75;transition:opacity .15s ease;}',
     '.mm-container:hover .mm-controls,.mm-controls:focus-within{opacity:1;}',
     // The two shapes are alternatives, so they share one outline: separate
     // buttons read as two independent settings that happen to be adjacent.
     '.mm-seg{display:inline-flex;align-items:stretch;overflow:hidden;',
-    'border:1px solid color-mix(in srgb, var(--mm-muted) 35%, transparent);',
+    'border:1px solid color-mix(in srgb, var(--mm-muted) 55%, transparent);',
     'border-radius:5px;background:var(--mm-surface);}',
     '.mm-container:hover .mm-seg,.mm-seg:focus-within',
     '{border-color:var(--mm-muted);}',
+    // 5px of padding either side of a 14px icon is what puts the target over
+    // 24px, without making the glyph itself any louder.
     '.mm-ctl{display:inline-flex;align-items:center;gap:4px;',
-    'font:inherit;font-size:11px;line-height:1;color:var(--mm-muted);',
-    'background:none;border:0;padding:3.5px 7px;cursor:pointer;}',
+    'font:inherit;font-size:11px;line-height:1;color:var(--mm-text);',
+    'background:none;border:0;padding:5px 9px;cursor:pointer;}',
     // The divider tracks the outline, so the pill reads as one object.
     '.mm-ctl+.mm-ctl{border-left:1px solid ',
-    'color-mix(in srgb, var(--mm-muted) 35%, transparent);}',
+    'color-mix(in srgb, var(--mm-muted) 55%, transparent);}',
     '.mm-container:hover .mm-ctl+.mm-ctl,.mm-seg:focus-within .mm-ctl+.mm-ctl',
     '{border-left-color:var(--mm-muted);}',
-    '.mm-ctl:hover{color:var(--mm-text);}',
+    '.mm-ctl:hover{background:color-mix(in srgb, var(--mm-muted) 10%, transparent);}',
     // Inset, because an outline outside the button would fall outside the
     // pill that clips it.
     '.mm-ctl:focus-visible{outline:2px solid var(--mm-root-bg);outline-offset:-2px;}',
     '.mm-ctl-icon{width:16px;height:14px;stroke:currentColor;flex:none;}',
-    '.mm-ctl-on{color:var(--mm-text);',
-    'background:color-mix(in srgb, var(--mm-muted) 15%, transparent);}',
+    // The two read the same at rest now, so the shape in use is told apart by
+    // its fill alone — which has to be enough on its own.
+    '.mm-ctl-on{background:color-mix(in srgb, var(--mm-muted) 24%, transparent);}',
     // --- drag ---
     // pan-y, not none: on a phone a map can fill the screen, and a finger
     // landing on a node still has to be able to scroll the page past it. The

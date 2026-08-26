@@ -986,6 +986,42 @@ window.addEventListener('load', function () {
         !!btn('balanced') && !!btn('right') &&
         btn('balanced').getAttribute('aria-checked') === 'true');
       check(49, 'balanced really does straddle the root', !allOneSide());
+      // Measured through the resting opacity, against the background the theme
+      // in force assumes — which is what a reader who never hovers sees.
+      check(111, 'the shape controls are legible at rest and big enough to hit',
+        (function () {
+          var btn = document.querySelector('#shape .mm-ctl');
+          var bar = document.querySelector('#shape .mm-controls');
+          var alpha = parseFloat(getComputedStyle(bar).opacity);
+          var back = rgbOf(getComputedStyle(btn.closest('.mm-container'))
+            .getPropertyValue('--mm-surface'));
+          var front = rgbOf(getComputedStyle(btn).color);
+
+          function rgbOf(text) {
+            text = text.trim();
+            if (text.charAt(0) === '#') {
+              return [1, 3, 5].map(function (i) {
+                return parseInt(text.substr(i, 2), 16);
+              });
+            }
+            return text.match(/[\d.]+/g).slice(0, 3).map(Number);
+          }
+          function lum(c) {
+            var v = c.map(function (n) {
+              n /= 255;
+              return n <= 0.03928 ? n / 12.92 : Math.pow((n + 0.055) / 1.055, 2.4);
+            });
+            return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
+          }
+
+          var seen = front.map(function (n, i) {
+            return n * alpha + back[i] * (1 - alpha);
+          });
+          var a = lum(seen) + 0.05, b = lum(back) + 0.05;
+          var contrast = a > b ? a / b : b / a;
+          return btn.getBoundingClientRect().height >= 24 && contrast >= 4.5;
+        })());
+
       check(93, 'the two shapes sit in one radio group', (function () {
         var seg = host.querySelector('.mm-seg[role="radiogroup"]');
         return !!seg && seg.contains(btn('balanced')) && seg.contains(btn('right')) &&
