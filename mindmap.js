@@ -2131,7 +2131,8 @@
     // The two shapes are alternatives, so they share one outline: separate
     // buttons read as two independent settings that happen to be adjacent.
     '.mm-seg{display:inline-flex;align-items:stretch;overflow:hidden;',
-    'border:1px solid color-mix(in srgb, var(--mm-muted) 55%, transparent);',
+    'border:1px solid rgba(127,127,127,.55);',
+    'border-color:color-mix(in srgb, var(--mm-muted) 55%, transparent);',
     'border-radius:5px;background:var(--mm-surface);}',
     '.mm-container:hover .mm-seg,.mm-seg:focus-within',
     '{border-color:var(--mm-muted);}',
@@ -2141,18 +2142,22 @@
     'font:inherit;font-size:11px;line-height:1;color:var(--mm-text);',
     'background:none;border:0;padding:5px 9px;cursor:pointer;}',
     // The divider tracks the outline, so the pill reads as one object.
-    '.mm-ctl+.mm-ctl{border-left:1px solid ',
-    'color-mix(in srgb, var(--mm-muted) 55%, transparent);}',
+    '.mm-ctl+.mm-ctl{border-left:1px solid rgba(127,127,127,.55);',
+    'border-left-color:color-mix(in srgb, var(--mm-muted) 55%, transparent);}',
     '.mm-container:hover .mm-ctl+.mm-ctl,.mm-seg:focus-within .mm-ctl+.mm-ctl',
     '{border-left-color:var(--mm-muted);}',
-    '.mm-ctl:hover{background:color-mix(in srgb, var(--mm-muted) 10%, transparent);}',
+    // Grey at a fixed alpha first, then the theme-aware version: a browser
+    // without color-mix keeps the first and still shows the state.
+    '.mm-ctl:hover{background:rgba(127,127,127,.1);',
+    'background:color-mix(in srgb, var(--mm-muted) 10%, transparent);}',
     // Inset, because an outline outside the button would fall outside the
     // pill that clips it.
     '.mm-ctl:focus-visible{outline:2px solid var(--mm-root-bg);outline-offset:-2px;}',
     '.mm-ctl-icon{width:16px;height:14px;stroke:currentColor;flex:none;}',
     // The two read the same at rest now, so the shape in use is told apart by
     // its fill alone — which has to be enough on its own.
-    '.mm-ctl-on{background:color-mix(in srgb, var(--mm-muted) 24%, transparent);}',
+    '.mm-ctl-on{background:rgba(127,127,127,.24);',
+    'background:color-mix(in srgb, var(--mm-muted) 24%, transparent);}',
     // --- drag ---
     // pan-y, not none: on a phone a map can fill the screen, and a finger
     // landing on a node still has to be able to scroll the page past it. The
