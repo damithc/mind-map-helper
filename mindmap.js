@@ -1229,6 +1229,10 @@
       'class': 'mm-toggle',
       transform: 'translate(' + round(cx) + ',' + round(node.h / 2) + ')'
     });
+    // A 15px badge is a small thing to hit, and on a node holding an embedded
+    // block it is the only thing that folds the branch. An invisible circle
+    // over it brings the target to 24px without drawing anything bigger.
+    t.appendChild(svgEl('circle', { 'class': 'mm-toggle-hit', r: 12 }));
     t.appendChild(svgEl('circle', { 'class': 'mm-toggle-bg', r: TOGGLE_R }));
     t.appendChild(svgEl('path', { 'class': 'mm-toggle-sign', d: 'M-3.4 0 H3.4' }));
     t.appendChild(svgEl('path', { 'class': 'mm-toggle-sign mm-toggle-v', d: 'M0 -3.4 V3.4' }));
@@ -2169,6 +2173,8 @@
     '.mm-interactive:focus-visible .mm-toggle-bg{stroke-width:2.4;}',
 
     '.mm-toggle{cursor:pointer;}',
+    // fill:none would let presses fall straight through it.
+    '.mm-toggle-hit{fill:transparent;}',
     '.mm-toggle-bg{fill:var(--mm-surface);stroke:var(--mm-accent);stroke-width:1.3;}',
     '.mm-toggle-sign{stroke:var(--mm-accent);stroke-width:1.7;stroke-linecap:round;}',
     // The vertical bar is what turns the minus into a plus.

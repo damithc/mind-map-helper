@@ -1316,6 +1316,8 @@ window.addEventListener('load', function () {
         !tableNode.classList.contains('mm-interactive'));
 
       var badge = tableNode.querySelector('.mm-toggle');
+      check(112, 'the fold badge is big enough to hit',
+        badge.getBoundingClientRect().height >= 24);
       check(87, 'the badge carries the button role instead of the node',
         badge.getAttribute('role') === 'button' &&
         tableNode.getAttribute('role') !== 'button');
