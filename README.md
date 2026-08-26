@@ -105,9 +105,10 @@ whole content. Unsized images fit within 120x90; `![logo](logo.png =80x60)` sets
 yourself, and `=80x` fixes the width alone. Maps draw immediately and re-flow when images
 report their size.
 
-Note that an image referenced by URL is the one thing that stops a map being a
-self-contained SVG — saved elsewhere, the picture is a link rather than part of the file.
-Use a `data:` URI if that matters.
+Note that a drawn map is not a standalone file. Its colours and fonts come from a
+stylesheet the script puts in the page, so an `<svg>` copied out on its own renders
+unstyled; and an image referenced by URL is a link rather than part of the SVG, so a
+saved copy loses the picture too. A `data:` URI carries the picture with it.
 
 ## Blocks of your own HTML
 
@@ -254,7 +255,9 @@ Only needed for maps added after page load.
 - Maps shrink to fit a narrow column, down to 70% of natural size, then scroll sideways
   instead of becoming illegible. A scrolled map starts centred on the root.
 - Screen readers get the map as a nested list, and toggles report their expanded state.
-- No dependencies and no network calls after the script loads.
+- No dependencies, and the script makes no calls of its own once it has loaded. Images
+  you point at by URL, and whatever is inside an embedded block, are fetched by the
+  browser as usual.
 - Nesting goes 100 levels deep. Past that a map reports the offending line rather than
   running out of stack part-way through drawing.
 

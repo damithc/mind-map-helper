@@ -325,10 +325,12 @@ glyph should not be scaled to whatever the file happens to be. The diagram has
 no size, so it is scaled to fit the 120&times;90 box on its own.</p>
 
 <div class="note">
-  <p><strong>One caveat on images.</strong> Everything else here keeps the map
-  a self-contained SVG. An image referenced by URL does not: save the SVG and
-  open it elsewhere and the picture is a link, not part of the file. Embed it
-  as a <code>data:</code> URI if that matters to you.</p>
+  <p><strong>A drawn map is not a standalone file.</strong> Its colours and
+  fonts come from a stylesheet the script puts in your page, so an
+  <code>&lt;svg&gt;</code> copied out on its own renders unstyled. An image
+  referenced by URL is a further step away: it is a link, not part of the SVG,
+  so a saved copy loses the picture too. A <code>data:</code> URI carries the
+  picture with it.</p>
 </div>
 
 <h2>Blocks of your own HTML</h2>
@@ -778,7 +780,9 @@ CS2103 Software Engineering
   <li>Output is SVG, so it stays sharp at any zoom and prints cleanly.</li>
   <li>Maps scale down to fit narrow screens and scroll sideways if they still do not fit.</li>
   <li>Screen readers get the map as a nested list, so the content is not lost.</li>
-  <li>No dependencies, no tracking, no network calls after the script loads.</li>
+  <li>No dependencies and no tracking: the script makes no calls of its own
+      once it has loaded. Images you point at by URL, and whatever is inside an
+      embedded block, are fetched by the browser as usual.</li>
   <li>Nesting goes 100 levels deep. Past that a map tells you which line went
       too far, rather than running out of stack part-way through drawing.</li>
   <li>Your existing maps keep working as new features land.</li>

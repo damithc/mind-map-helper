@@ -213,7 +213,8 @@ deploy or a blocked network.
 
 Worth knowing before proposing something that will be rejected:
 
-- **No dependencies, ever**, and no network calls after the script loads.
+- **No dependencies, ever**, and no network calls of the script's own after it loads.
+  Author-referenced images and embedded blocks are fetched by the browser as usual.
 - **Syntax the author already knows.** New syntax reuses Markdown shapes rather than
   inventing tokens. `![alt](#id)` for embedded HTML was chosen over `{{id}}` (collides
   with Nunjucks/MarkBind) and bare `#id`/`@id` (`#include` and `@Override` are plausible
