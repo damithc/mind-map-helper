@@ -827,6 +827,68 @@ Outline root
     ![](#src-outline-long)
 </pre></div>
 
+<h2>72. A balanced map wider than its column</h2>
+<p class="want">Expect: the map scrolls inside the 260px track, and opens with the
+centre node in view rather than pinned to its left edge.</p>
+<div id="widehost" style="width:260px;border:1px dashed #bbb">
+  <div class="case" id="widecentre"><pre class="mindmap">
+Centre node with a good long label on it
+  Requirements gathering and analysis
+    Stakeholder interviews
+  Design of the system
+    Architectural decisions
+  Testing and quality
+    Integration testing
+</pre></div>
+</div>
+
+<h2>73. Branches folded at the start must not move the split</h2>
+<p class="want">Expect: both maps split their branches the same way. The heavy
+branch weighs what it will weigh once opened, not what it shows while shut.</p>
+<div class="case" id="splitopen"><pre class="mindmap">
+Split
+  Heavy
+    One
+    Two
+    Three
+    Four
+    Five
+    Six
+  Light
+  Also light
+</pre></div>
+<div class="case" id="splitfolded"><pre class="mindmap">
+Split
+  [+] Heavy
+    One
+    Two
+    Three
+    Four
+    Five
+    Six
+  Light
+  Also light
+</pre></div>
+
+<h2>74. A code span that has to wrap</h2>
+<p class="want">Expect: every line of the wrapped span sits in its own chip, with
+the text inside it — no line whose text spills past its own background.</p>
+<div class="case" id="codewrap"><pre class="mindmap" data-max-node-width="90">
+Wrapping
+  `git commit --amend --no-edit`
+</pre></div>
+
+<h2>75. A drag the browser takes away</h2>
+<p class="want">Expect: the fold badge still folds on the very next press. A
+cancelled gesture sends no click, so it must not arm the one that absorbs it.</p>
+<div class="case" id="dragcancel"><pre class="mindmap">
+Cancel
+  Branch
+    Leaf one
+    Leaf two
+  Other
+</pre></div>
+
 <script>document.write('<script src="mindmap.js?v='+Date.now()+'"><\/script>');</script>
 <script>
 // Minimal assertions over the rendered DOM.
@@ -1121,6 +1183,18 @@ window.addEventListener('load', function () {
       check(103, 'the branch renames itself after the content changed',
         refreshHost.querySelector('.mm-node[role="button"],.mm-toggle[role="button"]')
           .getAttribute('aria-label').indexOf('After') === 0);
+      // The outline is a copy of the labels, not a live view of them, so a
+      // refresh that leaves it alone leaves a screen reader on the old map
+      // while everyone else reads the new one.
+      var refreshOutline = refreshHost.querySelector('.mm-a11y');
+      check(191, 'the hidden outline is rebuilt with the content that changed',
+        refreshOutline.textContent.indexOf('After') > -1 &&
+        refreshOutline.textContent.indexOf('Before') === -1 &&
+        // Still the whole tree, not just the block that moved.
+        refreshOutline.textContent.indexOf('Child') > -1 &&
+        // And still one outline, not one per refresh.
+        refreshHost.querySelectorAll('.mm-a11y').length === 1);
+
       check(104, 'a second refresh with nothing changed reports no change',
         MindMap.refresh(refreshHost) === false);
 
@@ -2513,6 +2587,188 @@ window.addEventListener('load', function () {
         }) &&
         // The same link is reachable in the drawing, where it can be seen.
         !!host.querySelector('.mm-svg a.mm-link[href="week3.html"]'));
+    })();
+
+    // ---- schemes spelled so a plain text match will not see them
+    //
+    // Built here rather than written into the page, because these strings do
+    // not survive being typed: an HTML parser has its own opinion about a raw
+    // control character, and the point of the case is the exact bytes.
+    (function () {
+      var CTRL = String.fromCharCode(1);
+      var disguises = [
+        CTRL + 'javascript:window.__ranDisguised = 1',  // leading control
+        'java\tscript:window.__ranDisguised = 2',       // tab inside the scheme
+        'java\nscript:window.__ranDisguised = 3'        // newline inside it
+      ];
+
+      // A guard against a vacuous case. If this browser did not resolve these
+      // to javascript: there would be nothing here to defend against, and the
+      // checks below would pass by accident rather than on purpose.
+      var resolves = disguises.every(function (url) {
+        var probe = document.createElement('a');
+        probe.href = url;
+        return probe.protocol === 'javascript:';
+      });
+
+      // Only some of these can reach a node label at all. A newline ends the
+      // line and takes the link with it, and the parser expands every tab to
+      // spaces before it reads anything, which leaves the control character as
+      // the one that arrives intact. All three reach an embed attribute
+      // though, which is what the second half of this case is for.
+      var inLabels = disguises.filter(function (url) {
+        return !/[\t\n]/.test(url);
+      });
+
+      var src = 'Disguised\n';
+      for (var i = 0; i < inLabels.length; i++) {
+        src += '  [click ' + i + '](' + inLabels[i] + ')\n';
+      }
+      src += '  [real](https://example.com/ok)\n';
+
+      var labelHost = document.createElement('div');
+      labelHost.appendChild(document.createElement('pre')).textContent = src;
+      labelHost.firstChild.className = 'mindmap';
+      document.body.appendChild(labelHost);
+      MindMap.renderAll(labelHost);
+
+      var links = labelHost.querySelectorAll('.mm-svg a.mm-link');
+      // The property that matters, asked of the browser rather than of the
+      // spelling: nothing drawn resolves to a scheme that executes.
+      var executable = Array.prototype.filter.call(links, function (a) {
+        var probe = document.createElement('a');
+        probe.href = a.getAttribute('href');
+        return probe.protocol === 'javascript:' || probe.protocol === 'vbscript:';
+      });
+
+      check(186, 'a scheme hidden behind a leading control is refused too',
+        resolves && executable.length === 0 &&
+        links.length === 1 &&
+        links[0].getAttribute('href') === 'https://example.com/ok' &&
+        // Refused, not silently dropped: the text stays as the author typed it.
+        labelHost.textContent.indexOf('[click 0]') > -1);
+
+      // The same disguises inside an embedded block, which is sanitised by a
+      // separate path and used to be checked against the raw attribute text.
+      var tpl = document.createElement('template');
+      var frag = document.createElement('div');
+      frag.className = 'probe';
+      for (var j = 0; j < disguises.length; j++) {
+        var bad = document.createElement('a');
+        bad.setAttribute('href', disguises[j]);
+        bad.textContent = 'jump ' + j;
+        frag.appendChild(bad);
+      }
+      var tel = document.createElement('a');
+      tel.setAttribute('href', 'tel:+6512345678');
+      tel.textContent = 'call';
+      frag.appendChild(tel);
+      tpl.content.appendChild(frag);
+      tpl.id = 'src-disguised';
+      document.body.appendChild(tpl);
+
+      var embedHost = document.createElement('div');
+      embedHost.appendChild(document.createElement('pre')).textContent =
+        'Disguised block\n  ![](#src-disguised)\n';
+      embedHost.firstChild.className = 'mindmap';
+      document.body.appendChild(embedHost);
+      MindMap.renderAll(embedHost);
+
+      var kept = embedHost.querySelectorAll('.mm-embed a');
+      var armed = Array.prototype.filter.call(kept, function (a) {
+        return a.hasAttribute('href');
+      });
+      check(187, 'the same disguises are stripped out of an embedded block',
+        kept.length === 4 && armed.length === 1 &&
+        // A deny list, not an allow list: the author's own schemes still work.
+        armed[0].getAttribute('href') === 'tel:+6512345678' &&
+        window.__ranDisguised === undefined);
+
+      labelHost.remove();
+      embedHost.remove();
+      tpl.remove();
+    })();
+
+    // ---- the split is settled from the whole tree, folded or not
+    (function () {
+      function partition(id) {
+        var state = document.getElementById(id).querySelector('.mm-container').mindMap;
+        return state.sides.map(function (side) {
+          return side.nodes.map(function (n) { return n.label; }).join('|');
+        }).join(' / ');
+      }
+      check(188, 'a branch that opens folded is weighed by what it will hold',
+        partition('splitopen') === partition('splitfolded') &&
+        // The weight is 6 against 2, so the heavy branch goes alone.
+        partition('splitopen') === 'Heavy / Light|Also light');
+    })();
+
+    // ---- a map too wide for its column opens on its centre
+    (function () {
+      var scroller = document.getElementById('widecentre').querySelector('.mm-scroll');
+      var overflow = scroller.scrollWidth - scroller.clientWidth;
+      var rootBox = scroller.querySelector('.mm-root').getBoundingClientRect();
+      var viewBox = scroller.getBoundingClientRect();
+      // Where the root's centre now sits within the visible strip.
+      var offset = rootBox.left + rootBox.width / 2 - viewBox.left;
+      check(189, 'a map wider than its column opens with the centre node in view',
+        overflow > 0 && scroller.scrollLeft > 0 &&
+        Math.abs(offset - scroller.clientWidth / 2) < 2);
+    })();
+
+    // ---- a wrapped code span is a chip per line, and each needs its padding
+    (function () {
+      var host = document.getElementById('codewrap');
+      var chips = host.querySelectorAll('.mm-code-chip');
+      // The code text only — the root's own label is drawn in this map too.
+      var texts = host.querySelectorAll('.mm-svg text.mm-code');
+      var padded = true;
+      for (var i = 0; i < chips.length; i++) {
+        var chip = chips[i].getBBox();
+        var text = texts[i].getBBox();
+        // Text inside its own chip, with room on both sides. Padded per run
+        // instead, the opening line has no room on the right, the closing line
+        // none on the left, and a middle line's text runs out past its chip.
+        if (text.x <= chip.x || text.x + text.width >= chip.x + chip.width) {
+          padded = false;
+        }
+      }
+      check(190, 'every line of a wrapped code span is padded inside its chip',
+        // Three lines, so one of them is a middle line with no end of the run
+        // in it to borrow padding from.
+        chips.length === 3 && chips.length === texts.length && padded);
+    })();
+
+    // ---- a gesture the browser takes over must not eat the next click
+    (function () {
+      var host = document.getElementById('dragcancel');
+      var state = host.querySelector('.mm-container').mindMap;
+      var branch = state.root.children.filter(function (n) {
+        return n.label === 'Branch';
+      })[0];
+      function pointer(el, type, x, y) {
+        el.dispatchEvent(new PointerEvent(type, {
+          bubbles: true, cancelable: true, pointerId: 7, clientX: x, clientY: y, button: 0
+        }));
+      }
+
+      // A drag that gets far enough to count, then taken away — what a browser
+      // does when it decides a touch was a vertical scroll after all.
+      var r = branch.el.getBoundingClientRect();
+      pointer(branch.el, 'pointerdown', r.left + 5, r.top + 5);
+      pointer(branch.el, 'pointermove', r.left + 45, r.top + 35);
+      pointer(branch.el, 'pointercancel', r.left + 45, r.top + 35);
+
+      var armed = state.suppressClick;
+
+      // The next press lands on the fold badge, which takes no capture and so
+      // never reaches the reset a press on the body would have run.
+      var wasCollapsed = branch.collapsed;
+      branch.el.querySelector('.mm-toggle')
+        .dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+      check(192, 'a cancelled drag leaves the next fold click alone',
+        armed !== true && branch.collapsed !== wasCollapsed);
     })();
 
     function finish() {

@@ -1,5 +1,5 @@
 /*!
- * mind-maps-helper v1.10.1
+ * mind-maps-helper v1.10.2
  * Simple indented-text syntax -> interactive-ready SVG mind maps.
  * PlantUML-style geometry with a refined palette.
  * No dependencies. MIT licensed.
@@ -8,7 +8,7 @@
 (function (global) {
   'use strict';
 
-  var VERSION = '1.10.1';
+  var VERSION = '1.10.2';
 
   // Where the credit chip under a map points.
   var HOME = 'https://se-education.org/mind-maps-helper/';
@@ -307,17 +307,39 @@
   var IMAGE_PLACEHOLDER_H = 48;
 
   /**
+   * The scheme a browser will actually use, which is not always the one the
+   * text appears to spell. A URL parser throws away tabs and newlines wherever
+   * they fall, and skips leading control characters, so `java\tscript:` and
+   * `\u0001javascript:` both navigate to `javascript:` however innocent the raw
+   * string looks. Read the scheme off the same string the parser would see, or
+   * every guard below is reading a different URL from the one that runs.
+   *
+   * Returns the lowercased scheme, or null when there is none — a relative
+   * path, an absolute path, or a bare `#anchor`.
+   */
+  function urlScheme(raw) {
+    var url = String(raw || '')
+      .replace(/[\t\n\r]/g, '')
+      .replace(/^[\u0000-\u0020]+/, '');
+    var scheme = /^([a-z][a-z0-9+.-]*):/i.exec(url);
+    return scheme ? scheme[1].toLowerCase() : null;
+  }
+
+  /**
    * Only schemes that cannot execute script. Relative paths and anchors have
    * no scheme at all and are always fine.
    */
   function safeUrl(raw, allowData) {
     var url = String(raw || '').trim();
     if (!url) return null;
-    var scheme = /^([a-z][a-z0-9+.-]*):/i.exec(url);
-    if (!scheme) return url;                       // relative, absolute path, or #anchor
-    var name = scheme[1].toLowerCase();
+    var name = urlScheme(url);
+    if (!name) return url;                         // relative, absolute path, or #anchor
     if (name === 'http' || name === 'https' || name === 'mailto') return url;
-    if (allowData && name === 'data' && /^data:image\//i.test(url)) return url;
+    // Matched against the canonical scheme rather than the raw text, so a
+    // `data:` URL cannot smuggle a different type past the image check.
+    if (allowData && name === 'data' && /^data:image\//i.test(url.replace(/[\t\n\r]/g, ''))) {
+      return url;
+    }
     return null;
   }
 
@@ -556,9 +578,19 @@
   var URL_ATTRS =
     /^(xlink:)?(href|src|srcdoc|srcset|action|formaction|data|poster|ping|background)$/i;
 
-  // Leading control characters and whitespace are ignored by URL parsers, so
-  // `java\tscript:` is still a javascript: URL and has to be seen as one.
-  var UNSAFE_URL = /^[\u0000-\u0020]*(javascript|vbscript)[\u0000-\u0020]*:/i;
+  // The schemes that execute. Read off `urlScheme`, which strips the tabs,
+  // newlines and leading controls a URL parser ignores, so a `java\tscript:`
+  // spelled to slip past a plain text match is still seen for what it is.
+  //
+  // A deny list rather than the allow list `safeUrl` applies to node labels:
+  // this is the author's own page content, and a map has no business deciding
+  // that their `tel:` link or their site's custom scheme should stop working
+  // once it appears inside a node.
+  var UNSAFE_SCHEMES = /^(javascript|vbscript)$/;
+
+  function unsafeUrl(value) {
+    return UNSAFE_SCHEMES.test(urlScheme(value) || '');
+  }
 
   /** Strips anything that would misbehave once copied into the page a second time. */
   function cleanEmbed(wrap) {
@@ -578,7 +610,7 @@
       for (var j = attrs.length - 1; j >= 0; j--) {
         var name = attrs[j].name;
         if (/^on/i.test(name)) { el.removeAttribute(name); continue; }
-        if (URL_ATTRS.test(name) && UNSAFE_URL.test(attrs[j].value)) {
+        if (URL_ATTRS.test(name) && unsafeUrl(attrs[j].value)) {
           el.removeAttribute(name);
         }
       }
@@ -752,7 +784,6 @@
       // Keep the spaces as items so widths stay exact after wrapping, and so
       // the rendered text still reads correctly when copied.
       var parts = run.text.split(/(\s+)/);
-      var first = items.length;
       for (var p = 0; p < parts.length; p++) {
         if (!parts[p]) continue;
         var isSpace = /^\s+$/.test(parts[p]);
@@ -763,13 +794,48 @@
           h: size2 * 1.35, size: size2
         });
       }
-      // The chip's breathing room belongs to the run as a whole.
-      if (run.code && items.length > first) {
-        items[first].w += CODE_PAD_X;
-        items[items.length - 1].w += CODE_PAD_X;
-      }
     }
     return items;
+  }
+
+  /**
+   * Gives each drawn chip its own breathing room, once the wrap is known.
+   *
+   * A chip is drawn per line, not per run, so a code span containing a space
+   * can wrap into two or three of them. Padding the span as a whole — the
+   * obvious place, back where the items are cut — pads only the very first and
+   * very last item of the lot: the opening line then loses its right padding,
+   * the closing line its left, and any line in between gets no padding in its
+   * measured chip while the drawing still insets the text, so the text runs
+   * out past the chip it is supposed to sit in.
+   *
+   * Spaces are skipped when picking the ends, because a chip is anchored on
+   * its first real word and stops at its last.
+   */
+  function padCodeChips(lines) {
+    for (var i = 0; i < lines.length; i++) {
+      var items = lines[i].items;
+      var added = 0;
+      for (var j = 0; j < items.length; j++) {
+        if (!items[j].run || !items[j].run.code) continue;
+
+        // One stretch per run, so two code spans side by side stay two chips.
+        var run = items[j].run;
+        var first = -1, last = -1, k = j;
+        for (; k < items.length && items[k].run === run; k++) {
+          if (items[k].kind === 'space') continue;
+          if (first < 0) first = k;
+          last = k;
+        }
+        if (first >= 0) {
+          items[first].w += CODE_PAD_X;
+          items[last].w += CODE_PAD_X;
+          added += 2 * CODE_PAD_X;
+        }
+        j = k - 1;
+      }
+      lines[i].width += added;
+    }
   }
 
   /** Greedy wrap of items into lines, honouring explicit breaks. */
@@ -854,6 +920,7 @@
 
     var items = runsToItems(node.runs, m);
     node.lines = layoutLines(items, opts.maxNodeWidth);
+    padCodeChips(node.lines);
     var block = placeLines(node.lines, m);
 
     node.textWidth = block.width;
@@ -871,8 +938,15 @@
 
   // ------------------------------------------------------------------- layout
 
+  /**
+   * Weight of a branch, counted over `children` rather than `kids`: the split
+   * is settled once from the whole tree, so a branch that opens folded has to
+   * weigh what it will weigh when the reader opens it. Counting the visible
+   * tree instead would make a heavy folded branch look like a single leaf, and
+   * expanding it would tip a map that had looked balanced.
+   */
   function leafCount(node) {
-    var kids = node.kids;
+    var kids = node.children;
     if (!kids.length) return 1;
     var n = 0;
     for (var i = 0; i < kids.length; i++) n += leafCount(kids[i]);
@@ -1811,6 +1885,7 @@
 
     // A branch names itself by its content, replaced content included.
     syncToggleState(state.root);
+    refreshOutline(state);
 
     if (!resized) return true;
     syncTogglePositions(state.root);
@@ -2006,21 +2081,26 @@
       paint(state, state.bounds);
     });
 
-    function release(ev) {
+    function release(ev, cancelled) {
       if (!active) return;
       active = false;
       el.classList.remove('mm-dragging');
       if (el.releasePointerCapture && ev.pointerId !== undefined) {
         try { el.releasePointerCapture(ev.pointerId); } catch (e) { /* already gone */ }
       }
-      if (moved) {
-        state.suppressClick = true;       // don't let this drag toggle the node
-        tweenBounds(state, boundsOf(state, state.size));
-      }
+      if (!moved) return;
+      // The flag exists to absorb the click that follows a release, and a
+      // cancelled gesture — the browser taking a touch over for scrolling,
+      // usually — sends no click to absorb. Arming it there leaves it armed:
+      // the next press on a fold badge or a link is excluded from dragging by
+      // NO_DRAG_FROM, so it never reaches the reset above, and its click gets
+      // swallowed by a drag the reader finished with long ago.
+      if (!cancelled) state.suppressClick = true;
+      tweenBounds(state, boundsOf(state, state.size));
     }
 
-    el.addEventListener('pointerup', release);
-    el.addEventListener('pointercancel', release);
+    el.addEventListener('pointerup', function (ev) { release(ev, false); });
+    el.addEventListener('pointercancel', function (ev) { release(ev, true); });
 
     // Without this a link inside a node would still fire after being dragged.
     el.addEventListener('click', function (ev) {
@@ -2184,6 +2264,28 @@
     fillLabel(heading, root);
     wrap.insertBefore(heading, wrap.firstChild);
     return wrap;
+  }
+
+  /**
+   * Rebuilds the outline after a refresh changed what a node says. The outline
+   * is a copy of the labels taken at render time, not a live view of them, so
+   * a block whose source was edited leaves the drawing saying one thing and
+   * the outline still reading out the old text — to the one reader who has
+   * nothing but the outline to go on.
+   *
+   * Direct children only: an embedded block is free to contain a map of its
+   * own, and this container's outline is not that one's.
+   */
+  function refreshOutline(state) {
+    var fresh = buildOutline(state.root);
+    var kids = state.container.children;
+    for (var i = 0; i < kids.length; i++) {
+      if (kids[i].classList && kids[i].classList.contains('mm-a11y')) {
+        state.container.replaceChild(fresh, kids[i]);
+        return;
+      }
+    }
+    state.container.appendChild(fresh);
   }
 
   /**
@@ -2790,17 +2892,31 @@
       var overflow = scroller.scrollWidth - scroller.clientWidth;
       if (overflow <= 0) return;
 
-      var rootRect = svg.querySelector('.mm-root rect');
-      if (!rootRect) return;
+      var rootEl = svg.querySelector('.mm-root');
+      if (!rootEl) return;
 
-      var scale = svg.getBoundingClientRect().width / svg.viewBox.baseVal.width;
-      var centre = (parseFloat(rootRect.getAttribute('x')) +
-                    parseFloat(rootRect.getAttribute('width')) / 2) * scale;
+      // Measured on screen rather than from the <rect>'s own attributes. Every
+      // node's box is drawn at x=0 and moved by a transform on its group, so
+      // the rect alone reports the same left edge for a root sitting anywhere
+      // on the canvas, and the map would open at the far left however wide it
+      // is. A client rect carries the transform, the viewBox and the scale
+      // together, which is all three of the things this sum needs.
+      var rootBox = rootEl.getBoundingClientRect();
+      var viewBox = scroller.getBoundingClientRect();
+      var centre = rootBox.left + rootBox.width / 2 - viewBox.left + scroller.scrollLeft;
 
       scroller.scrollLeft = Math.max(0, Math.min(overflow, centre - scroller.clientWidth / 2));
     };
-    if (global.requestAnimationFrame) global.requestAnimationFrame(run);
-    else run();
+    // A frame later by default, so the measurements come off a page the
+    // browser has already laid out. Reduced motion takes the synchronous path
+    // the rest of the library takes for it: a reader who has asked not to be
+    // moved about should find the map already centred, not slide into place a
+    // frame after it appears.
+    if (global.requestAnimationFrame && !prefersReducedMotion()) {
+      global.requestAnimationFrame(run);
+    } else {
+      run();
+    }
   }
 
   function renderAll(root) {

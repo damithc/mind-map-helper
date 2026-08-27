@@ -127,7 +127,9 @@ exactly as typed. `data-markup="false"` turns the whole thing off.
 
 **Links.** Clicking the link text follows it; clicking elsewhere on the node folds the
 branch; dragging does neither. Links also appear in the outline screen readers use. Only
-`http`, `https`, `mailto` and relative paths are accepted — `javascript:` is refused.
+`http`, `https`, `mailto` and relative paths are accepted. `javascript:` is refused, and
+so is a `javascript:` spelled to look like something else — the scheme is read the way a
+browser reads it, not off the raw text.
 
 **Images.** An image sits inline with the text, so one alone on a line becomes the node's
 whole content. Unsized images fit within 120x90; `![logo](logo.png =80x60)` sets it
@@ -180,8 +182,8 @@ does that — because the block is there to be read and used. Links in it work n
 the node can still be dragged by any other part of it. `id`s are dropped from the copy, so
 no id ends up duplicated, and so is anything that would start running when the copy is
 inserted: `<script>`, `<iframe>`, `<object>`, `<embed>`, `<base>`, `<meta>`, `<link>`,
-`on*` handlers and `javascript:` URLs. Inside a `<template>` none of those has ever been
-live, so the copy is where they would start.
+`on*` handlers, and `javascript:` URLs however they are spelled. Inside a `<template>`
+none of those has ever been live, so the copy is where they would start.
 
 Two caveats: an embedded block leans on your own stylesheet as well as the script's, so it
 is one more thing that does not travel with an `<svg>` copied out of the page; and the id

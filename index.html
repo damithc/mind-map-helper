@@ -287,7 +287,9 @@ hidden outline that screen readers use.</p>
 <p>For safety, only <code>http</code>, <code>https</code>, <code>mailto</code>
 and ordinary relative paths are accepted. Anything else —
 <code>javascript:</code> in particular — is refused and the text is left
-literal.</p>
+literal. The scheme is read the way a browser reads it rather than off the raw
+text, so a <code>javascript:</code> dressed up to look like something else is
+refused on the same terms.</p>
 
 <h3>Images</h3>
 
@@ -426,8 +428,9 @@ Week 5
       <code>&lt;object&gt;</code>, <code>&lt;embed&gt;</code>,
       <code>&lt;base&gt;</code>, <code>&lt;meta&gt;</code>,
       <code>&lt;link&gt;</code>, <code>on*</code> handlers and
-      <code>javascript:</code> URLs. Inside a <code>&lt;template&gt;</code> none
-      of those has ever been live, so the copy is where they would start.</li>
+      <code>javascript:</code> URLs however they are spelled. Inside a
+      <code>&lt;template&gt;</code> none of those has ever been live, so the
+      copy is where they would start.</li>
 </ul>
 
 <div class="note">
@@ -1101,7 +1104,7 @@ CS2103 Software Engineering
 
 </div>
 
-<script src="mindmap.js?v=1.10.1"></script>
+<script src="mindmap.js?v=1.10.2"></script>
 <script>
   // Taken from the library itself, so the badge can never drift from the
   // script actually loaded (and a stale cache is visible at a glance).
