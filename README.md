@@ -61,6 +61,7 @@ its child.
 - Blank lines are ignored.
 - A line starting with `//` is a comment.
 - `[+]` in front of the text makes that branch open folded, `[-]` open.
+- `[blue]` in front of the text paints that branch in an accent you name.
 - Node text understands a little inline Markdown (below). No HTML.
 
 Bad input produces a short on-page message naming the problem and the line, rather than
@@ -189,6 +190,38 @@ of the map. Dropping the `id`s costs whatever depended on them: a `<label for>`,
 Blocks meant to be read — a table, a card, a worked example — copy cleanly; a working
 widget is worth checking in the node.
 
+## Colouring a branch
+
+Branches take an accent from a built-in palette, in the order they appear. To choose one
+yourself, name it in front of the text, the way you would a fold marker:
+
+```
+Software Engineering
+  [blue] Requirements
+    Elicitation
+  [green] Design
+  [pink] Testing
+```
+
+The eight names are the palette's own accents — `blue`, `orange`, `green`, `purple`,
+`gold`, `teal`, `pink` and `slate` — so a named branch still has a light and a dark
+version and follows the page's theme like any other. `red`, `grey` and `gray` are
+accepted as well, for orange and slate.
+
+A name holds from that node down. On a top-level branch it colours the branch; further in
+it recolours the rest of that branch, which is how one sub-topic gets picked out from the
+rest. The centre node takes its colours from the theme rather than the palette, so a name
+there has nothing to paint and is dropped.
+
+Naming one branch leaves the others as they were: the unnamed ones still follow branch
+order, so adding a colour recolours what you named and nothing else.
+
+Colour markers follow the fold markers' rules, and the two stack in either order —
+`[+] [green] Design` and `[green] [+] Design` are the same node. Both go after any bullet,
+both need a space after them, both are read whatever `data-markup` says, and `\[green]`
+gives you a label that really does begin with one. A bracketed word that names no accent
+is left alone, so `[TODO] Revise this` stays as typed.
+
 ## Choosing the shape
 
 Balanced is compact and reads as a figure; one-sided reads top-to-bottom like an indented
@@ -280,7 +313,8 @@ follows the reader's system setting. `data-theme` on a map overrides both.
 
 Branch accents cycle through a built-in palette in the order the top-level branches
 appear. Override `window.MindMap.palette` (an array of `[light, dark]` pairs) to change
-them.
+them. The names an author writes point at positions in that array rather than at colour
+values, so a replaced palette recolours the named branches along with the rest.
 
 ## JavaScript API
 
@@ -326,10 +360,9 @@ under a new path (`/v2/mindmap.js`) so existing pages keep working.
 
 ## Roadmap
 
-Collapse/expand, dragging, inline formatting and embedded HTML blocks have shipped.
-Possible next steps:
+Collapse/expand, dragging, inline formatting, embedded HTML blocks and branch colours
+have shipped. Possible next steps:
 
-- per-node colour overrides
 - saving a reader's folds and moves across visits
 
 ## Licence

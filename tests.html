@@ -609,6 +609,50 @@ Literal markers
   \[+] Escaped
 </pre></div>
 
+<h2>57. Colour markers</h2>
+<p class="want">Expect: Requirements blue, Design green with a green child, Testing pink
+and folded, Legend slate, Notes gold, and Deep and Deeper teal under it; no marker in any
+label.</p>
+<div class="case" id="colourmark"><pre class="mindmap">
+Colour markers
+  Requirements
+    Stakeholders
+  [green] Design
+    Architecture
+  - [+] [pink] Testing
+    Unit
+  [Grey] Legend
+  Notes
+    [teal] Deep
+      Deeper
+</pre></div>
+
+<h2>58. ERROR: colour marker with no text</h2>
+<div class="case" id="colourempty"><pre class="mindmap">
+Root
+  [green]
+</pre></div>
+
+<h2>59. A colour marker needs its space, and can be escaped</h2>
+<p class="want">Expect: <code>[green]NoSpace</code> shown as typed with its child visible,
+one node reading <code>[blue] Escaped</code>, and <code>[TODO] Revise this</code> as
+typed in the branch's own colour.</p>
+<div class="case" id="colourliteral"><pre class="mindmap">
+Literal colours
+  [green]NoSpace
+    Child
+  \[blue] Escaped
+  [TODO] Revise this
+</pre></div>
+
+<h2>60. Colour markers with data-markup="false"</h2>
+<p class="want">Expect: Marked in teal, and one node reading <code>[green] Escaped</code>.</p>
+<div class="case" id="colourraw"><pre class="mindmap" data-markup="false">
+Raw colours
+  [teal] Marked
+  \[green] Escaped
+</pre></div>
+
 <script>document.write('<script src="mindmap.js?v='+Date.now()+'"><\/script>');</script>
 <script>
 // Minimal assertions over the rendered DOM.
@@ -1465,6 +1509,73 @@ window.addEventListener('load', function () {
           reqs.getAttribute('aria-expanded') === 'true');
         done();
       }, 420);
+    })();
+
+    // --- colour markers ---
+    (function () {
+      function nodeIn(id, name) {
+        return Array.prototype.filter.call(
+          document.getElementById(id).querySelectorAll('.mm-node'),
+          function (g) { return g.querySelector('.mm-label').textContent === name; })[0];
+      }
+      function accentIn(id, name) {
+        var g = nodeIn(id, name);
+        return g ? g.style.getPropertyValue('--mm-a').trim() : '';
+      }
+      function labelsIn(id) {
+        return Array.prototype.map.call(
+          document.getElementById(id).querySelectorAll('.mm-label'),
+          function (l) { return l.textContent; });
+      }
+
+      check(133, 'a named accent paints the branch it heads',
+        accentIn('colourmark', 'Design') === '#3f7d5c' &&
+        accentIn('colourmark', 'Architecture') === '#3f7d5c');
+      check(134, 'an unnamed branch keeps the slot its order earned it',
+        accentIn('colourmark', 'Requirements') === '#3b6ea5' &&
+        accentIn('colourmark', 'Notes') === '#a8842c');
+      check(135, 'a name further in recolours the rest of that branch',
+        accentIn('colourmark', 'Deep') === '#2f7f8f' &&
+        accentIn('colourmark', 'Deeper') === '#2f7f8f');
+      check(136, 'a name is read whatever its case, aliases included',
+        accentIn('colourmark', 'Legend') === '#56657a');
+
+      var testing = nodeIn('colourmark', 'Testing');
+      check(137, 'colour and fold markers stack, and neither reaches the label',
+        !!testing && testing.classList.contains('mm-collapsed') &&
+        testing.style.getPropertyValue('--mm-a').trim() === '#9c4f6c' &&
+        labelsIn('colourmark').join('|').indexOf('[') === -1);
+
+      check(138, 'the dark half of the pair travels with it',
+        nodeIn('colourmark', 'Design').style.getPropertyValue('--mm-a-dark').trim() ===
+          '#79c39a');
+
+      // The edges carry the accent too, or a recoloured branch would keep its
+      // old curves: one from the root to Design, one on to Architecture.
+      check(139, 'the curves into a named branch take its colour',
+        Array.prototype.filter.call(
+          document.querySelectorAll('#colourmark .mm-edge'),
+          function (e) { return e.style.getPropertyValue('--mm-a').trim() === '#3f7d5c'; }
+        ).length === 2);
+
+      var bad = document.querySelector('#colourempty .mm-error');
+      check(140, 'a colour marker with no text after it names the line',
+        !!bad && bad.textContent.indexOf('Line 2') > -1 &&
+        bad.textContent.indexOf('colour marker') > -1);
+
+      var lit = labelsIn('colourliteral');
+      check(141, 'a colour marker without its space is just a label',
+        lit.indexOf('[green]NoSpace') > -1 && lit.indexOf('Child') > -1);
+      check(142, 'a backslash keeps a literal colour marker in the label',
+        lit.indexOf('[blue] Escaped') > -1);
+      check(143, 'a bracketed word that names no accent is left alone',
+        lit.indexOf('[TODO] Revise this') > -1 &&
+        accentIn('colourliteral', '[TODO] Revise this') === '#3f7d5c');
+
+      var raw = labelsIn('colourraw');
+      check(144, 'a colour marker and its escape are read with markup off',
+        accentIn('colourraw', 'Marked') === '#2f7f8f' &&
+        raw.indexOf('[green] Escaped') > -1);
     })();
 
     // --- embedded page HTML ---

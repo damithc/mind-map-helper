@@ -194,6 +194,7 @@ Software Engineering
   <li>Blank lines are ignored, so you can use them to group things while writing.</li>
   <li>A line starting with <code>//</code> is a comment and is not drawn.</li>
   <li><code>[+]</code> in front of the text makes that branch open folded, <code>[-]</code> open — see below.</li>
+  <li><code>[blue]</code> in front of the text paints that branch in an accent you name — see below.</li>
   <li>Node text understands a little inline Markdown — see below. No HTML.</li>
 </ul>
 
@@ -575,6 +576,91 @@ markup inside a label, so both the marker and its escape work whatever
 <p>To turn interaction off entirely and get a plain static diagram, set
 <code>data-interactive="false"</code>.</p>
 
+<h2>Colouring a branch</h2>
+
+<p>Branches take an accent from a built-in palette, in the order they appear. To
+choose one yourself, name it in front of the text, the way you would a fold
+marker.</p>
+
+<div class="split">
+<pre><code>Software Engineering
+  [blue] Requirements
+    Elicitation
+  [green] Design
+    Architecture
+  [pink] Testing
+    Unit Testing</code></pre>
+<div class="demo">
+<pre class="mindmap" data-credit="false">
+Software Engineering
+  [blue] Requirements
+    Elicitation
+  [green] Design
+    Architecture
+  [pink] Testing
+    Unit Testing
+</pre>
+</div>
+</div>
+
+<p>The eight names are the palette's own accents. Each has a light and a dark
+version, so a branch you name follows the page's theme like any other.
+<code>red</code>, <code>grey</code> and <code>gray</code> are accepted as well,
+for orange and slate. Every branch below is named, so none of them is the colour
+its position would otherwise have given it.</p>
+
+<div class="demo">
+<pre class="mindmap" data-credit="false" data-direction="right">
+Accents
+  [pink] pink
+  [blue] blue
+  [gold] gold
+  [green] green
+  [slate] slate
+  [purple] purple
+  [teal] teal
+  [orange] orange
+</pre>
+</div>
+
+<p>A name holds from that node down. On a top-level branch it colours the whole
+branch; further in it recolours the rest of that branch, which is how one
+sub-topic gets picked out from the rest. The centre node takes its colours from
+the theme rather than the palette, so a name there has nothing to paint and is
+dropped.</p>
+
+<div class="split">
+<pre><code>Testing
+  Unit Testing
+    Stubs
+    [pink] Flaky tests
+      Timing
+  Integration Testing
+    Top-down</code></pre>
+<div class="demo">
+<pre class="mindmap" data-credit="false">
+Testing
+  Unit Testing
+    Stubs
+    [pink] Flaky tests
+      Timing
+  Integration Testing
+    Top-down
+</pre>
+</div>
+</div>
+
+<p>Naming one branch leaves the others as they were: the unnamed ones still
+follow branch order, so adding a colour recolours what you named and nothing
+else.</p>
+
+<p>Colour markers follow the fold markers' rules, and the two stack in either
+order — <code>[+] [green] Design</code> and <code>[green] [+] Design</code> are
+the same node. Both go after any bullet, both need a space after them, both are
+read whatever <code>data-markup</code> says, and <code>\[green]</code> gives you a
+label that really does begin with one. A bracketed word that names no accent is
+left alone, so <code>[TODO] Revise this</code> stays as typed.</p>
+
 <h2>Choosing the shape</h2>
 
 <p>The same content reads differently depending on how it is arranged.
@@ -847,7 +933,9 @@ pin one map either way, add <code>data-theme="light"</code> or
 <p>Branch accent colours cycle through a built-in palette in the order your
 top-level branches appear. To use your own, override
 <code>window.MindMap.palette</code> before the page finishes loading — each
-entry is a <code>[light, dark]</code> pair.</p>
+entry is a <code>[light, dark]</code> pair. The names you write in a map point at
+positions in that array rather than at colour values, so your palette recolours
+the named branches along with the rest.</p>
 
 <h2>Calling it from JavaScript</h2>
 
@@ -927,7 +1015,7 @@ CS2103 Software Engineering
 
 </div>
 
-<script src="mindmap.js?v=1.8.0"></script>
+<script src="mindmap.js?v=1.9.0"></script>
 <script>
   // Taken from the library itself, so the badge can never drift from the
   // script actually loaded (and a stale cache is visible at a glance).

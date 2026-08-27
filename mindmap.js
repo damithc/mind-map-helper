@@ -1,5 +1,5 @@
 /*!
- * mind-maps-helper v1.8.0
+ * mind-maps-helper v1.9.0
  * Simple indented-text syntax -> interactive-ready SVG mind maps.
  * PlantUML-style geometry with a refined palette.
  * No dependencies. MIT licensed.
@@ -8,7 +8,7 @@
 (function (global) {
   'use strict';
 
-  var VERSION = '1.8.0';
+  var VERSION = '1.9.0';
 
   // Where the credit chip under a map points.
   var HOME = 'https://se-education.org/mind-maps-helper/';
@@ -31,8 +31,28 @@
     ['#56657a', '#9fb0c4']
   ];
 
+  // The accent names an author may write in front of a node's text. They name
+  // slots in the palette above rather than colour values, so a site that
+  // replaces `MindMap.palette` recolours the named branches along with the
+  // rest, and every name keeps a light and a dark version.
+  //
+  // `red`, `grey` and `gray` are the words an author reaches for first for two
+  // of them. A word that is not a name here stays in the label rather than
+  // being reported, so a near miss would otherwise fail silently.
+  var ACCENTS = {
+    blue: 0, orange: 1, green: 2, purple: 3,
+    gold: 4, teal: 5, pink: 6, slate: 7,
+    red: 1, grey: 7, gray: 7
+  };
+
   function isArray(v) {
     return Object.prototype.toString.call(v) === '[object Array]';
+  }
+
+  /** The palette slot an accent name points at, or null if it names nothing. */
+  function accentSlot(name) {
+    var key = name.toLowerCase();
+    return Object.prototype.hasOwnProperty.call(ACCENTS, key) ? ACCENTS[key] : null;
   }
 
   /**
@@ -110,6 +130,11 @@
 
   // ------------------------------------------------------------------- parser
 
+  // One marker at the front of a label, escaped or not: the backslash if the
+  // author wrote one, the sign or name inside the brackets, and the space that
+  // has to follow. Whether the name is one of ours is settled after the match.
+  var MARKER = /^(\\?)\[([-+]|[A-Za-z]+)\]([ \t]|$)/;
+
   /**
    * Turns indented text into a tree. Depth comes from leading whitespace;
    * an optional `-`, `*` or `+` bullet is stripped from each label.
@@ -131,29 +156,41 @@
       }
       var label = body.replace(/^[-*+][ ]+/, '').trim();
 
-      // `[+]` / `[-]` in front of the text says how the node should start:
-      // folded away, or open. They are the signs the fold badge itself shows,
-      // so an author writes the state the reader will see. A marker is
+      // Markers in front of the text say how the node should start: `[+]` /
+      // `[-]` folded away or open, an accent name for the colour it takes.
+      // They are the signs the fold badge itself shows and the names the docs
+      // list, so an author writes what the reader will see. A marker is
       // structure rather than markup, like the bullet above it, so it is read
       // whatever `data-markup` says — and needs the same space after it that a
       // bullet does, which keeps `[+](note.html)` a link.
+      //
+      // Markers stack, in either order. Anything else in brackets ends the run
+      // and stays in the label: course material is full of lines that open
+      // with a bracketed word, and only the names above are ours to take.
       //
       // A label that really does begin with one escapes it as `\[+]`. The
       // backslash comes off here rather than in the inline parser, because a
       // map with markup turned off still has markers to escape.
       var fold = null;
-      var mark = /^\[([-+])\]([ \t]|$)/.exec(label);
-      if (mark) {
-        fold = mark[1];
-        label = label.slice(3).trim();
+      var accent = null;
+      for (;;) {
+        var mark = MARKER.exec(label);
+        if (!mark) break;
+        var tag = mark[2];
+        var isFold = tag === '+' || tag === '-';
+        var slot = isFold ? 0 : accentSlot(tag);
+        if (slot === null) break;                        // a word, not a marker
+        if (mark[1]) { label = label.slice(1); break; }  // escaped: lose the backslash
+        if (isFold) fold = tag; else accent = slot;
+        label = label.slice(tag.length + 2).trim();
         if (!label) {
-          throw new MindMapError('This line has a fold marker but no text after it.', i + 1);
+          throw new MindMapError('This line has a ' + (isFold ? 'fold' : 'colour') +
+            ' marker but no text after it.', i + 1);
         }
-      } else if (/^\\\[[-+]\]([ \t]|$)/.test(label)) {
-        label = label.slice(1);
       }
 
-      lines.push({ indent: indent, label: label, fold: fold, lineNo: i + 1 });
+      lines.push({ indent: indent, label: label, fold: fold, accent: accent,
+                   lineNo: i + 1 });
     }
 
     if (!lines.length) {
@@ -172,7 +209,8 @@
 
     for (var k = 0; k < lines.length; k++) {
       var ln = lines[k];
-      var node = { label: ln.label, children: [], fold: ln.fold, lineNo: ln.lineNo };
+      var node = { label: ln.label, children: [], fold: ln.fold,
+                   accent: ln.accent, lineNo: ln.lineNo };
 
       while (stack.length && ln.indent <= stack[stack.length - 1].indent) stack.pop();
 
@@ -894,10 +932,11 @@
       groups = splitBranches(branches);
     }
 
-    // Branch accents follow the author's original order, not the split.
+    // Branch accents follow the author's original order, not the split. A
+    // named branch takes its slot without taking anyone else's, so colouring
+    // one branch leaves every other branch the colour it already had.
     for (var b = 0; b < branches.length; b++) {
-      var idx = b % palette().length;
-      eachNode(branches[b], function (n) { n.accentIndex = idx; });
+      paintAccent(branches[b], b % palette().length);
     }
 
     root.side = 0;
@@ -908,6 +947,17 @@
       { nodes: groups.right, sign: 1 },
       { nodes: groups.left, sign: -1 }
     ];
+  }
+
+  /**
+   * Paints a subtree with one accent, except where the author named another:
+   * a name holds from that node down, so it colours a whole branch written at
+   * the top of one and recolours the rest of a branch written further in.
+   */
+  function paintAccent(node, idx) {
+    if (typeof node.accent === 'number') idx = node.accent;
+    node.accentIndex = idx;
+    for (var i = 0; i < node.children.length; i++) paintAccent(node.children[i], idx);
   }
 
   function layout(root, opts, sides) {

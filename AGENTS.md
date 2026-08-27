@@ -40,13 +40,14 @@ fastest way into the file.
    what gets replaced. `resolveSource` finds the element whose text is the map, and
    `readOptions` reads `data-*` off everything between the two, innermost winning.
 2. **Parse.** `parse` turns indented lines into a tree of
-   `{ label, children, parent, depth, lineNo, collapsed, fold }`. It knows nothing
+   `{ label, children, parent, depth, lineNo, collapsed, fold, accent }`. It knows nothing
    about inline markup yet; the label is still raw text here.
 3. **Measure.** `measureTree` parses each label into styled *runs*, resolves embedded
    HTML, wraps the runs into lines, and arrives at `node.w` / `node.h`. Nothing can be
    laid out before this, because every position downstream is derived from box sizes.
 4. **Split sides.** `assignSides` decides which top-level branches go left and which go
-   right, and gives each branch its accent.
+   right, and gives each branch its accent — the author's where a node named one, and
+   that name holds for the subtree under it.
 5. **Lay out.** `layout` assigns `node.x` (left edge) and `node.cy` (vertical centre) in
    two passes: one computing each subtree's vertical extent, one placing each subtree
    inside the band that extent earned it.
@@ -73,6 +74,7 @@ Re-renders are partial, and which stages re-run is the thing to get right:
 |---|---|---|
 | `children` | parser | Every child, folded away or not. |
 | `fold` | parser | The author's `[+]` / `[-]` marker, or `null`. Sets the opening fold state in `render`, beating `data-collapse-level`. |
+| `accent` | parser | The palette slot the author named, or `null`. Overrides the branch accent from this node down. |
 | `kids` | `refreshVisibility` | The *visible* children — `[]` when the node is collapsed. |
 | `w`, `h` | measurement | Box size. |
 | `x`, `cy` | layout | Where the node belongs once the map settles. |
