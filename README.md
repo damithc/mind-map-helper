@@ -17,6 +17,19 @@ Add the script once per page:
 <script src="https://se-education.org/mind-maps-helper/mindmap.js"></script>
 ```
 
+To get it on every page instead of pasting it into each one, use whatever your generator
+offers for site-wide scripts. In MarkBind that is `externalScripts` in `site.json`:
+
+```json
+{
+  "externalScripts": [
+    "https://se-education.org/mind-maps-helper/mindmap.js"
+  ]
+}
+```
+
+In Jekyll, add the `<script>` tag to the layout your pages use.
+
 Then write a map wherever you want one:
 
 ```html
@@ -60,7 +73,7 @@ its child.
 - A leading `-`, `*` or `+` followed by a space is treated as a bullet and dropped.
 - Blank lines are ignored.
 - A line starting with `//` is a comment.
-- `[+]` in front of the text makes that branch open folded, `[-]` open.
+- `[+]` before the text makes that branch start folded; `[-]` makes it start open.
 - `[blue]` in front of the text paints that branch in an accent you name.
 - `[dim]` fades a branch into the background; `[hot]` picks one out.
 - Node text understands a little inline Markdown (below). No HTML.
@@ -169,8 +182,14 @@ with `class="mm-source"`, which this script hides:
 A block meant to be visible on the page needs neither — point at it and it appears in
 both places.
 
-Blocks lay out within 260px unless told otherwise: `data-embed-max-width` sets that for a
-map, `![](#id =240x160)` fixes one block exactly.
+Blocks lay out within 260px unless told otherwise. `data-embed-max-width` sets that width
+for a whole map; `![](#id =240x160)` fixes one block's size exactly.
+
+Height is capped too: a block you have not sized gets at most 400px of it. Nothing is lost
+when the content is taller — the block keeps all of it and scrolls inside the node. Sizing
+the block yourself replaces that cap with the height you asked for, so
+`![](#id =240x600)` lays out 600px tall, and scrolls only if the content outgrows even
+that.
 
 The words in front of the `#` are what names the block for a screen reader, which meets
 the map as an outline rather than a drawing: `![Grade breakdown](#marks-box)` reads as
@@ -186,15 +205,35 @@ inserted: `<script>`, `<iframe>`, `<object>`, `<embed>`, `<base>`, `<meta>`, `<l
 none of those has ever been live, so the copy is where they would start.
 
 Two caveats: an embedded block leans on your own stylesheet as well as the script's, so it
-is one more thing that does not travel with an `<svg>` copied out of the page; and the id
-must be in the page's HTML, since a block added later by another script is not there when
-the map is drawn (call `MindMap.renderAll()` afterwards in that case).
+is one more thing that does not travel with an `<svg>` copied out of the page; and the
+element must already exist when the map is *first* drawn.
+
+That second one does not forgive lateness. A map naming an id that is not there yet fails
+with an on-page message, and the message takes the place of the map's source — so there is
+nothing left for a later `MindMap.renderAll()` to find, and no way for it to retry. If a
+script builds the block, keep the map out of the automatic pass that runs on load and draw
+it yourself once the block is in the page:
+
+```html
+<pre id="later" class="mindmap-pending">
+Grades
+  ![Breakdown](#marks-box)
+</pre>
+<script>
+  buildMarksBox();                     // creates #marks-box
+  var el = document.getElementById('later');
+  el.className = 'mindmap';            // now the script will match it
+  MindMap.render(el);
+</script>
+```
 
 What the copy is, is a copy. Anything wired up with `addEventListener` stays behind on
-the original, so a button whose handler was attached that way does nothing in the node —
-a listener on a container the block sits inside still fires, since the click bubbles out
-of the map. Dropping the `id`s costs whatever depended on them: a `<label for>`, an
-`aria-labelledby`, a link to `#somewhere` inside the block, a rule written as `#id .thing`.
+the original, so a button whose handler was attached that way does nothing in the node.
+A delegated listener can still catch it, but only where it is bound to an ancestor of the
+*copy* — a shared page container the map itself sits inside. Bound to an ancestor of the
+original block instead, it never hears the copy, which lives over in the map. Dropping the
+`id`s costs whatever depended on them: a `<label for>`, an `aria-labelledby`, a link to
+`#somewhere` inside the block, a rule written as `#id .thing`.
 Blocks meant to be read — a table, a card, a worked example — copy cleanly; a working
 widget is worth checking in the node.
 
@@ -288,8 +327,8 @@ is left alone, so `[Draft] Notes` stays as typed.
 ## Choosing the shape
 
 Balanced is compact and reads as a figure; one-sided reads top-to-bottom like an indented
-outline. Rather than deciding for every reader, each map carries a small switch in its top
-corner that fades in on hover. The two shapes share one outline, because they are
+outline. To avoid making the decision for every reader, each map carries a small switch in
+its top corner that fades in on hover. The two shapes share one outline, because they are
 alternatives rather than two separate settings: picking one drops the other.
 
 `data-direction` still sets the shape the map *opens* in — the switch just offers the other
@@ -346,6 +385,45 @@ Set these as attributes on the container.
 | `data-theme` | follows the page | `light` or `dark`, to pin one map regardless of the site's theme. |
 | `data-credit` | `true` | `false` drops the rule and the small link back to this project from under the map. |
 
+**Where they may sit.** An option is read from the code block itself, from its `<pre>`, or
+from any highlighter wrapper the script already recognises around it — innermost wins. A
+wrapper of your own making is *not* consulted, so this does nothing:
+
+````markdown
+<div data-direction="right">      <!-- ignored: not a wrapper the script knows -->
+
+```mindmap
+Software Engineering
+  Requirements
+```
+
+</div>
+````
+
+With a fenced block, whether an option reaches the map depends on where your generator
+puts the attribute, and generators differ. **When you need options, write the map as
+`<pre class="mindmap" ...>`** — that form carries them in every generator and is worth the
+few extra characters:
+
+```html
+<pre class="mindmap" data-direction="right" data-collapse-level="1">
+Software Engineering
+  Requirements
+  Design
+</pre>
+```
+
+If you would rather keep the fence, both common generators can carry options, because both
+put them somewhere the script reads:
+
+| Generator | Write this | The attribute lands on |
+|---|---|---|
+| MarkBind | ```` ```mindmap {.mindmap data-direction="right"} ```` | the `<code>`, beside the class |
+| Jekyll / kramdown | `{: data-direction="right"}` on the line after the fence | the highlighter wrapper |
+
+Either way, confirm it before trusting it: inspect the drawn map in your browser and check
+the attribute really is on the `<code>`, the `<pre>`, or the wrapper the script replaced.
+
 ## Containers recognised
 
 - `<pre class="mindmap">` — works everywhere, accepts options
@@ -379,21 +457,104 @@ appear. Override `window.MindMap.palette` (an array of `[light, dark]` pairs) to
 them. The names an author writes point at positions in that array rather than at colour
 values, so a replaced palette recolours the named branches along with the rest.
 
+The palette is read as each map is drawn, so it has to be set **before the maps it should
+affect are rendered**. Maps already on the page are drawn once the document has been
+parsed, which any inline script placed after the library will beat:
+
+```html
+<script src="https://se-education.org/mind-maps-helper/mindmap.js"></script>
+<script>
+  window.MindMap.palette = [
+    ['#2f6f4f', '#7fc3a1'],   /* first branch:  light, dark */
+    ['#8a3033', '#e29a9c'],   /* second branch              */
+    ['#2563a8', '#8fbdf0']    /* third branch               */
+  ];
+</script>
+```
+
+Setting it later recolours nothing by itself — re-render the maps that should pick it up.
+
 ## JavaScript API
 
-Only needed for maps added after page load.
+Nothing here is needed for an ordinary page: maps already in the HTML are drawn on load.
+Use `render()` or `renderAll()` for maps added *after* that. The rest inspect, control or
+refresh maps that have already been drawn.
 
-| Call | Effect |
-|---|---|
-| `MindMap.renderAll()` | Draws every unrendered map on the page. Runs automatically on load. |
-| `MindMap.renderAll(el)` | Same, scoped to `el`. |
-| `MindMap.render(el)` | Draws one element. |
-| `MindMap.parse(text)` | Returns the parsed tree without drawing. |
-| `MindMap.collapseAll(el)` | Folds every branch of one rendered map. |
-| `MindMap.expandAll(el)` | Unfolds every branch of one rendered map. |
-| `MindMap.resetPositions(el)` | Undoes every drag, restoring the computed layout. |
-| `MindMap.setDirection(el, dir)` | Switches shape: `balanced`, `right` or `left`. |
-| `MindMap.refresh(el)` | Re-measures one map's embedded blocks, after their content changed. |
+| Call | Effect | Returns |
+|---|---|---|
+| `MindMap.renderAll()` | Draws every unrendered map on the page. Runs automatically on load. | Array of the containers drawn |
+| `MindMap.renderAll(el)` | Same, but only inside `el`. | Array of the containers drawn |
+| `MindMap.render(el)` | Draws one map. | The container that replaced it |
+| `MindMap.parse(text)` | Parses the source without drawing anything. | The root node |
+| `MindMap.collapseAll(el)` | Folds every branch of one drawn map. | `true`, or `false` if `el` holds no map |
+| `MindMap.expandAll(el)` | Unfolds every branch of one drawn map. | `true`, or `false` if `el` holds no map |
+| `MindMap.resetPositions(el)` | Undoes every drag, restoring the computed layout. | `true`, or `false` if `el` holds no map |
+| `MindMap.setDirection(el, dir)` | Switches shape: `balanced`, `right` or `left`. | `true` if the shape changed |
+| `MindMap.refresh(el)` | Re-measures one map's embedded blocks, after their content changed. | `true` if anything was re-measured |
+
+**What `el` may be.** For the two drawing calls it is the map's *source* — the
+`<pre class="mindmap">`, or any element inside a fenced block's wrapper; `renderAll(el)`
+instead takes an element to search *within*. For every other call it is a map that has
+already been drawn: the container returned by `render()`, any element inside it, or an
+ancestor holding exactly one map. Hand one of those calls a source that was never drawn,
+or an element with no map in it, and it changes nothing and returns `false`.
+
+**The booleans mean "something changed", not "it worked".** `setDirection()` returns
+`false` for a direction the map is already in, and equally for a misspelt one — `'right'`,
+`'left'` and `'balanced'` are the only values accepted, and anything else is ignored rather
+than reported. `refresh()` returns `false` when a map has no embedded blocks to re-measure.
+
+**Drawing a map yourself:**
+
+```html
+<pre id="late" class="mindmap-pending">
+Topics
+  Requirements
+  Design
+</pre>
+<script>
+  var el = document.getElementById('late');
+  el.className = 'mindmap';     // the script only matches maps it recognises
+  MindMap.render(el);
+</script>
+```
+
+`render()` replaces the element it is given, so hold on to what it returns if you mean to
+control the map afterwards. It does not throw on a bad map: it returns a container showing
+an on-page error instead. `parse()` is the one call that does throw — a `MindMapError`,
+carrying the offending line number — since it has no page to put a message on.
+
+## Troubleshooting
+
+**The map is still showing as indented text.** The script did not run, or it did not
+recognise the block. Check the console for a failed request to `mindmap.js`, then check
+that the block really carries one of the forms under *Containers recognised* — with a
+fenced block, that the language name survived your generator.
+
+**A Content Security Policy can block the drawing without blocking the script.** Two
+separate directives matter:
+
+- `script-src` has to allow `https://se-education.org`, or the script never loads at all.
+- `style-src` has to allow the stylesheet the script injects. The map's CSS is added as a
+  `<style>` element at load, which counts as an inline style, so a policy without
+  `'unsafe-inline'` blocks it. The map still *draws* — the SVG is built either way — but it
+  arrives with none of its styling: wrong colours, no sideways scrolling, and the outline
+  meant for screen readers showing up as visible text. The browser names the offending
+  directive in the console, along with a hash you could allow instead; the hash changes
+  with every release, and there is no nonce hook today, so `'unsafe-inline'` is in practice
+  the only stable answer.
+
+Node positions are set through the CSSOM rather than written into markup, and CSP does not
+police that, so those survive a strict policy — it is the stylesheet that goes. Loosen only
+the directive you need, and only for the pages carrying maps.
+
+**"This node asks for the page element with id …".** The map names a block that was not in
+the page when it was drawn — a typo in the id, or an element some other script adds later.
+See the caveats under *Blocks of your own HTML*.
+
+**Anything else.** A map that fails for a reason you cannot act on says so on the page and
+puts the details in the browser console; a map that fails for a reason you *can* act on
+names the problem and the line number on the page itself.
 
 ## Notes
 
@@ -436,8 +597,13 @@ a rendering regression that still passes its assertions is visible.
 
 ## Versioning
 
-The URL above always serves the current release. Any future breaking change will ship
-under a new path (`/v2/mindmap.js`) so existing pages keep working.
+The script URL carries no version, and always serves the current release. That cuts both
+ways, and it is worth being plain about: your pages pick up new releases automatically, as
+they ship, without you changing anything and without a chance to try them first.
+
+What you get in exchange is that existing maps keep working. Any future breaking change
+ships under a new path (`/v2/mindmap.js`) rather than landing on this one, so a page that
+never touches its script tag keeps the behaviour it was built against.
 
 ## Roadmap
 

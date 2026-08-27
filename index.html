@@ -91,9 +91,33 @@
   kbd { font-family: var(--mono); font-size: .82em; background: var(--code-bg);
         border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px;
         padding: .1em .4em; }
+  /* Off screen until tabbed to, so the first tab stop on the page is a way
+     past the guide rather than into it. */
+  .skip-link {
+    position: absolute; left: -9999px; top: 0; z-index: 10;
+    background: var(--page); color: var(--accent);
+    padding: .6rem 1rem; border: 1px solid var(--line); border-radius: 0 0 6px 0;
+  }
+  .skip-link:focus { left: 0; }
+  /* The footer sits outside <main> and brings its own bottom room, so the
+     content column gives up the padding it used to carry for both. */
+  main.wrap { padding-bottom: 0; }
+  .toc {
+    border: 1px solid var(--line); background: var(--panel); border-radius: 6px;
+    padding: 1rem 1.25rem; margin: 0 0 2.5rem;
+  }
+  .toc p { font-weight: 600; font-size: .92rem; margin: 0 0 .5rem; }
+  .toc ul {
+    list-style: none; margin: 0; padding: 0; font-size: .94rem;
+    columns: 2; column-gap: 2rem;
+  }
+  .toc li { margin: 0 0 .3rem; break-inside: avoid; }
+  @media (max-width: 44rem) { .toc ul { columns: 1; } }
 </style>
 </head>
 <body>
+
+<a class="skip-link" href="#content">Skip to content</a>
 
 <header class="hero">
   <div class="wrap">
@@ -102,7 +126,7 @@
   </div>
 </header>
 
-<div class="wrap">
+<main id="content" class="wrap">
 
 <p class="lede">
   If you can write a bulleted list, you can make a mind map. Drop one
@@ -112,9 +136,33 @@
   fold branches away and drag nodes around.
 </p>
 
-<h2>Add it to your page</h2>
+<nav class="toc" aria-label="On this page">
+  <p>On this page</p>
+  <ul>
+    <li><a href="#add-it">Add it to your page</a></li>
+    <li><a href="#writing">Writing the text</a></li>
+    <li><a href="#formatting">Formatting inside a node</a></li>
+    <li><a href="#embeds">Blocks of your own HTML</a></li>
+    <li><a href="#collapsing">Collapsing and expanding</a></li>
+    <li><a href="#colours">Colouring a branch</a></li>
+    <li><a href="#emphasis">Dimming and highlighting</a></li>
+    <li><a href="#shape">Choosing the shape</a></li>
+    <li><a href="#dragging">Moving nodes</a></li>
+    <li><a href="#credit">Credit link</a></li>
+    <li><a href="#options">Options</a></li>
+    <li><a href="#markdown">Using it in Markdown</a></li>
+    <li><a href="#styling">Changing the look</a></li>
+    <li><a href="#api">Calling it from JavaScript</a></li>
+    <li><a href="#example">A bigger example</a></li>
+    <li><a href="#troubleshooting">Troubleshooting</a></li>
+    <li><a href="#notes">Notes</a></li>
+    <li><a href="#versioning">Versioning</a></li>
+  </ul>
+</nav>
 
-<p>Put this once, anywhere in your page (the end of <code>&lt;body&gt;</code> is a good spot):</p>
+<h2 id="add-it">Add it to your page</h2>
+
+<p>Add this once anywhere on your page (the end of <code>&lt;body&gt;</code> is a good spot):</p>
 
 <pre><code>&lt;script src="https://se-education.org/mind-maps-helper/mindmap.js"&gt;&lt;/script&gt;</code></pre>
 
@@ -162,9 +210,9 @@ Software Engineering
   will never think about it again.</p>
 </div>
 
-<h2>Writing the text</h2>
+<h2 id="writing">Writing the text</h2>
 
-<h3>Bullets are optional</h3>
+<h3 id="bullets">Bullets are optional</h3>
 
 <p>These two are identical. Use whichever looks better in your source.</p>
 
@@ -185,7 +233,7 @@ Software Engineering
     - Quizzes</code></pre>
 </div>
 
-<h3>The rules, in full</h3>
+<h3 id="rules">The rules, in full</h3>
 
 <ul class="tight">
   <li>The first line is the centre of the map. There can be only one such line.</li>
@@ -193,7 +241,7 @@ Software Engineering
   <li>A leading <code>-</code>, <code>*</code> or <code>+</code> followed by a space is treated as a bullet and dropped.</li>
   <li>Blank lines are ignored, so you can use them to group things while writing.</li>
   <li>A line starting with <code>//</code> is a comment and is not drawn.</li>
-  <li><code>[+]</code> in front of the text makes that branch open folded, <code>[-]</code> open — see below.</li>
+  <li><code>[+]</code> before the text makes that branch start folded; <code>[-]</code> makes it start open — see below.</li>
   <li><code>[blue]</code> in front of the text paints that branch in an accent you name — see below.</li>
   <li><code>[dim]</code> fades a branch into the background, <code>[hot]</code> picks one out — see below.</li>
   <li>Node text understands a little inline Markdown — see below. No HTML.</li>
@@ -202,7 +250,7 @@ Software Engineering
 <p>If something is wrong with your list, the page shows a short message saying
 what and on which line, instead of silently drawing nothing.</p>
 
-<h3>Longer labels wrap</h3>
+<h3 id="wrapping">Longer labels wrap</h3>
 
 <p>A label wider than <code>data-max-node-width</code> breaks onto another line
 rather than stretching the map.</p>
@@ -215,7 +263,7 @@ Course Admin
 &lt;/pre&gt;</code></pre>
 
 <div class="demo">
-<pre class="mindmap" data-credit="false" data-max-node-width="110">
+<pre class="mindmap" data-interactive="false" data-credit="false" data-max-node-width="110">
 Course Admin
   Weekly deadlines are strictly enforced
   Late submissions lose 10% per day
@@ -223,7 +271,7 @@ Course Admin
 </pre>
 </div>
 
-<h2>Formatting inside a node</h2>
+<h2 id="formatting">Formatting inside a node</h2>
 
 <p>Node text understands a small slice of Markdown — the inline bits, nothing
 block-level. Everything else is shown exactly as typed.</p>
@@ -233,15 +281,15 @@ block-level. Everything else is shown exactly as typed.</p>
   **Requirements** first
   Run `git rebase` with care
   *Optional:* ~~dropped~~
-  [Lecture 3](week3.html)
+  [More examples](#example)
   Week 1\nWeek 2</code></pre>
 <div class="demo">
-<pre class="mindmap" data-credit="false" data-direction="right">
+<pre class="mindmap" data-interactive="false" data-credit="false" data-direction="right">
 Software Engineering
   **Requirements** first
   Run `git rebase` with care
   *Optional:* ~~dropped~~
-  [Lecture 3](week3.html)
+  [More examples](#example)
   Week 1\nWeek 2
 </pre>
 </div>
@@ -261,7 +309,7 @@ Software Engineering
 </table>
 </div>
 
-<h3>It tries hard not to surprise you</h3>
+<h3 id="conservative">It tries hard not to surprise you</h3>
 
 <p>Course material is full of characters that look like markup but are not, so
 the rules are deliberately conservative:</p>
@@ -278,7 +326,7 @@ the rules are deliberately conservative:</p>
 turns off is the markup — indenting, bullets, comments and fold markers are how
 the list is built, and stay.</p>
 
-<h3>Links</h3>
+<h3 id="links">Links</h3>
 
 <p>Clicking the link text follows it; clicking anywhere else on the node folds
 that branch as usual, and dragging does neither. Links also appear in the
@@ -291,12 +339,13 @@ literal. The scheme is read the way a browser reads it rather than off the raw
 text, so a <code>javascript:</code> dressed up to look like something else is
 refused on the same terms.</p>
 
-<h3>Images</h3>
+<h3 id="images">Images</h3>
 
 <p>An image sits inline with the text, so <code>Icon ![x](i.png) here</code>
 puts it mid-sentence, while an image alone on a line becomes the node's whole
 content. Unsized images are scaled to fit within 120&times;90; add
-<code>=80x60</code> inside the brackets to set it yourself:</p>
+<code>=80x60</code> inside the destination parentheses, after the URL, to set it
+yourself:</p>
 
 <pre><code>![logo](logo.png =80x60)   both dimensions
 ![logo](logo.png =80x)     width, height follows the aspect ratio
@@ -316,7 +365,7 @@ that is the whole of its node:</p>
   Reading
     Chapter 4</code></pre>
 <div class="demo">
-<pre class="mindmap" data-credit="false" data-direction="right">
+<pre class="mindmap" data-interactive="false" data-credit="false" data-direction="right">
 Week 5
   ![](img/icon-notes.svg =18x18) Lecture notes
   Architecture
@@ -340,7 +389,7 @@ no size, so it is scaled to fit the 120&times;90 box on its own.</p>
   picture with it.</p>
 </div>
 
-<h2>Blocks of your own HTML</h2>
+<h2 id="embeds">Blocks of your own HTML</h2>
 
 <p>Some things do not fit in a line of text — a marks table, a worked example,
 a styled callout. Write that block anywhere on the page, give it an
@@ -353,7 +402,7 @@ a styled callout. Write that block anywhere on the page, give it an
 put it and one block can appear in several maps. It keeps your own classes and
 your own CSS, so it looks in the node exactly as it looks on the page.</p>
 
-<h3>Where the block lives</h3>
+<h3 id="embed-source">Where the block lives</h3>
 
 <p>Usually you do not want the source showing up twice. Either put it in a
 <code>&lt;template&gt;</code>, which the browser never renders:</p>
@@ -407,11 +456,17 @@ Week 5
 </div>
 </div>
 
-<p>A block lays itself out within 260px unless you say otherwise —
-<code>data-embed-max-width</code> changes that for a whole map, and
+<p>A block lays itself out within 260px unless you say otherwise.
+<code>data-embed-max-width</code> changes that width for a whole map;
 <code>![](#id =240x160)</code> fixes one block's size exactly.</p>
 
-<h3>What changes inside such a node</h3>
+<p>Height is capped as well: a block you have not sized gets at most 400px of
+it. Nothing is lost when the content is taller — the block keeps all of it and
+scrolls inside the node. Sizing the block yourself replaces that cap with the
+height you asked for, so <code>![](#id =240x600)</code> lays out 600px tall, and
+scrolls only if the content outgrows even that.</p>
+
+<h3 id="embed-behaviour">What changes inside such a node</h3>
 
 <ul>
   <li>Clicking the block does not fold the branch, since you are meant to read
@@ -437,25 +492,42 @@ Week 5
 <div class="note">
   <p><strong>Two caveats.</strong> An embedded block leans on your own
   stylesheet as well as the script's, so it is one more thing that does not
-  travel with an <code>&lt;svg&gt;</code> copied out of the page. And the id has
-  to exist in the page's HTML: a block that some other script adds later is not
-  there yet when the map is drawn. Call <code>MindMap.renderAll()</code>
-  yourself afterwards in that case.</p>
+  travel with an <code>&lt;svg&gt;</code> copied out of the page. And the
+  element has to be in the page already when the map is <em>first</em> drawn.</p>
+  <p>That second one does not forgive lateness. A map naming an id that is not
+  there yet fails with an on-page message, and the message takes the place of
+  the map's source — so there is nothing left for a later
+  <code>MindMap.renderAll()</code> to find, and no way for it to retry. If a
+  script builds the block, keep the map out of the automatic pass that runs on
+  load and draw it yourself once the block is in the page:</p>
+  <pre><code>&lt;pre id="later" class="mindmap-pending"&gt;
+Grades
+  ![Breakdown](#marks-box)
+&lt;/pre&gt;
+&lt;script&gt;
+  buildMarksBox();                  // creates #marks-box
+  var el = document.getElementById('later');
+  el.className = 'mindmap';         // now the script will match it
+  MindMap.render(el);
+&lt;/script&gt;</code></pre>
 </div>
 
 <div class="note">
   <p><strong>What the copy is, is a copy.</strong> Anything wired up with
   <code>addEventListener</code> stays behind on the original, so a button whose
-  handler was attached that way does nothing in the node — a listener on a
-  container the block sits inside still fires, since the click bubbles out of
-  the map. And dropping the <code>id</code>s costs whatever depended on them: a
+  handler was attached that way does nothing in the node. A delegated listener
+  can still catch it, but only where it is bound to an ancestor of the
+  <em>copy</em> — a shared page container the map itself sits inside. Bound to
+  an ancestor of the original block instead, it never hears the copy, which
+  lives over in the map. And dropping the <code>id</code>s costs whatever
+  depended on them: a
   <code>&lt;label for&gt;</code>, an <code>aria-labelledby</code>, a link to
   <code>#somewhere</code> inside the block, a rule written as
   <code>#id .thing</code>. Blocks meant to be read — a table, a card, a worked
   example — copy cleanly; a working widget is worth checking in the node.</p>
 </div>
 
-<h2>Collapsing and expanding</h2>
+<h2 id="collapsing">Collapsing and expanding</h2>
 
 <p>Any node with children gets a small <strong>&minus;</strong> button on its
 outer edge. Clicking the node (or the button) folds that branch away and leaves
@@ -487,7 +559,7 @@ Testing
 respects <code>prefers-reduced-motion</code> if the reader has asked for less
 movement.</p>
 
-<h3>Starting a map partly folded</h3>
+<h3 id="collapse-level">Starting a map partly folded</h3>
 
 <p>Big maps are friendlier if they open as an overview. <code>data-collapse-level</code>
 sets how many levels show at first — the rest stay one click away.</p>
@@ -514,7 +586,7 @@ Testing
 </div>
 </div>
 
-<h3>Folding one branch</h3>
+<h3 id="fold-markers">Folding one branch</h3>
 
 <p>To fold one branch rather than a whole level, put <code>[+]</code> in front of
 its text. It is the sign the fold badge itself shows, so what you write is the
@@ -585,7 +657,7 @@ markup inside a label, so both the marker and its escape work whatever
 <p>To turn interaction off entirely and get a plain static diagram, set
 <code>data-interactive="false"</code>.</p>
 
-<h2>Colouring a branch</h2>
+<h2 id="colours">Colouring a branch</h2>
 
 <p>Branches take an accent from a built-in palette, in the order they appear. To
 choose one yourself, name it in front of the text, the way you would a fold
@@ -600,7 +672,7 @@ marker.</p>
   [pink] Testing
     Unit Testing</code></pre>
 <div class="demo">
-<pre class="mindmap" data-credit="false">
+<pre class="mindmap" data-interactive="false" data-credit="false">
 Software Engineering
   [blue] Requirements
     Elicitation
@@ -619,7 +691,7 @@ for orange and slate. Every branch below is named, so none of them is the colour
 its position would otherwise have given it.</p>
 
 <div class="demo">
-<pre class="mindmap" data-credit="false" data-direction="right">
+<pre class="mindmap" data-interactive="false" data-credit="false" data-direction="right">
 Accents
   [pink] pink
   [blue] blue
@@ -647,7 +719,7 @@ dropped.</p>
   Integration Testing
     Top-down</code></pre>
 <div class="demo">
-<pre class="mindmap" data-credit="false">
+<pre class="mindmap" data-interactive="false" data-credit="false">
 Testing
   Unit Testing
     Stubs
@@ -670,7 +742,7 @@ read whatever <code>data-markup</code> says, and <code>\[green]</code> gives you
 label that really does begin with one. A bracketed word that names no accent is
 left alone, so <code>[TODO] Revise this</code> stays as typed.</p>
 
-<h2>Dimming and highlighting</h2>
+<h2 id="emphasis">Dimming and highlighting</h2>
 
 <p>Two more markers change how loudly a node is drawn. <code>[dim]</code> fades a
 node and everything under it into the background. <code>[hot]</code> picks one
@@ -686,7 +758,7 @@ and a heavier curve arriving at it.</p>
   Testing
     Unit Testing</code></pre>
 <div class="demo">
-<pre class="mindmap" data-credit="false">
+<pre class="mindmap" data-interactive="false" data-credit="false">
 Syllabus
   [dim] Requirements
     Elicitation
@@ -716,7 +788,7 @@ dimmed.</p>
       Throwaway prototypes
   Specification</code></pre>
 <div class="demo">
-<pre class="mindmap" data-credit="false">
+<pre class="mindmap" data-interactive="false" data-credit="false">
 Requirements
   [dim] Elicitation
     Interviews
@@ -751,12 +823,12 @@ them, are read whatever <code>data-markup</code> says, and <code>\[dim]</code>
 gives you a label that really does begin with one. A bracketed word that names no
 emphasis is left alone, so <code>[Draft] Notes</code> stays as typed.</p>
 
-<h2>Choosing the shape</h2>
+<h2 id="shape">Choosing the shape</h2>
 
 <p>The same content reads differently depending on how it is arranged.
 <strong>Balanced</strong> is compact and works well as a figure;
 <strong>one-sided</strong> reads top-to-bottom like an indented outline, which
-some readers find easier to follow. Rather than deciding for everyone, each map
+some readers find easier to follow. To avoid making the decision for everyone, each map
 carries a small switch in its top corner — it fades in when you hover the map.
 The two shapes share one outline, because they are alternatives rather than two
 separate settings: picking one drops the other.</p>
@@ -789,7 +861,7 @@ keys move between the two shapes, the way a set of radio buttons works.</p>
 <p>The switch does not print. A printed map keeps whichever shape the reader
 left it in, which is the one they chose to print.</p>
 
-<h2>Moving nodes</h2>
+<h2 id="dragging">Moving nodes</h2>
 
 <p>Readers can drag any node to somewhere clearer. The branch below it comes
 along, and the connecting curves follow. Drag the map above and see.</p>
@@ -812,7 +884,7 @@ layout back. To add your own reset button, call
 <code>MindMap.resetPositions(el)</code>. To turn dragging off but keep folding,
 set <code>data-draggable="false"</code>.</p>
 
-<h2>Credit link</h2>
+<h2 id="credit">Credit link</h2>
 
 <p>A hairline rule closes off the bottom of every map, with a small chip
 sitting astride it near the right, reading <em>Made with Mind Maps Helper</em>
@@ -844,7 +916,7 @@ own. To drop both from the screen as well, set
 <code>data-credit="false"</code> — which is what every other demo on this page
 does, since a link from this site back to this site helps nobody.</p>
 
-<h2>Options</h2>
+<h2 id="options">Options</h2>
 
 <p>Set these as attributes on the container. All are optional.</p>
 
@@ -920,7 +992,35 @@ does, since a link from this site back to this site helps nobody.</p>
 </table>
 </div>
 
-<h3>One-sided maps</h3>
+<p><strong>Where they may sit.</strong> An option is read from the code block
+itself, from its <code>&lt;pre&gt;</code>, or from any highlighter wrapper the
+script already recognises around it — innermost wins. A wrapper of your own
+making is <em>not</em> consulted, so a <code>&lt;div&gt;</code> you add around a
+fenced block just to carry attributes does nothing.</p>
+
+<p>With a fenced block, whether an option reaches the map depends on where your
+generator puts the attribute, and generators differ.
+<strong>When you need options, write the map as
+<code>&lt;pre class="mindmap" ...&gt;</code></strong> — that form carries them
+everywhere, and is worth the few extra characters:</p>
+
+<pre><code>&lt;pre class="mindmap" data-direction="right" data-collapse-level="1"&gt;
+Software Engineering
+  Requirements
+  Design
+&lt;/pre&gt;</code></pre>
+
+<p>If you would rather keep the fence, both common generators can carry options,
+because both put them somewhere the script reads: in MarkBind, write
+<code>```mindmap {.mindmap data-direction="right"}</code> and the attribute lands
+on the <code>&lt;code&gt;</code> beside the class; in Jekyll, put
+<code>{: data-direction="right"}</code> on the line after the fence and it lands
+on the highlighter wrapper. Either way, confirm it before trusting it — inspect
+the drawn map in your browser and check the attribute really is on the
+<code>&lt;code&gt;</code>, the <code>&lt;pre&gt;</code>, or the wrapper the
+script replaced.</p>
+
+<h3 id="one-sided">One-sided maps</h3>
 
 <p>Good for short lists, or when the map sits in a narrow column.</p>
 
@@ -948,7 +1048,7 @@ Git
 </div>
 </div>
 
-<h2>Using it in Markdown</h2>
+<h2 id="markdown">Using it in Markdown</h2>
 
 <p>In a Markdown source file, <strong>the <code>&lt;pre class="mindmap"&gt;</code>
 form always works</strong>. If you only remember one thing, remember that one —
@@ -992,13 +1092,30 @@ because each one records the language differently.</p>
   <code>&lt;pre&gt;</code> is safe.</p>
 </div>
 
-<h3>Where to put the script</h3>
+<h3 id="script-placement">Where to put the script</h3>
 
-<p>Once per page is enough. In MarkBind, add it to a file in
-<code>_markbind/head/</code> so every page gets it. In Jekyll, add it to your
-layout. Anywhere else, put it at the bottom of the page.</p>
+<p>Once per page is enough, and the bottom of the <code>&lt;body&gt;</code> is
+a good spot. To get it on every page instead of pasting it into each one, use
+whatever your generator offers for site-wide scripts.</p>
 
-<h2>Changing the look</h2>
+<p><strong>MarkBind.</strong> Add the URL to <code>externalScripts</code> in
+<code>site.json</code>:</p>
+
+<pre><code>{
+  "externalScripts": [
+    "https://se-education.org/mind-maps-helper/mindmap.js"
+  ]
+}</code></pre>
+
+<p>MarkBind also lets a layout carry it, if you would rather scope the script to
+the pages using one layout: put the <code>&lt;script&gt;</code> tag inside a
+<code>&lt;head-bottom&gt;</code> block in your layout file under
+<code>_markbind/layouts/</code>.</p>
+
+<p><strong>Jekyll.</strong> Add the <code>&lt;script&gt;</code> tag to the layout
+your pages use.</p>
+
+<h2 id="styling">Changing the look</h2>
 
 <p>Colours come from CSS custom properties, so you can match your site's theme
 with a few lines of CSS.</p>
@@ -1022,31 +1139,86 @@ pin one map either way, add <code>data-theme="light"</code> or
 
 <p>Branch accent colours cycle through a built-in palette in the order your
 top-level branches appear. To use your own, override
-<code>window.MindMap.palette</code> before the page finishes loading — each
-entry is a <code>[light, dark]</code> pair. The names you write in a map point at
-positions in that array rather than at colour values, so your palette recolours
-the named branches along with the rest.</p>
+<code>window.MindMap.palette</code> — each entry is a
+<code>[light, dark]</code> pair. The names you write in a map point at positions
+in that array rather than at colour values, so your palette recolours the named
+branches along with the rest.</p>
 
-<h2>Calling it from JavaScript</h2>
+<p>The palette is read as each map is drawn, so it has to be set <strong>before
+the maps it should affect are rendered</strong>. Maps already on the page are
+drawn once the document has been parsed, which any inline script placed after
+the library will beat:</p>
 
-<p>Only needed if your page adds mind maps after it has loaded.</p>
+<pre><code>&lt;script src="https://se-education.org/mind-maps-helper/mindmap.js"&gt;&lt;/script&gt;
+&lt;script&gt;
+  window.MindMap.palette = [
+    ['#2f6f4f', '#7fc3a1'],   /* first branch:  light, dark */
+    ['#8a3033', '#e29a9c'],   /* second branch              */
+    ['#2563a8', '#8fbdf0']    /* third branch               */
+  ];
+&lt;/script&gt;</code></pre>
+
+<p>Setting it later recolours nothing by itself — re-render the maps that should
+pick it up.</p>
+
+<h2 id="api">Calling it from JavaScript</h2>
+
+<p>Nothing here is needed for an ordinary page: maps already in your HTML are
+drawn on load. Use <code>render()</code> or <code>renderAll()</code> for maps
+added <em>after</em> that. The rest inspect, control or refresh maps that have
+already been drawn.</p>
 
 <div class="table-scroll">
 <table>
-  <tr><th>Call</th><th>What it does</th></tr>
-  <tr><td><code>MindMap.renderAll()</code></td><td>Draws every unrendered map on the page. Runs automatically on load.</td></tr>
-  <tr><td><code>MindMap.renderAll(el)</code></td><td>Same, but only inside <code>el</code>.</td></tr>
-  <tr><td><code>MindMap.render(el)</code></td><td>Draws one specific element.</td></tr>
-  <tr><td><code>MindMap.parse(text)</code></td><td>Returns the parsed tree, without drawing anything.</td></tr>
-  <tr><td><code>MindMap.collapseAll(el)</code></td><td>Folds every branch of one rendered map.</td></tr>
-  <tr><td><code>MindMap.expandAll(el)</code></td><td>Unfolds every branch of one rendered map.</td></tr>
-  <tr><td><code>MindMap.resetPositions(el)</code></td><td>Undoes every drag, returning nodes to the computed layout.</td></tr>
-  <tr><td><code>MindMap.setDirection(el, dir)</code></td><td>Switches shape from your own control: <code>balanced</code>, <code>right</code> or <code>left</code>.</td></tr>
-  <tr><td><code>MindMap.refresh(el)</code></td><td>Re-measures the embedded blocks of one map, after you have changed what is in them.</td></tr>
+  <tr><th>Call</th><th>What it does</th><th>Returns</th></tr>
+  <tr><td><code>MindMap.renderAll()</code></td><td>Draws every unrendered map on the page. Runs automatically on load.</td><td>Array of the containers drawn</td></tr>
+  <tr><td><code>MindMap.renderAll(el)</code></td><td>Same, but only inside <code>el</code>.</td><td>Array of the containers drawn</td></tr>
+  <tr><td><code>MindMap.render(el)</code></td><td>Draws one map.</td><td>The container that replaced it</td></tr>
+  <tr><td><code>MindMap.parse(text)</code></td><td>Parses the source, without drawing anything.</td><td>The root node</td></tr>
+  <tr><td><code>MindMap.collapseAll(el)</code></td><td>Folds every branch of one drawn map.</td><td><code>true</code>, or <code>false</code> if <code>el</code> holds no map</td></tr>
+  <tr><td><code>MindMap.expandAll(el)</code></td><td>Unfolds every branch of one drawn map.</td><td><code>true</code>, or <code>false</code> if <code>el</code> holds no map</td></tr>
+  <tr><td><code>MindMap.resetPositions(el)</code></td><td>Undoes every drag, returning nodes to the computed layout.</td><td><code>true</code>, or <code>false</code> if <code>el</code> holds no map</td></tr>
+  <tr><td><code>MindMap.setDirection(el, dir)</code></td><td>Switches shape from your own control: <code>balanced</code>, <code>right</code> or <code>left</code>.</td><td><code>true</code> if the shape changed</td></tr>
+  <tr><td><code>MindMap.refresh(el)</code></td><td>Re-measures the embedded blocks of one map, after you have changed what is in them.</td><td><code>true</code> if anything was re-measured</td></tr>
 </table>
 </div>
 
-<h2>A bigger example</h2>
+<p><strong>What <code>el</code> may be.</strong> For the two drawing calls it is
+the map's <em>source</em> — the <code>&lt;pre class="mindmap"&gt;</code>, or any
+element inside a fenced block's wrapper; <code>renderAll(el)</code> instead takes
+an element to search <em>within</em>. For every other call it is a map that has
+already been drawn: the container returned by <code>render()</code>, any element
+inside it, or an ancestor holding exactly one map. Hand one of those calls a
+source that was never drawn, or an element with no map in it, and it changes
+nothing and returns <code>false</code>.</p>
+
+<p><strong>The booleans mean "something changed", not "it worked".</strong>
+<code>setDirection()</code> returns <code>false</code> for a direction the map is
+already in, and equally for a misspelt one — <code>right</code>,
+<code>left</code> and <code>balanced</code> are the only values accepted, and
+anything else is ignored rather than reported. <code>refresh()</code> returns
+<code>false</code> when a map has no embedded blocks to re-measure.</p>
+
+<p>Drawing a map yourself:</p>
+
+<pre><code>&lt;pre id="late" class="mindmap-pending"&gt;
+Topics
+  Requirements
+  Design
+&lt;/pre&gt;
+&lt;script&gt;
+  var el = document.getElementById('late');
+  el.className = 'mindmap';     // the script only matches maps it recognises
+  MindMap.render(el);
+&lt;/script&gt;</code></pre>
+
+<p><code>render()</code> replaces the element it is given, so hold on to what it
+returns if you mean to control the map afterwards. It does not throw on a bad
+map: it returns a container showing an on-page error instead.
+<code>parse()</code> is the one call that does throw — carrying the offending
+line number — since it has no page to put a message on.</p>
+
+<h2 id="example">A bigger example</h2>
 
 <div class="demo">
 <pre class="mindmap" data-credit="false">
@@ -1079,7 +1251,49 @@ CS2103 Software Engineering
 </pre>
 </div>
 
-<h2>Notes</h2>
+<h2 id="troubleshooting">Troubleshooting</h2>
+
+<p><strong>The map is still showing as indented text.</strong> The script did not
+run, or it did not recognise the block. Check the browser console for a failed
+request to <code>mindmap.js</code>, then check that the block really carries one
+of the recognised forms — with a fenced block, that the language name survived
+your generator.</p>
+
+<p><strong>A Content Security Policy can block the drawing without blocking the
+script.</strong> Two separate directives matter:</p>
+
+<ul class="tight">
+  <li><code>script-src</code> has to allow
+      <code>https://se-education.org</code>, or the script never loads at
+      all.</li>
+  <li><code>style-src</code> has to allow the stylesheet the script injects. The
+      map's CSS is added as a <code>&lt;style&gt;</code> element at load, which
+      counts as an inline style, so a policy without
+      <code>'unsafe-inline'</code> blocks it. The map still <em>draws</em> — the
+      SVG is built either way — but it arrives with none of its styling: wrong
+      colours, no sideways scrolling, and the outline meant for screen readers
+      showing up as visible text. The browser names the offending directive in
+      the console, along with a hash you could allow instead; the hash changes
+      with every release, and there is no nonce hook today, so
+      <code>'unsafe-inline'</code> is in practice the only stable answer.</li>
+</ul>
+
+<p>Node positions are set through the CSSOM rather than written into markup, and
+CSP does not police that, so those survive a strict policy — it is the
+stylesheet that goes. Loosen only the directive you need, and only for the pages
+carrying maps.</p>
+
+<p><strong>"This node asks for the page element with id&nbsp;…".</strong> The map
+names a block that was not in the page when it was drawn — a typo in the id, or
+an element some other script adds later. See the caveats under
+<a href="#embeds">Blocks of your own HTML</a>.</p>
+
+<p><strong>Anything else.</strong> A map that fails for a reason you cannot act
+on says so on the page and puts the details in the browser console; a map that
+fails for a reason you <em>can</em> act on names the problem and the line number
+on the page itself.</p>
+
+<h2 id="notes">Notes</h2>
 
 <ul class="tight">
   <li>Output is SVG, so it stays sharp at any zoom and prints cleanly. The
@@ -1093,16 +1307,29 @@ CS2103 Software Engineering
       embedded block, are fetched by the browser as usual.</li>
   <li>Nesting goes 100 levels deep. Past that a map tells you which line went
       too far, rather than running out of stack part-way through drawing.</li>
-  <li>Your existing maps keep working as new features land.</li>
 </ul>
 
+<h2 id="versioning">Versioning</h2>
+
+<p>The script URL carries no version, and always serves the current release.
+That cuts both ways, and it is worth being plain about: your pages pick up new
+releases automatically, as they ship, without you changing anything and without
+a chance to try them first.</p>
+
+<p>What you get in exchange is that existing maps keep working. Any future
+breaking change ships under a new path
+(<code>/v2/mindmap.js</code>) rather than landing on this one, so a page that
+never touches its script tag keeps the behaviour it was built against.</p>
+
+</main>
+
+<div class="wrap">
 <footer>
   <p>
     Mind Maps Helper — <a href="https://github.com/se-edu/mind-maps-helper">source on GitHub</a>.
     MIT licensed.
   </p>
 </footer>
-
 </div>
 
 <script src="mindmap.js?v=1.10.5"></script>

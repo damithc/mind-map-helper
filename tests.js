@@ -2247,10 +2247,23 @@ window.addEventListener('load', function () {
         xhr.send();
       });
 
-      /** The text between two markers, or '' if either is missing. */
+      /**
+       * The text between two markers, or '' if either is missing. `from` may be
+       * a regex, since the provider site's headings carry ids for the table of
+       * contents to link at and a literal '<h2>Options</h2>' no longer matches.
+       */
       function section(text, from, to) {
-        var a = text.indexOf(from);
-        var b = a > -1 ? text.indexOf(to, a + from.length) : -1;
+        var a, len;
+        if (from instanceof RegExp) {
+          var m = from.exec(text);
+          if (!m) return '';
+          a = m.index;
+          len = m[0].length;
+        } else {
+          a = text.indexOf(from);
+          len = from.length;
+        }
+        var b = a > -1 ? text.indexOf(to, a + len) : -1;
         return a > -1 && b > -1 ? text.slice(a, b) : '';
       }
 
@@ -2281,6 +2294,7 @@ window.addEventListener('load', function () {
           for (var n = 196; n <= 201; n++) {
             skip(n, 'docs parity', 'the sources could not be fetched from this origin');
           }
+          skip(207, 'guide navigation', 'the sources could not be fetched from this origin');
           done();
           return;
         }
@@ -2289,7 +2303,7 @@ window.addEventListener('load', function () {
         // these files is thick with data-* attributes that are not options.
         var reads = section(files['mindmap.js'], 'function readOptions(', '\n  }\n');
         var readmeOpts = section(files['README.md'], '## Options', '\n## ');
-        var siteOpts = section(files['index.html'], '<h2>Options</h2>', '</table>');
+        var siteOpts = section(files['index.html'], /<h2[^>]*>Options<\/h2>/, '</table>');
 
         var read = names(reads, /'(data-[a-z-]+)'/g);
         var inReadme = names(readmeOpts, /`(data-[a-z-]+)`/g);
@@ -2312,7 +2326,7 @@ window.addEventListener('load', function () {
           api.length > 0 &&
           same(api, names(section(files['README.md'], '## JavaScript API', '\n## '), apiRe)) &&
           same(api, names(section(files['index.html'],
-            '<h2>Calling it from JavaScript</h2>', '</table>'), apiRe)));
+            /<h2[^>]*>Calling it from JavaScript<\/h2>/, '</table>'), apiRe)));
 
         // The defaults a map with no attributes on it actually ends up with.
         var base = mapState('single').opts;
@@ -2342,6 +2356,27 @@ window.addEventListener('load', function () {
           !!banner && !!constant && !!buster &&
           banner[1] === MindMap.version && constant[1] === MindMap.version &&
           buster[1] === MindMap.version);
+
+        // The provider site is long enough to need a table of contents, and a
+        // link into a section that has been renamed away is the kind of rot no
+        // rendering check would notice. Parsed rather than inspected live,
+        // because tests.html is not the page being checked.
+        var site = files['index.html'];
+        var headings = [];
+        var headRe = /<h([23])(?:\s+id="([^"]*)")?[^>]*>/g;
+        var hm;
+        while ((hm = headRe.exec(site))) headings.push(hm[2] || '');
+        var anchors = names(site, /href="#([^"]+)"/g);
+        var ids = {};
+        var idRe = /\sid="([^"]+)"/g, im;
+        while ((im = idRe.exec(site))) ids[im[1]] = true;
+        var dangling = anchors.filter(function (a) { return !ids[a]; });
+
+        check(207, 'every section heading has an id and every in-page link finds one',
+          headings.length > 0 &&
+          headings.indexOf('') === -1 &&
+          anchors.length > 0 &&
+          dangling.length === 0);
 
         done();
       }
