@@ -889,6 +889,33 @@ Cancel
   Other
 </pre></div>
 
+<h2>76. A one-sided map re-laid out inside a narrow column</h2>
+<p class="want">Expect: the centre node stays put in the visible strip while the
+branches open out to the left of it, and is still in view after the shape
+switch — never scrolled off an edge.</p>
+<div id="holdhost" style="width:260px;border:1px dashed #bbb">
+  <div class="case" id="holdroot"><pre class="mindmap" data-direction="left">
+Centre node with a good long label on it
+  [+] Requirements gathering and analysis
+    Stakeholder interviews and workshops
+    Elicitation techniques of several kinds
+  [+] Design of the whole system as built
+    Architectural decisions and trade-offs
+    Component responsibilities
+  Testing and quality
+    Integration testing
+</pre></div>
+</div>
+
+<h2>77. Code chips inside a narrow width limit</h2>
+<p class="want">Expect: both labels wrap so that no line, chips and all, runs
+wider than the 77px limit set on the map.</p>
+<div class="case" id="chipwidth"><pre class="mindmap" data-max-node-width="77">
+Chips
+  `a b` and `c d`
+  `aa bb` tail
+</pre></div>
+
 <script>document.write('<script src="mindmap.js?v='+Date.now()+'"><\/script>');</script>
 <script>
 // Minimal assertions over the rendered DOM.
@@ -907,8 +934,9 @@ window.addEventListener('load', function () {
     var cases = document.querySelectorAll('.case');
     var out = [];
     var fails = 0;
-    var pending = 11;  // collapse, drag, shape, root-drag, markup, images, embeds,
-                       // folds, real input, the API, the image race
+    var pending = 12;  // collapse, drag, shape, root-drag, markup, images, embeds,
+                       // folds, real input, the API, the image race, the held
+                       // root
     function done() { if (--pending === 0) finish(); }
 
     function check(n, label, ok) {
@@ -2769,6 +2797,123 @@ window.addEventListener('load', function () {
 
       check(192, 'a cancelled drag leaves the next fold click alone',
         armed !== true && branch.collapsed !== wasCollapsed);
+    })();
+
+    // ---- an embedded block cannot restyle the page it lands in
+    (function () {
+      var PROP = '--mm-style-probe';
+      function probe() {
+        return getComputedStyle(document.body).getPropertyValue(PROP).trim();
+      }
+
+      // A guard against a vacuous case. If this browser did not apply the rule
+      // even from a live <style>, the check below would pass by accident.
+      var live = document.createElement('style');
+      live.textContent = 'body { ' + PROP + ': leaked; }';
+      document.head.appendChild(live);
+      var detects = probe() === 'leaked';
+      live.remove();
+
+      var tpl = document.createElement('template');
+      tpl.id = 'src-styled';
+      tpl.innerHTML = '<div class="probe"><style>body { ' + PROP +
+        ': leaked; }</style>Styled block</div>';
+      document.body.appendChild(tpl);
+
+      var host = document.createElement('div');
+      host.appendChild(document.createElement('pre')).textContent =
+        'Styled\n  ![](#src-styled)\n';
+      host.firstChild.className = 'mindmap';
+      document.body.appendChild(host);
+      MindMap.renderAll(host);
+
+      // A rule inside a <template> has never applied to anything; cloned into
+      // the page it would start applying to the whole document, not just to
+      // the node holding it.
+      var block = host.querySelector('.mm-embed');
+      check(193, 'a style element in an embedded block never reaches the page',
+        detects && probe() === '' &&
+        !!block && block.querySelectorAll('style').length === 0 &&
+        // Stripped, not dropped whole: the block's own content still shows.
+        block.textContent.indexOf('Styled block') > -1);
+
+      host.remove();
+      tpl.remove();
+    })();
+
+    // ---- the width limit counts the padding the code chips will add
+    (function () {
+      var state = document.getElementById('chipwidth')
+        .querySelector('.mm-container').mindMap;
+      var max = state.opts.maxNodeWidth;
+
+      // What the drawn chips add to a line: room at each end of every one of
+      // them, which is what the wrap has to count and used not to.
+      function chipPad(line) {
+        var stretches = 0, run = null;
+        for (var i = 0; i < line.items.length; i++) {
+          var r = line.items[i].run;
+          if (r && r.code && r !== run) stretches++;
+          run = (r && r.code) ? r : null;
+        }
+        return stretches * 2 * 3.5;
+      }
+
+      var widest = 0, chipsBroke = false;
+      (function walk(n) {
+        widest = Math.max(widest, n.textWidth);
+
+        // A break the chips are responsible for, which is the case worth
+        // holding on to: strip the padding out again and the whole label would
+        // have sat on one line inside the limit.
+        var bare = 0;
+        for (var i = 0; i < n.lines.length; i++) {
+          bare += n.lines[i].width - chipPad(n.lines[i]);
+        }
+        if (n.lines.length > 1 && bare <= max) chipsBroke = true;
+
+        n.children.forEach(walk);
+      })(state.root);
+
+      check(194, 'a label wraps to the width limit chips included, not before',
+        widest <= max + 0.5 && chipsBroke);
+    })();
+
+    // ---- the centre node stays in view when a narrow map is re-laid out
+    (function () {
+      var host = document.getElementById('holdroot');
+      var scroller = host.querySelector('.mm-scroll');
+      function offset() {
+        var r = scroller.querySelector('.mm-root').getBoundingClientRect();
+        return r.left + r.width / 2 - scroller.getBoundingClientRect().left;
+      }
+      function inView() {
+        return offset() > 0 && offset() < scroller.clientWidth;
+      }
+
+      var overflowed = scroller.scrollWidth - scroller.clientWidth > 0;
+      var before = offset();
+      var scrolledBefore = scroller.scrollLeft;
+
+      // Opening the folded branches widens the canvas away to the left, which
+      // slides everything on it to the right of where it was drawn.
+      MindMap.expandAll(host);
+      setTimeout(function () {
+        var held = Math.abs(offset() - before) < 2;
+        // Not a map that happened to stay still: the strip had to be scrolled
+        // to keep the root where it was.
+        var moved = scroller.scrollLeft > scrolledBefore + 1;
+
+        // The shape switch is the other way round — it puts the root at the
+        // left edge of the canvas, where the scroll position it was holding
+        // would leave it off-screen entirely.
+        MindMap.setDirection(host, 'right');
+        setTimeout(function () {
+          check(195, 'the centre node survives a re-layout in a narrow column',
+            overflowed && held && moved && inView());
+          done();
+        }, 450);
+      }, 450);
     })();
 
     function finish() {

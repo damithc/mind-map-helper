@@ -182,7 +182,7 @@ does that — because the block is there to be read and used. Links in it work n
 the node can still be dragged by any other part of it. `id`s are dropped from the copy, so
 no id ends up duplicated, and so is anything that would start running when the copy is
 inserted: `<script>`, `<iframe>`, `<object>`, `<embed>`, `<base>`, `<meta>`, `<link>`,
-`on*` handlers, and `javascript:` URLs however they are spelled. Inside a `<template>`
+`<style>`, `on*` handlers, and `javascript:` URLs however they are spelled. Inside a `<template>`
 none of those has ever been live, so the copy is where they would start.
 
 Two caveats: an embedded block leans on your own stylesheet as well as the script's, so it

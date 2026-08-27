@@ -1,5 +1,5 @@
 /*!
- * mind-maps-helper v1.10.2
+ * mind-maps-helper v1.10.3
  * Simple indented-text syntax -> interactive-ready SVG mind maps.
  * PlantUML-style geometry with a refined palette.
  * No dependencies. MIT licensed.
@@ -8,7 +8,7 @@
 (function (global) {
   'use strict';
 
-  var VERSION = '1.10.2';
+  var VERSION = '1.10.3';
 
   // Where the credit chip under a map points.
   var HOME = 'https://se-education.org/mind-maps-helper/';
@@ -565,12 +565,14 @@
   // reasoning is the same one that drops <script>: inside a <template> none of
   // these has ever been live, so the copy is where they would start — and an
   // <iframe srcdoc> or a <base href> starting late is a surprise the author
-  // did not ask for by writing a node label. <base>, <meta> and <link> also
-  // reach past the node and retarget or restyle the whole page. Matched
-  // case-insensitively because an SVG <script> reports a lower-case tagName
-  // and runs just as happily as an HTML one.
+  // did not ask for by writing a node label. <base>, <meta>, <link> and
+  // <style> also reach past the node and retarget or restyle the whole page —
+  // a rule written for a card inside a <template> has never applied to
+  // anything, and would start applying to the document at large the moment the
+  // copy landed in it. Matched case-insensitively because an SVG <script>
+  // reports a lower-case tagName and runs just as happily as an HTML one.
   var ACTIVE_TAGS =
-    /^(script|iframe|frame|frameset|object|embed|applet|portal|base|meta|link)$/i;
+    /^(script|iframe|frame|frameset|object|embed|applet|portal|base|meta|link|style)$/i;
 
   // Attributes a `javascript:` URL can hide in. Checked by name rather than by
   // scanning every attribute, so a title reading "javascript: the language"
@@ -733,8 +735,10 @@
 
   function runFontSize(run, m) { return run.code ? m.size * 0.92 : m.size; }
 
-  // A code run carries a chip behind it, which needs a little breathing room.
+  // A code run carries a chip behind it, which needs a little breathing room —
+  // CHIP_PAD is what one drawn chip therefore adds to the line holding it.
   var CODE_PAD_X = 3.5;
+  var CHIP_PAD = 2 * CODE_PAD_X;
 
   function imageSize(run) {
     var w = run.askedW, h = run.askedH;
@@ -808,50 +812,97 @@
    * the closing line its left, and any line in between gets no padding in its
    * measured chip while the drawing still insets the text, so the text runs
    * out past the chip it is supposed to sit in.
-   *
-   * Spaces are skipped when picking the ends, because a chip is anchored on
-   * its first real word and stops at its last.
    */
   function padCodeChips(lines) {
     for (var i = 0; i < lines.length; i++) {
       var items = lines[i].items;
       var added = 0;
-      for (var j = 0; j < items.length; j++) {
-        if (!items[j].run || !items[j].run.code) continue;
-
-        // One stretch per run, so two code spans side by side stay two chips.
-        var run = items[j].run;
-        var first = -1, last = -1, k = j;
-        for (; k < items.length && items[k].run === run; k++) {
-          if (items[k].kind === 'space') continue;
-          if (first < 0) first = k;
-          last = k;
-        }
-        if (first >= 0) {
-          items[first].w += CODE_PAD_X;
-          items[last].w += CODE_PAD_X;
-          added += 2 * CODE_PAD_X;
-        }
-        j = k - 1;
-      }
+      eachChip(items, function (first, last) {
+        items[first].w += CODE_PAD_X;
+        items[last].w += CODE_PAD_X;
+        added += CHIP_PAD;
+      });
       lines[i].width += added;
     }
   }
 
-  /** Greedy wrap of items into lines, honouring explicit breaks. */
+  /**
+   * Calls `visit` once per drawn chip on one line, with the first and last
+   * item the chip has to cover. One stretch per run, so two code spans side by
+   * side stay two chips; spaces are skipped when picking the ends, because a
+   * chip is anchored on its first real word and stops at its last.
+   */
+  function eachChip(items, visit) {
+    for (var j = 0; j < items.length; j++) {
+      if (!items[j].run || !items[j].run.code) continue;
+
+      var run = items[j].run;
+      var first = -1, last = -1, k = j;
+      for (; k < items.length && items[k].run === run; k++) {
+        if (items[k].kind === 'space') continue;
+        if (first < 0) first = k;
+        last = k;
+      }
+      if (first >= 0) visit(first, last);
+      j = k - 1;
+    }
+  }
+
+  /**
+   * Greedy wrap of items into lines, honouring explicit breaks.
+   *
+   * The width a line is measured against is what it will be once drawn, chip
+   * padding included. `padCodeChips` widens the ends of every chip afterwards,
+   * and a line wrapped without counting that grows past `maxWidth` after the
+   * decision to keep it whole has already been taken — by the width of one
+   * chip for every code span on it, which on a line of several spans is enough
+   * to leave the author's limit well behind.
+   */
   function layoutLines(items, maxWidth) {
     var lines = [];
     var line = [];
     var width = 0;
 
+    // The chip padding the line has earned so far, and the chip still open at
+    // its end: the run it belongs to, and whether it has met the first real
+    // word that will make it a drawn chip rather than a stretch of spaces.
+    var pad = 0;
+    var openRun = null;
+    var openPaid = false;
+
+    function chipRun(it) {
+      return (it.run && it.run.code) ? it.run : null;
+    }
+
+    /** What the padding would come to with `it` added to the line. */
+    function padWith(it) {
+      var run = chipRun(it);
+      if (!run || (run === openRun && openPaid) || it.kind === 'space') return pad;
+      return pad + CHIP_PAD;
+    }
+
+    function take(it) {
+      var run = chipRun(it);
+      if (run !== openRun) { openRun = run; openPaid = false; }
+      if (run && !openPaid && it.kind !== 'space') { pad += CHIP_PAD; openPaid = true; }
+      line.push(it);
+      width += it.w;
+    }
+
     function push() {
-      // Trailing spaces should not count towards the line's width.
+      // Trailing spaces should not count towards the line's width. They never
+      // paid for a chip either, so the padding stands as it is.
       while (line.length && line[line.length - 1].kind === 'space') {
         width -= line.pop().w;
       }
+      // The padding itself is left to `padCodeChips`, which puts it on the
+      // items that carry it; what is recorded here is the bare text width.
       lines.push({ items: line, width: width });
       line = [];
       width = 0;
+      pad = 0;
+      openRun = null;
+      openPaid = false;
     }
 
     for (var i = 0; i < items.length; i++) {
@@ -860,12 +911,11 @@
       if (it.kind === 'break') { push(); continue; }
       if (it.kind === 'space' && !line.length) continue;      // no leading space
 
-      if (line.length && width + it.w > maxWidth && it.kind !== 'space') {
+      if (line.length && width + it.w + padWith(it) > maxWidth && it.kind !== 'space') {
         push();
         if (it.kind === 'space') continue;
       }
-      line.push(it);
-      width += it.w;
+      take(it);
     }
     push();
 
@@ -1576,12 +1626,57 @@
     });
   }
 
+  /** The strip a rendered map scrolls in, or null with no map drawn in it. */
+  function scrollerOf(container) {
+    if (!container) return null;
+    var scroller = container.querySelector('.mm-scroll') || container;
+    return scroller.querySelector('.mm-root') ? scroller : null;
+  }
+
+  /**
+   * Where the centre node sits in the reader's view, in pixels from the left
+   * edge of that strip. Measured on screen rather than from the layout, since
+   * the canvas is drawn at whatever scale the column allows.
+   */
+  function rootViewX(scroller) {
+    var box = scroller.querySelector('.mm-root').getBoundingClientRect();
+    return box.left + box.width / 2 - scroller.getBoundingClientRect().left;
+  }
+
+  /** Scrolls so the centre node sits `viewX` pixels from that left edge. */
+  function scrollRootTo(scroller, viewX) {
+    var overflow = scroller.scrollWidth - scroller.clientWidth;
+    if (overflow <= 0) return;
+    scroller.scrollLeft = Math.max(0, Math.min(overflow,
+      scroller.scrollLeft + rootViewX(scroller) - viewX));
+  }
+
+  /**
+   * Notes where the centre node is in the reader's view and hands back a
+   * function that puts it back there.
+   *
+   * Every re-layout moves the canvas out from under a map too wide for its
+   * column: a branch opening on the left widens the map leftwards, a late
+   * image re-measures it, the shape switch rebuilds it around the other side
+   * of the root. The scroller keeps its old `scrollLeft` through all of that,
+   * so the node the reader is reading round slides towards — and past — the
+   * edge of the view. Anchoring on the root leaves it where they left it.
+   */
+  function holdRoot(state) {
+    var scroller = scrollerOf(state.container);
+    if (!scroller) return function () {};
+    var viewX = rootViewX(scroller);
+    return function () { scrollRootTo(scroller, viewX); };
+  }
+
   /**
    * Re-lays out after a collapse or expand and glides everything into place.
    * Nodes appearing grow out of their parent; nodes leaving shrink back into
    * it, which keeps the reader oriented about where the content went.
    */
   function relayout(state, animate) {
+    // Read before anything moves, so the anchor is the view as it stands.
+    var hold = holdRoot(state);
     finishAnimation(state);
     var root = state.root;
     var prev = {};
@@ -1625,6 +1720,7 @@
     if (!animate || prefersReducedMotion()) {
       eachNode(root, function (n) { n.ax = n.tx; n.acy = n.tcy; n.fade = n.toFade; });
       paint(state, toBounds);
+      hold();
       return;
     }
 
@@ -1644,6 +1740,10 @@
       });
 
       paint(state, lerpBounds(fromBounds, toBounds, e));
+      // Every frame, not just the last: the canvas grows under the map all the
+      // way through, and a root that only snaps back at the end drifts across
+      // the view first.
+      hold();
 
       if (t < 1) state.raf = global.requestAnimationFrame(step);
       else {
@@ -1651,6 +1751,7 @@
         state.pendingNodes = false;
         state.pendingBounds = null;
         paint(state, toBounds);
+        hold();
       }
     }
     state.raf = global.requestAnimationFrame(step);
@@ -2886,26 +2987,15 @@
    */
   function centreOnRoot(container) {
     var run = function () {
-      var scroller = container.querySelector('.mm-scroll') || container;
-      var svg = scroller.querySelector('.mm-svg');
-      if (!svg) return;
-      var overflow = scroller.scrollWidth - scroller.clientWidth;
-      if (overflow <= 0) return;
-
-      var rootEl = svg.querySelector('.mm-root');
-      if (!rootEl) return;
-
-      // Measured on screen rather than from the <rect>'s own attributes. Every
-      // node's box is drawn at x=0 and moved by a transform on its group, so
-      // the rect alone reports the same left edge for a root sitting anywhere
-      // on the canvas, and the map would open at the far left however wide it
-      // is. A client rect carries the transform, the viewBox and the scale
-      // together, which is all three of the things this sum needs.
-      var rootBox = rootEl.getBoundingClientRect();
-      var viewBox = scroller.getBoundingClientRect();
-      var centre = rootBox.left + rootBox.width / 2 - viewBox.left + scroller.scrollLeft;
-
-      scroller.scrollLeft = Math.max(0, Math.min(overflow, centre - scroller.clientWidth / 2));
+      // Measured on screen rather than from the <rect>'s own attributes, which
+      // is `rootViewX`'s job. Every node's box is drawn at x=0 and moved by a
+      // transform on its group, so the rect alone reports the same left edge
+      // for a root sitting anywhere on the canvas, and the map would open at
+      // the far left however wide it is. A client rect carries the transform,
+      // the viewBox and the scale together, which is all three of the things
+      // this needs.
+      var scroller = scrollerOf(container);
+      if (scroller) scrollRootTo(scroller, scroller.clientWidth / 2);
     };
     // A frame later by default, so the measurements come off a page the
     // browser has already laid out. Reduced motion takes the synchronous path
