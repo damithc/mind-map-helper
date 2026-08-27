@@ -412,7 +412,7 @@ Only needed for maps added after page load.
 ## Development
 
 There is no build step and nothing to install — `mindmap.js` is the shipped file, and
-`tests.html` loads it straight off disk.
+`tests.html` loads it straight off disk, along with the assertions in `tests.js`.
 
 The suite needs a real HTTP origin, so serve the repo rather than opening the file:
 

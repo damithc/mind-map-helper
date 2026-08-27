@@ -8,9 +8,14 @@ library *does*.
 
 A script that turns an indented list into an interactive SVG mind map. It is published as
 a *provider site* on GitHub Pages: other people's pages link one script tag at
-`https://se-education.org/mind-maps-helper/mindmap.js`, so **every page on the internet
-that uses this library loads whatever is on `main`.** A broken commit is a broken
-production deploy for everyone at once.
+`https://se-education.org/mind-maps-helper/mindmap.js`, so any page using this library
+loads whatever is on `main`.
+
+**It is pre-release, and nothing external links it yet.** That is a fact about today, not
+a design goal, and it cuts one way: structural work is cheap *now* and expensive later.
+Do not decline a refactor on the grounds that it would risk downstream pages — there are
+none. Once adoption starts, this paragraph is the thing to change, and the calculus with
+it: a broken commit becomes a broken production deploy for everyone at once.
 
 The audience is authors of educational sites — course pages, lecture notes, handbooks.
 They write their own HTML or Markdown but are not web developers. That shapes most design
@@ -23,7 +28,8 @@ error messages that say what to fix rather than what went wrong.
 |---|---|
 | `mindmap.js` | The entire library. The only shipped code. |
 | `index.html` | The provider site — docs, live demos, the thing GitHub Pages serves. |
-| `tests.html` | The test suite. Open in a browser; it prints a pass/fail line at the top. |
+| `tests.html` | The fixtures — one map per case, each with an `id`, and a gallery to look at. |
+| `tests.js` | The assertions over those fixtures. Loaded by `tests.html`; never shipped. |
 | `README.md` | GitHub-facing docs, roughly mirroring `index.html`. |
 | `.nojekyll` | Stops Pages running Jekyll over the site. Do not delete. |
 
@@ -152,6 +158,15 @@ may add `, M skipped` for a lane that could not run at all. Three things will bi
   must call that `done` on every path out. Registering is what makes the suite wait for
   it, so a group that skips the call is named as a failure after 30 seconds rather than
   leaving the page on `running…`.
+- **Waiting.** Never sleep for an animation. `settled(map, cb)` polls the state the
+  animation clears, so it is exact and costs nothing under reduced motion; `until(ready,
+  cb)` is the general form, and gives up after five seconds so a condition that never
+  arrives fails its own check instead of hanging the suite. Check 203 holds `settled`
+  to that contract.
+- **Fixtures by id.** Every `.case` carries one, and assertions reach for it by name.
+  Nothing indexes the `.case` list — inserting a fixture used to redirect a dozen later
+  assertions at the wrong map, silently. Check 202 keeps every case named and the
+  heading numbers in order.
 - **Viewport.** The real-pointer lane hit tests with `elementFromPoint`, which needs a
   viewport with a size. A pane or headless tab reporting `innerWidth` of 0 skips those
   seven checks rather than failing them — give the tab a size (`resize_window`) to run
@@ -180,7 +195,7 @@ capturing element**, so a listener on a descendant never hears it. That is why
 `NO_DRAG_FROM` exists — presses on the fold badge, links, or controls inside an embedded
 block take no capture at all.
 
-Case 66 in the suite drives that contract as far as page script can: the press target
+The `realinput` case drives that contract as far as page script can: the press target
 comes from `elementFromPoint`, capture is recorded as the library takes it, and the
 click afterwards goes to the capturing element the way a browser sends it. It is a
 rebuild of the contract, not the real thing — page script cannot make a trusted event —
@@ -193,7 +208,9 @@ lands on it, and the map underneath never hears a thing.
 
 ## Releasing
 
-Ask before deploying. Every push to `main` is live for every downstream site immediately.
+Ask before deploying — pushing to `main` publishes the site, which is the user's call to
+make, not yours. Nothing external consumes it yet, so a bad push is an embarrassment
+rather than an outage.
 
 Releases are one commit each, and history is linear — work on a branch, then
 `git merge --ff-only`. Bump the version in three places before merging, since a deployed
