@@ -170,6 +170,11 @@ both places.
 Blocks lay out within 260px unless told otherwise: `data-embed-max-width` sets that for a
 map, `![](#id =240x160)` fixes one block exactly.
 
+The words in front of the `#` are what names the block for a screen reader, which meets
+the map as an outline rather than a drawing: `![Grade breakdown](#marks-box)` reads as
+"Grade breakdown". Leave them out and the block's own opening words stand in, shortened —
+so write them whenever those first words would not say what the node is.
+
 Inside such a node, clicking the block no longer folds the branch — the **&minus;** button
 does that — because the block is there to be read and used. Links in it work normally, and
 the node can still be dragged by any other part of it. `id`s are dropped from the copy, so

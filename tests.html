@@ -812,6 +812,7 @@ Race
 <p class="want">Expect: the drawing as usual; the outline underneath it names
 every node, the folded branch's own children included.</p>
 <template id="src-outline"><div class="probe">Outline card</div></template>
+<template id="src-outline-long"><div class="probe">A block with a good deal more text in it than an outline has any business reading out to anybody in full</div></template>
 <div class="case" id="outline"><pre class="mindmap">
 Outline root
   [+] Folded branch
@@ -823,6 +824,7 @@ Outline root
   Blocks
     ![Marks card](#src-outline)
     ![](#src-outline)
+    ![](#src-outline-long)
 </pre></div>
 
 <script>document.write('<script src="mindmap.js?v='+Date.now()+'"><\/script>');</script>
@@ -2462,12 +2464,17 @@ window.addEventListener('load', function () {
         });
       }
 
-      // The last item is a block the author gave no alt text: there is nothing
-      // to name it with, so the outline keeps its place and says nothing.
+      // A block is named by the author's alt text, and where there is none by
+      // the opening of its own text — capped, because a block can be a whole
+      // table and an outline that reads one out buries the labels around it.
+      var longText = document.getElementById('src-outline-long')
+        .content.firstElementChild.textContent.replace(/\s+/g, ' ').trim();
+      var capped = longText.slice(0, 79) + '\u2026';
+
       var want = [
         ['Folded branch', [['Hidden child', [['Deeper hidden']]]]],
         ['Links and pictures', [['See Lecture 3'], ['Icon a red dot inline']]],
-        ['Blocks', [['Marks card'], ['']]]
+        ['Blocks', [['Marks card'], ['Outline card'], [capped]]]
       ];
 
       check(183, 'the outline opens with the centre node and mirrors the whole tree',
@@ -2481,15 +2488,24 @@ window.addEventListener('load', function () {
         }).length === 2);
 
       var link = outline.querySelector('a');
+      var blocks = host.querySelector('.mm-container').mindMap
+        .root.children[2].children;
       check(184, 'pictures and blocks are named, and the link is a usable one',
         !!link && link.getAttribute('href') === 'week3.html' &&
         link.textContent === 'Lecture 3' &&
         outline.textContent.indexOf('a red dot') > -1 &&
+        // Alt text where the author wrote it, and the block's own opening text
+        // where they did not — never a node reaching a screen reader nameless.
         outline.textContent.indexOf('Marks card') > -1 &&
-        // A block is real content in the page already, so the outline names it
-        // rather than reading it out a second time.
-        outline.textContent.indexOf('Outline card') === -1 &&
-        !outline.querySelector('.probe'));
+        outline.textContent.indexOf('Outline card') > -1 &&
+        longText.length > 80 && capped.length === 80 &&
+        outline.textContent.indexOf(longText) === -1 &&
+        // The block itself stays where the author put it; only its name is
+        // borrowed, and it is the same name the node reports for itself, so
+        // the outline and a branch's toggle cannot disagree about one block.
+        !outline.querySelector('.probe') &&
+        blocks[0].plain === 'Marks card' && blocks[1].plain === 'Outline card' &&
+        blocks[2].plain === capped);
 
       check(185, 'the outline adds no tab stop of its own',
         Array.prototype.every.call(outline.querySelectorAll('a,[tabindex]'), function (el) {

@@ -416,6 +416,10 @@ Week 5
       and use what is in it. The <strong>&minus;</strong> button still folds it.</li>
   <li>Links inside the block work normally. The node can still be
       dragged by any other part of the block.</li>
+  <li>A screen reader meets the map as an outline rather than a drawing, so the
+      words in front of the <code>#</code> are what names the block there:
+      <code>![Grade breakdown](#marks-box)</code> reads as "Grade breakdown".
+      Leave them out and the block's own opening words stand in, shortened.</li>
   <li><code>id</code>s are dropped from the copy, so nothing on your page ends
       up with a duplicate id. So is anything that would start running when the
       copy is inserted — <code>&lt;script&gt;</code>, <code>&lt;iframe&gt;</code>,
@@ -1097,7 +1101,7 @@ CS2103 Software Engineering
 
 </div>
 
-<script src="mindmap.js?v=1.10.0"></script>
+<script src="mindmap.js?v=1.10.1"></script>
 <script>
   // Taken from the library itself, so the badge can never drift from the
   // script actually loaded (and a stale cache is visible at a glance).

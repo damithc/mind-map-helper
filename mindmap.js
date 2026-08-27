@@ -1,5 +1,5 @@
 /*!
- * mind-maps-helper v1.10.0
+ * mind-maps-helper v1.10.1
  * Simple indented-text syntax -> interactive-ready SVG mind maps.
  * PlantUML-style geometry with a refined palette.
  * No dependencies. MIT licensed.
@@ -8,7 +8,7 @@
 (function (global) {
   'use strict';
 
-  var VERSION = '1.10.0';
+  var VERSION = '1.10.1';
 
   // Where the credit chip under a map points.
   var HOME = 'https://se-education.org/mind-maps-helper/';
@@ -2128,9 +2128,13 @@
       for (var i = 0; i < runs.length; i++) {
         var run = runs[i];
         // Embedded HTML is already real content in the page, so the outline
-        // only needs to name it rather than repeat it to a screen reader.
+        // names a block rather than reading it out a second time: the author's
+        // alt text, and failing that the opening of the block's own text, the
+        // same stand-in the branch's toggle announces. Without the fallback a
+        // node whose whole label is an alt-less block reaches a screen reader
+        // as an empty line — the one reader who cannot see what is in it.
         var text = run.type === 'image' ? (run.alt || '') :
-                   run.type === 'embed' ? (run.alt || '') :
+                   run.type === 'embed' ? (run.plain || run.alt || '') :
                    run.type === 'break' ? ' ' : run.text;
         if (!text) continue;
         if (run.href) {
