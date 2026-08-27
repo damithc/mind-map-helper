@@ -137,14 +137,18 @@ python3 -m http.server 8099 --bind 127.0.0.1
 There is nothing to install and nothing to build — the page loads `mindmap.js` straight
 off disk.
 
-Read the result out of `#results`, which reads `all N checks pass` or `N FAILING`.
-Two things will bite you:
+Read the result out of `#results`, which reads `all N checks pass` or `N FAILING`, and
+may add `, M skipped` for a lane that could not run at all. Three things will bite you:
 
 - **Cache.** The static server serves stale HTML happily. Append a changing
   `?bust=<n>` to every navigation.
-- **`pending`.** Near the top of the script block, `var pending = 7;` counts the
-  asynchronous case groups. Add an async group and you must increment it, or the suite
-  finishes early and silently skips your checks.
+- **`pending`.** Near the top of the script block, `var pending` counts the asynchronous
+  case groups. Add an async group and you must increment it, or the suite finishes early
+  and silently skips your checks.
+- **Viewport.** The real-pointer lane hit tests with `elementFromPoint`, which needs a
+  viewport with a size. A pane or headless tab reporting `innerWidth` of 0 skips those
+  seven checks rather than failing them — give the tab a size (`resize_window`) to run
+  them.
 
 ### The `matchMedia` shim in `tests.html`
 
@@ -168,6 +172,17 @@ One trap worth knowing: `setPointerCapture` **retargets the following `click` to
 capturing element**, so a listener on a descendant never hears it. That is why
 `NO_DRAG_FROM` exists — presses on the fold badge, links, or controls inside an embedded
 block take no capture at all.
+
+Case 66 in the suite drives that contract as far as page script can: the press target
+comes from `elementFromPoint`, capture is recorded as the library takes it, and the
+click afterwards goes to the capturing element the way a browser sends it. It is a
+rebuild of the contract, not the real thing — page script cannot make a trusted event —
+so a change to folding or dragging still wants one pass of genuine input through the
+browser tools before it ships.
+
+When driving that input by hand, hide `#results` first. Once the run finishes it holds a
+line per check, and a sticky block that tall covers the whole viewport — every real click
+lands on it, and the map underneath never hears a thing.
 
 ## Releasing
 

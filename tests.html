@@ -33,6 +33,7 @@
   #results { position: sticky; top: 0; background: #fff; border-bottom: 2px solid #333;
              padding: .75rem 0; font-family: ui-monospace, Menlo, monospace; font-size: .85rem; z-index: 9; }
   .pass { color: #1a7f4b; } .fail { color: #b3261e; font-weight: 700; }
+  .skip { color: #8a6d1f; }
 </style>
 </head>
 <body>
@@ -709,6 +710,121 @@ Raw emphasis
     Leaf
 </pre></div>
 
+<h2>66. Real pointer input</h2>
+<p class="want">Expect: the same folding and dragging as cases 27 and 30, driven
+the way a browser drives them — hit tested, with the pointer captured, and a
+click sent after the release.</p>
+<div class="case" id="realinput"><pre class="mindmap">
+Real input
+  Requirements
+    Stakeholders
+    User Stories
+  Design
+    Patterns
+  Reading [Lecture 3](week3.html)
+    Slides
+</pre></div>
+
+<h2>67. Options spread across a Markdown host's wrappers</h2>
+<p class="want">Expect: the innermost value each time — a right-hand shape from
+the <code>&lt;code&gt;</code>, real bold and a shape switch from the
+<code>&lt;pre&gt;</code>, and the columns of the first map in case 68.</p>
+<div class="case" id="optlayers">
+  <div class="highlight" data-direction="left" data-markup="false"
+       data-controls="false" data-column-gap="120">
+    <pre data-direction="balanced" data-markup="true" data-controls="true"
+         data-column-gap="40"><code class="language-mindmap"
+         data-direction="right" data-column-gap="">
+Layered options
+  **Bold** one
+    Deeper
+  Two
+</code></pre>
+  </div>
+</div>
+
+<h2>68. The same map at each of the two column gaps</h2>
+<p class="want">Expect: the second is visibly wider than the first.</p>
+<div class="case" id="optrefs">
+<pre class="mindmap" data-direction="right" data-column-gap="40">
+Layered options
+  **Bold** one
+    Deeper
+  Two
+</pre>
+<pre class="mindmap" data-direction="right" data-column-gap="120">
+Layered options
+  **Bold** one
+    Deeper
+  Two
+</pre>
+</div>
+
+<h2>69. Markers stack in any order</h2>
+<p class="want">Expect: <code>Marked</code> green, dimmed and folded wherever
+all three markers appear; green and folded where only two do; and the last map
+showing its markers as text.</p>
+<script>
+// The orders under test, shared with the checks at the foot of the page so the
+// fixtures and the expectations cannot drift apart.
+var MARKER_ORDERS = [
+  { markers: '[+] [green] [dim]' },
+  { markers: '[+] [dim] [green]' },
+  { markers: '[green] [+] [dim]' },
+  { markers: '[green] [dim] [+]' },
+  { markers: '[dim] [+] [green]' },
+  { markers: '[dim] [green] [+]' },
+  { markers: '[+] [green]', pair: true },
+  { markers: '[green] [+]', pair: true },
+  { markers: '[+] [green] [dim]', raw: true },
+  { markers: '[dim] [green] [+]', raw: true },
+  { markers: '\\[+] [green] [dim]', escaped: true }
+];
+</script>
+<div class="case" id="markerstack"></div>
+<script>
+// Built rather than typed out: the point is that the orders are
+// interchangeable, and eleven near-identical fixtures written by hand invite a
+// typo that reads as a product failure.
+(function () {
+  var host = document.getElementById('markerstack');
+  for (var i = 0; i < MARKER_ORDERS.length; i++) {
+    var pre = document.createElement('pre');
+    pre.className = 'mindmap';
+    if (MARKER_ORDERS[i].raw) pre.setAttribute('data-markup', 'false');
+    pre.textContent = 'Stack\n  ' + MARKER_ORDERS[i].markers + ' Marked\n    Child\n  Plain';
+    host.appendChild(pre);
+  }
+})();
+</script>
+
+<h2>70. Two unsized images arriving out of order</h2>
+<p class="want">Expect: both nodes settle at their own scaled size, and the fold
+and the drag made while the images were still loading are still there.</p>
+<div class="case" id="imgrace"><pre id="race-src">
+Race
+  ![wide](img/race-wide.svg) alpha
+    Child
+  ![tall](img/race-tall.svg) beta
+</pre></div>
+
+<h2>71. The hidden outline, as a whole tree</h2>
+<p class="want">Expect: the drawing as usual; the outline underneath it names
+every node, the folded branch's own children included.</p>
+<template id="src-outline"><div class="probe">Outline card</div></template>
+<div class="case" id="outline"><pre class="mindmap">
+Outline root
+  [+] Folded branch
+    Hidden child
+      Deeper hidden
+  Links and pictures
+    See [Lecture 3](week3.html)
+    Icon ![a red dot](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAOklEQVR42mNkYPhfz0AEYBxVSF+FjP+xAyz6cCnEqxCfQrwKCSnEqZAYhVgVEqsQQyExijAUEqMIAF8VF4tMqNRHAAAAAElFTkSuQmCC =16x16) inline
+  Blocks
+    ![Marks card](#src-outline)
+    ![](#src-outline)
+</pre></div>
+
 <script>document.write('<script src="mindmap.js?v='+Date.now()+'"><\/script>');</script>
 <script>
 // Minimal assertions over the rendered DOM.
@@ -727,7 +843,8 @@ window.addEventListener('load', function () {
     var cases = document.querySelectorAll('.case');
     var out = [];
     var fails = 0;
-    var pending = 8;   // collapse, drag, shape, root-drag, markup, images, embeds, folds
+    var pending = 11;  // collapse, drag, shape, root-drag, markup, images, embeds,
+                       // folds, real input, the API, the image race
     function done() { if (--pending === 0) finish(); }
 
     function check(n, label, ok) {
@@ -736,11 +853,59 @@ window.addEventListener('load', function () {
                (ok ? 'PASS' : 'FAIL') + ' ' + n + ' ' + label + '</span>' });
     }
 
+    /**
+     * A check that could not be run at all, as against one that failed. Kept
+     * out of the pass count and named in the summary, so a lane that quietly
+     * did nothing cannot read as a lane that passed.
+     */
+    var skipped = 0;
+    function skip(n, label, why) {
+      skipped++;
+      out.push({ n: n, html: '<span class="skip">SKIP ' + n + ' ' + label +
+               ' — ' + why + '</span>' });
+    }
+
     function boxRect(g) {
       var m = /translate\(([-\d.]+),([-\d.]+)\)/.exec(g.getAttribute('transform')) || [0, 0, 0];
       var r = g.querySelector('rect');
       return { x: parseFloat(m[1]), y: parseFloat(m[2]),
                w: parseFloat(r.getAttribute('width')), h: parseFloat(r.getAttribute('height')) };
+    }
+
+    /**
+     * Whether every drawn curve in one map starts on its parent's outward edge
+     * and finishes on its child's inward one, both at the box's vertical
+     * centre. Read off the path rather than recomputed, because a layout that
+     * placed every box correctly and drew the curves from the wrong corners
+     * passes every count and overlap check in the suite.
+     */
+    function edgesMeetBoxes(map) {
+      var state = map.mindMap;
+      if (!state) return false;
+      var ok = true;
+      (function walk(node) {
+        for (var i = 0; i < node.children.length; i++) {
+          var child = node.children[i];
+          if (child.edge && child.edge.style.display !== 'none') {
+            var d = /^M([^,]+),([^ ]+) C[^ ]+ [^ ]+ ([^,]+),(.+)$/.exec(
+              child.edge.getAttribute('d'));
+            if (!d) ok = false;
+            else {
+              var p = boxRect(node.el), k = boxRect(child.el);
+              var outward = (k.x + k.w / 2) > (p.x + p.w / 2);
+              var want = [outward ? p.x + p.w : p.x, p.y + p.h / 2,
+                          outward ? k.x : k.x + k.w, k.y + k.h / 2];
+              for (var j = 0; j < 4; j++) {
+                // The transforms are rounded to two places and the path is not,
+                // so they meet to within half of the last place kept.
+                if (Math.abs(parseFloat(d[j + 1]) - want[j]) > 0.02) ok = false;
+              }
+            }
+          }
+          walk(child);
+        }
+      })(state.root);
+      return ok;
     }
 
     /**
@@ -789,6 +954,37 @@ window.addEventListener('load', function () {
     })();
 
     check(4, 'uneven: 10 boxes', boxes(3).length === 10);
+
+    // Case 4: the split goes by leaf count, so the six-leaf branch outweighs
+    // the two branches under it put together and crosses on its own. Asserting
+    // the partition rather than the box count, because a refactor that put
+    // every branch on one side would still draw ten boxes.
+    (function () {
+      var svg = svgOf(3);
+      var root = boxRect(svg.querySelector('.mm-root'));
+      function sideOf(name) {
+        var g = Array.prototype.filter.call(svg.querySelectorAll('.mm-node'), function (n) {
+          return n.querySelector('.mm-label').textContent === name;
+        })[0];
+        if (!g) return 'missing';
+        var r = boxRect(g);
+        return r.x >= root.x + root.w ? 'right' :
+               r.x + r.w <= root.x ? 'left' : 'astride';
+      }
+      check(158, 'the heavy branch outweighs both light ones and crosses alone',
+        sideOf('Heavy') === 'right' && sideOf('a') === 'right' && sideOf('f') === 'right' &&
+        sideOf('Light') === 'left' && sideOf('Also light') === 'left');
+    })();
+
+    // Every map on the page, not one fixture: the curves are what a reader
+    // follows, and nothing else in the suite looks at where they land.
+    (function () {
+      var maps = Array.prototype.filter.call(
+        document.querySelectorAll('.mm-container'),
+        function (map) { return !!map.mindMap; });
+      check(159, 'every curve meets its two boxes, in every map on the page',
+        maps.length >= 40 && maps.every(edgesMeetBoxes));
+    })();
     check(5, 'deep nesting: 7 boxes', boxes(4).length === 7);
 
     // Case 6: no two boxes overlap.
@@ -1826,10 +2022,488 @@ window.addEventListener('load', function () {
       }, 400);
     })();
 
+    // Real pointer input. The interaction checks above dispatch events straight
+    // at the element they mean, which skips the three things a browser does in
+    // between: hit testing, pointer capture, and the click it sends after the
+    // release. Capture is the one that bites — it retargets that click to the
+    // capturing element, so a listener on a descendant never hears it, which is
+    // why NO_DRAG_FROM exists. Page script cannot make a trusted event, so this
+    // lane rebuilds the contract instead: the target comes from
+    // elementFromPoint, capture is recorded as the library takes it, and
+    // everything after the press goes where a browser would send it.
+    (function () {
+      var host = document.getElementById('realinput');
+      var captured = null;
+      var realCapture = Element.prototype.setPointerCapture;
+      Element.prototype.setPointerCapture = function () {
+        captured = this;
+        return realCapture.apply(this, arguments);
+      };
+      function restore() { Element.prototype.setPointerCapture = realCapture; }
+
+      function show() { host.scrollIntoView({ block: 'center' }); }
+      function centreOf(el) {
+        var r = el.getBoundingClientRect();
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+      }
+      function commonAncestor(a, b) {
+        for (var n = a; n; n = n.parentNode) if (n.contains && n.contains(b)) return n;
+        return document;
+      }
+      function send(el, type, at, kind) {
+        el.dispatchEvent(new PointerEvent(type, {
+          bubbles: true, cancelable: true,
+          pointerId: kind === 'touch' ? 7 : 5, pointerType: kind || 'mouse',
+          isPrimary: true, clientX: at.x, clientY: at.y,
+          button: 0, buttons: type === 'pointerup' ? 0 : 1
+        }));
+      }
+
+      /**
+       * One press, an optional move, and a release — then the click the browser
+       * sends afterwards: at the capturing element if the press took capture,
+       * and otherwise at the nearest element holding both ends of the gesture,
+       * which is where a real click lands.
+       */
+      function gesture(from, to, kind) {
+        captured = null;
+        var down = document.elementFromPoint(from.x, from.y);
+        if (!down) return null;
+        send(down, 'pointerdown', from, kind);
+        var taken = captured;
+        var end = to || from;
+        if (to) send(taken || document.elementFromPoint(end.x, end.y) || down,
+                     'pointermove', end, kind);
+        var up = taken || document.elementFromPoint(end.x, end.y) || down;
+        send(up, 'pointerup', end, kind);
+        var clicked = taken || commonAncestor(down, up);
+        clicked.dispatchEvent(new MouseEvent('click',
+          { bubbles: true, cancelable: true, clientX: end.x, clientY: end.y }));
+        return { down: down, up: up, capture: taken, clicked: clicked };
+      }
+
+      function nodeNamed(name) {
+        return Array.prototype.filter.call(host.querySelectorAll('.mm-node'), function (g) {
+          return g.querySelector('.mm-label').textContent.indexOf(name) > -1;
+        })[0];
+      }
+      function pos(g) {
+        var m = /translate\(([-\d.]+),([-\d.]+)\)/.exec(g.getAttribute('transform'));
+        return { x: parseFloat(m[1]), y: parseFloat(m[2]) };
+      }
+
+      // Hit testing needs somewhere to hit: a headless or zero-sized tab has
+      // no viewport, elementFromPoint returns null wherever it is asked, and
+      // every check below would fail for a reason that is nothing to do with
+      // the library. Say that plainly instead — the same trap the reduced
+      // motion shim in the <head> exists for.
+      if (!window.innerWidth || !window.innerHeight) {
+        for (var n = 160; n <= 166; n++) {
+          skip(n, 'real pointer input', 'this tab has no viewport to hit test in');
+        }
+        restore();
+        done();
+        return;
+      }
+
+      show();
+      var req = nodeNamed('Requirements');
+      var kid = nodeNamed('Stakeholders');
+      var reqBefore = pos(req), kidBefore = pos(kid);
+      var from = centreOf(req.querySelector('.mm-box'));
+      var drag = gesture(from, { x: from.x + 46, y: from.y + 28 });
+
+      check(160, 'a press on a node is hit tested to it, and captures the pointer',
+        !!drag && req.contains(drag.down) && drag.capture === req);
+      var reqAfter = pos(req), kidAfter = pos(kid);
+      check(161, 'the drag carried the subtree, and the click after it did not fold',
+        Math.abs(reqAfter.x - reqBefore.x) > 10 &&
+        Math.abs((kidAfter.x - kidBefore.x) - (reqAfter.x - reqBefore.x)) < 0.6 &&
+        drag.clicked === req && !req.classList.contains('mm-collapsed') &&
+        req.getAttribute('aria-expanded') === 'true');
+
+      var still = gesture(centreOf(req.querySelector('.mm-box')), null);
+      setTimeout(function () {
+        check(162, 'a press that does not move still folds the branch',
+          !!still && still.capture === req && still.clicked === req &&
+          req.classList.contains('mm-collapsed') &&
+          req.getAttribute('aria-expanded') === 'false' &&
+          nodeNamed('Stakeholders').style.display === 'none');
+
+        show();
+        var design = nodeNamed('Design');
+        var badge = design.querySelector('.mm-toggle');
+        var press = gesture(centreOf(badge), null);
+        setTimeout(function () {
+          check(163, 'a press on the fold badge takes no capture, and folds the branch',
+            !!press && badge.contains(press.down) && press.capture === null &&
+            design.classList.contains('mm-collapsed') &&
+            nodeNamed('Patterns').style.display === 'none');
+
+          show();
+          var reading = nodeNamed('Reading');
+          var link = reading.querySelector('a.mm-link');
+          var readBefore = pos(reading);
+          var linkAt = centreOf(link);
+          var pulled = gesture(linkAt, { x: linkAt.x + 46, y: linkAt.y + 22 });
+          check(164, 'a press on a link takes no capture, so nothing is dragged',
+            !!pulled && link.contains(pulled.down) && pulled.capture === null &&
+            Math.abs(pos(reading).x - readBefore.x) < 0.001 &&
+            Math.abs(pos(reading).y - readBefore.y) < 0.001);
+
+          // Stop the browser following the link, from the far end of the
+          // bubble so the library's own handlers have already had their say.
+          var throughFold = reading.classList.contains('mm-collapsed');
+          var untouched = null;
+          function swallow(ev) { untouched = !ev.defaultPrevented; ev.preventDefault(); }
+          document.addEventListener('click', swallow);
+          var tap = gesture(centreOf(link), null);
+          document.removeEventListener('click', swallow);
+          setTimeout(function () {
+            check(165, 'the link keeps its own click, and its node does not fold',
+              !!tap && link.contains(tap.clicked) && untouched === true &&
+              reading.classList.contains('mm-collapsed') === throughFold);
+
+            show();
+            var touched = nodeNamed('Design');
+            var wasFolded = touched.classList.contains('mm-collapsed');
+            var touchBefore = pos(touched);
+            var at = centreOf(touched.querySelector('.mm-box'));
+            var swipe = gesture(at, { x: at.x + 44, y: at.y + 26 }, 'touch');
+            check(166, 'a touch drag moves the node the way a mouse drag does',
+              !!swipe && swipe.capture === touched &&
+              getComputedStyle(touched).touchAction === 'pan-y' &&
+              Math.abs(pos(touched).x - touchBefore.x) > 10 &&
+              touched.classList.contains('mm-collapsed') === wasFolded);
+
+            restore();
+            done();
+          }, 420);
+        }, 420);
+      }, 420);
+    })();
+
+    // The documented API, exercised as an API rather than as setup for
+    // something else.
+    (function () {
+      var tree = MindMap.parse(
+        '- Root\n' +
+        '  // a comment\n' +
+        '  * [+] [green] Folded\n' +
+        '    + Leaf\n' +
+        '\n' +
+        '  [dim] Quiet\n');
+      var folded = tree.children[0];
+      var leaf = folded.children[0];
+      var quiet = tree.children[1];
+
+      check(167, 'parse hands back the tree on its own: labels, depth, parents, lines',
+        tree.label === 'Root' && tree.depth === 0 && tree.parent === null &&
+        tree.children.length === 2 &&
+        folded.depth === 1 && folded.parent === tree &&
+        leaf.depth === 2 && leaf.parent === folded && !leaf.children.length &&
+        tree.lineNo === 1 && folded.lineNo === 3 && leaf.lineNo === 4 &&
+        quiet.lineNo === 6);
+      check(168, 'bullets and comments are gone, and the markers came off as metadata',
+        folded.label === 'Folded' && leaf.label === 'Leaf' && quiet.label === 'Quiet' &&
+        folded.fold === '+' && folded.accent === 2 && folded.mode === null &&
+        quiet.mode === 'dim' && quiet.fold === null && quiet.accent === null &&
+        // A marker only says how the map should open; render is what acts on it.
+        folded.collapsed === false);
+
+      var source = 'Scoped\n  One\n    a\n    b\n  Two\n    c';
+      var inside = document.createElement('div');
+      var outside = document.createElement('div');
+      inside.innerHTML = '<pre class="mindmap">' + source + '</pre>';
+      outside.innerHTML = '<pre class="mindmap">Untouched\n  One</pre>';
+      document.body.appendChild(inside);
+      document.body.appendChild(outside);
+
+      var drawn = MindMap.renderAll(inside);
+      check(169, 'renderAll(scope) draws that scope only, and hands back its maps',
+        drawn.length === 1 && drawn[0] === inside.querySelector('.mm-container') &&
+        inside.querySelectorAll('.mm-box').length === 6 &&
+        !!outside.querySelector('pre.mindmap') && !outside.querySelector('.mm-container'));
+      check(170, 'a second pass over the same scope finds nothing left to draw',
+        MindMap.renderAll(inside).length === 0 &&
+        inside.querySelectorAll('.mm-container').length === 1);
+      outside.remove();
+
+      var container = inside.querySelector('.mm-container');
+      var innerNode = container.querySelector('.mm-node');
+      var loose = document.createElement('div');
+      loose.appendChild(document.createTextNode('not a map'));
+      document.body.appendChild(loose);
+
+      check(171, 'a stateful call takes the container, or anything inside it',
+        MindMap.setDirection(container, 'right') === true &&
+        MindMap.setDirection(innerNode, 'balanced') === true &&
+        MindMap.resetPositions(innerNode) === true &&
+        MindMap.collapseAll(innerNode) === true &&
+        MindMap.expandAll(innerNode) === true);
+      check(172, 'an element that is not a rendered map is refused, and left alone',
+        MindMap.setDirection(loose, 'right') === false &&
+        MindMap.collapseAll(loose) === false &&
+        MindMap.expandAll(loose) === false &&
+        MindMap.resetPositions(loose) === false &&
+        MindMap.refresh(loose) === false &&
+        loose.childNodes.length === 1 && !loose.querySelector('*'));
+      loose.remove();
+
+      function visibleIn(el) {
+        return Array.prototype.filter.call(el.querySelectorAll('.mm-node'),
+          function (g) { return g.style.display !== 'none'; }).length;
+      }
+      function expandedIn(el) {
+        return Array.prototype.map.call(el.querySelectorAll('[aria-expanded]'),
+          function (g) { return g.getAttribute('aria-expanded'); }).join(',');
+      }
+
+      MindMap.collapseAll(container);
+      setTimeout(function () {
+        var shut = visibleIn(container), shutAria = expandedIn(container);
+        MindMap.expandAll(container);
+        setTimeout(function () {
+          check(173, 'collapseAll then expandAll puts every branch back, aria and all',
+            shut === 3 && shutAria === 'false,false' &&
+            visibleIn(container) === 6 && expandedIn(container) === 'true,true');
+          inside.remove();
+          done();
+        }, 420);
+      }, 420);
+    })();
+
+    // Options may sit on the source, on its <pre>, or on the highlighter's
+    // wrapper, and the innermost one wins. This is the shape a Markdown host
+    // actually produces, and the glue that reads it has no other check.
+    (function () {
+      var layered = document.querySelector('#optlayers .mm-container');
+      var refs = document.querySelectorAll('#optrefs .mm-container');
+
+      function oneSided(map) {
+        var svg = map.querySelector('.mm-svg');
+        var root = boxRect(svg.querySelector('.mm-root'));
+        return Array.prototype.every.call(svg.querySelectorAll('.mm-node'), function (g) {
+          return g.classList.contains('mm-root') || boxRect(g).x >= root.x + root.w;
+        });
+      }
+      function viewBox(map) { return map.querySelector('.mm-svg').getAttribute('viewBox'); }
+
+      check(174, 'the innermost value wins, attribute by attribute',
+        !!layered &&
+        // direction: "right" on the <code>, against balanced and left above it
+        oneSided(layered) &&
+        // markup: on at the <pre>, against off on the wrapper
+        layered.textContent.indexOf('**Bold**') === -1 &&
+        Array.prototype.some.call(layered.querySelectorAll('text'), function (t) {
+          return t.textContent === 'Bold' && t.getAttribute('font-weight') === '700';
+        }) &&
+        // controls: on at the <pre>, against off on the wrapper
+        !!layered.querySelector('.mm-controls'));
+
+      check(175, 'an empty value falls through to the ancestor that has one',
+        refs.length === 2 && viewBox(layered) === viewBox(refs[0]) &&
+        viewBox(refs[0]) !== viewBox(refs[1]));
+    })();
+
+    // Marker orders. Table-driven against one expectation, because the failure
+    // worth catching is one order behaving unlike the rest.
+    (function () {
+      var maps = document.getElementById('markerstack').children;
+
+      function reading(map) {
+        var g = Array.prototype.filter.call(map.querySelectorAll('.mm-node'), function (n) {
+          return n.querySelector('.mm-label').textContent.indexOf('Marked') > -1;
+        })[0];
+        if (!g) return { label: 'missing' };
+        return {
+          label: g.querySelector('.mm-label').textContent,
+          folded: g.classList.contains('mm-collapsed'),
+          accent: g.style.getPropertyValue('--mm-a').trim(),
+          emphasis: g.classList.contains('mm-dim') ? 'dim' :
+                    g.classList.contains('mm-hot') ? 'hot' : null
+        };
+      }
+      function kindOf(order) {
+        return order.escaped ? 'escaped' : order.raw ? 'raw' :
+               order.pair ? 'pair' : 'plain';
+      }
+      function every(kind, want) {
+        var seen = 0;
+        for (var i = 0; i < MARKER_ORDERS.length; i++) {
+          if (kindOf(MARKER_ORDERS[i]) !== kind) continue;
+          var got = reading(maps[i]);
+          seen++;
+          if (got.label !== want.label || got.folded !== want.folded ||
+              got.accent !== want.accent || got.emphasis !== want.emphasis) return 0;
+        }
+        return seen;
+      }
+
+      var all = { label: 'Marked', folded: true, accent: '#3f7d5c', emphasis: 'dim' };
+      var pair = { label: 'Marked', folded: true, accent: '#3f7d5c', emphasis: null };
+
+      check(176, 'the three markers stack in any of the six orders',
+        maps.length === MARKER_ORDERS.length && every('plain', all) === 6);
+      check(177, 'colour and fold stack either way round on their own',
+        every('pair', pair) === 2);
+      check(178, 'the orders read the same with markup off',
+        every('raw', all) === 2);
+
+      var escaped = reading(maps[MARKER_ORDERS.length - 1]);
+      check(179, 'an escaped leading marker stops the run before any of them',
+        escaped.label === '[+] [green] [dim] Marked' && escaped.folded === false &&
+        escaped.emphasis === null && escaped.accent === '#3b6ea5');
+    })();
+
+    // Two unsized images finishing in the reverse of the order they were
+    // started, with a fold and a drag made while they were still in flight.
+    // The re-measure is held until the last one settles, so the finished map
+    // has to carry both natural sizes and keep whatever the reader did
+    // meanwhile. Real files load in whatever order the network gives them, so
+    // the loader is stood in for here to make the order the point.
+    (function () {
+      var loaders = [];
+      var RealImage = window.Image;
+      window.Image = function () {
+        var img = { onload: null, onerror: null, naturalWidth: 0, naturalHeight: 0 };
+        Object.defineProperty(img, 'src', {
+          get: function () { return img.from; },
+          set: function (value) { img.from = value; loaders.push(img); }
+        });
+        return img;
+      };
+      var map = MindMap.render(document.getElementById('race-src'));
+      window.Image = RealImage;
+
+      function named(name) {
+        return Array.prototype.filter.call(map.querySelectorAll('.mm-node'), function (g) {
+          return g.querySelector('.mm-label').textContent.indexOf(name) > -1;
+        })[0];
+      }
+      function pos(g) {
+        var m = /translate\(([-\d.]+),([-\d.]+)\)/.exec(g.getAttribute('transform'));
+        return { x: parseFloat(m[1]), y: parseFloat(m[2]) };
+      }
+      function pointer(el, type, x, y) {
+        el.dispatchEvent(new PointerEvent(type, {
+          bubbles: true, cancelable: true, pointerId: 9, clientX: x, clientY: y, button: 0
+        }));
+      }
+      function pick(part) {
+        return loaders.filter(function (i) { return i.from.indexOf(part) > -1; })[0];
+      }
+
+      var started = loaders.map(function (i) { return i.from; }).join('|');
+      var wide = pick('race-wide'), tall = pick('race-tall');
+
+      // Last one first.
+      tall.naturalWidth = 60; tall.naturalHeight = 180; tall.onload();
+
+      var alpha = named('alpha');
+      var beta = named('beta');
+      var betaBefore = pos(beta);
+      alpha.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      var r = beta.getBoundingClientRect();
+      pointer(beta, 'pointerdown', r.left + 5, r.top + 5);
+      pointer(beta, 'pointermove', r.left + 45, r.top + 35);
+      pointer(beta, 'pointerup', r.left + 45, r.top + 35);
+      var draggedBy = pos(beta).x - betaBefore.x;
+
+      wide.naturalWidth = 240; wide.naturalHeight = 120; wide.onload();
+
+      setTimeout(function () {
+        var images = map.querySelectorAll('.mm-image');
+        function sizeOf(i) {
+          return images[i].getAttribute('width') + 'x' + images[i].getAttribute('height');
+        }
+        check(180, 'both unsized images settle at their own scaled size, late one first',
+          started === 'img/race-wide.svg|img/race-tall.svg' &&
+          images.length === 2 && sizeOf(0) === '120x60' && sizeOf(1) === '30x90');
+
+        var boxes = [named('alpha'), named('beta')].map(function (g) {
+          return g.querySelector('.mm-box');
+        });
+        var bounds = map.querySelector('.mm-svg').getAttribute('viewBox').split(' ');
+        check(181, 'the boxes, the curves and the canvas all grew with them',
+          parseFloat(boxes[0].getAttribute('width')) >= 120 &&
+          parseFloat(boxes[1].getAttribute('height')) >= 90 &&
+          edgesMeetBoxes(map) &&
+          parseFloat(bounds[2]) >= 120 && parseFloat(bounds[3]) >= 90);
+
+        check(182, 'the fold and the drag made mid-load are still there afterwards',
+          draggedBy > 10 &&
+          named('alpha').classList.contains('mm-collapsed') &&
+          named('Child').style.display === 'none' &&
+          Math.abs((pos(named('beta')).x - betaBefore.x) - draggedBy) < 0.6);
+        done();
+      }, 500);
+    })();
+
+    // The outline is the whole map to a screen reader, so it has to mirror the
+    // whole tree — folded branches included, since a reader who cannot see the
+    // drawing cannot unfold anything either.
+    (function () {
+      var host = document.getElementById('outline');
+      var outline = host.querySelector('.mm-a11y');
+
+      /** One item's own text, without its children's. */
+      function ownText(el) {
+        var copy = el.cloneNode(true);
+        Array.prototype.forEach.call(copy.querySelectorAll('ul'), function (ul) {
+          ul.parentNode.removeChild(ul);
+        });
+        return copy.textContent.replace(/\s+/g, ' ').trim();
+      }
+      function shape(list) {
+        return Array.prototype.map.call(list.children, function (li) {
+          var kids = li.querySelector('ul');
+          return kids ? [ownText(li), shape(kids)] : [ownText(li)];
+        });
+      }
+
+      // The last item is a block the author gave no alt text: there is nothing
+      // to name it with, so the outline keeps its place and says nothing.
+      var want = [
+        ['Folded branch', [['Hidden child', [['Deeper hidden']]]]],
+        ['Links and pictures', [['See Lecture 3'], ['Icon a red dot inline']]],
+        ['Blocks', [['Marks card'], ['']]]
+      ];
+
+      check(183, 'the outline opens with the centre node and mirrors the whole tree',
+        !!outline && outline.children.length === 2 &&
+        outline.firstElementChild.tagName === 'P' &&
+        ownText(outline.firstElementChild) === 'Outline root' &&
+        JSON.stringify(shape(outline.lastElementChild)) === JSON.stringify(want) &&
+        // Spelled out here even though the drawing has them folded away.
+        Array.prototype.filter.call(host.querySelectorAll('.mm-node'), function (g) {
+          return g.style.display === 'none';
+        }).length === 2);
+
+      var link = outline.querySelector('a');
+      check(184, 'pictures and blocks are named, and the link is a usable one',
+        !!link && link.getAttribute('href') === 'week3.html' &&
+        link.textContent === 'Lecture 3' &&
+        outline.textContent.indexOf('a red dot') > -1 &&
+        outline.textContent.indexOf('Marks card') > -1 &&
+        // A block is real content in the page already, so the outline names it
+        // rather than reading it out a second time.
+        outline.textContent.indexOf('Outline card') === -1 &&
+        !outline.querySelector('.probe'));
+
+      check(185, 'the outline adds no tab stop of its own',
+        Array.prototype.every.call(outline.querySelectorAll('a,[tabindex]'), function (el) {
+          return el.getAttribute('tabindex') === '-1';
+        }) &&
+        // The same link is reachable in the drawing, where it can be seen.
+        !!host.querySelector('.mm-svg a.mm-link[href="week3.html"]'));
+    })();
+
     function finish() {
     document.getElementById('results').innerHTML =
-      '<strong>' + (fails ? fails + ' FAILING' : 'all ' + out.length + ' checks pass') +
-      '</strong><br>' +
+      '<strong>' + (fails ? fails + ' FAILING'
+                          : 'all ' + (out.length - skipped) + ' checks pass') +
+      (skipped ? ', ' + skipped + ' skipped' : '') + '</strong><br>' +
       out.sort(function (a, b) { return a.n - b.n; })
          .map(function (r) { return r.html; }).join('<br>');
     }
