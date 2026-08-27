@@ -1,5 +1,5 @@
 /*!
- * mind-maps-helper v1.10.5
+ * mind-maps-helper v1.11.0
  * Simple indented-text syntax -> interactive-ready SVG mind maps.
  * PlantUML-style geometry with a refined palette.
  * No dependencies. MIT licensed.
@@ -8,7 +8,7 @@
 (function (global) {
   'use strict';
 
-  var VERSION = '1.10.5';
+  var VERSION = '1.11.0';
 
   // Where the credit chip under a map points.
   var HOME = 'https://se-education.org/mind-maps-helper/';
@@ -30,6 +30,69 @@
     ['#9c4f6c', '#d98ba8'],
     ['#56657a', '#9fb0c4']
   ];
+
+  // The two inks a named centre node can write in. A name there paints the box
+  // the theme would otherwise paint, and it paints it with the bright half of
+  // the pair — the half picked to carry a dark page, which carries a light one
+  // too. So unlike the theme's own centre node it is the same colour in both
+  // themes, and its text is too: the ink follows the fill, not the page.
+  //
+  // Every bright half in the built-in palette takes the dark ink, at 6.8:1 or
+  // better. The light one is for a replaced palette: `MindMap.palette` takes
+  // any pair of colour strings, and a dark colour in that half would otherwise
+  // put dark ink on a dark box and lose the label altogether.
+  var ROOT_INK_ON_LIGHT = '#161b22';
+  var ROOT_INK_ON_DARK = '#ffffff';
+
+  // Where the better of the two inks changes over. Below this the light ink
+  // wins, above it the dark one; the two are equal at .2025, which is also the
+  // worst either can do — a fill right there carries 4.16:1 whichever is
+  // chosen, and no third ink would help.
+  var INK_CROSSOVER = 0.2025;
+
+  /**
+   * sRGB relative luminance of `#rgb`, `#rrggbb`, either with a trailing alpha
+   * pair, or `rgb()` / `rgba()`. Null for anything else — a palette is written
+   * in one of these in practice, and a form this cannot read falls back to the
+   * ink the built-in palette wants rather than guessing.
+   */
+  function luminance(colour) {
+    var text = String(colour).trim();
+    var rgb = null;
+    var hex = /^#([0-9a-f]+)$/i.exec(text);
+    if (hex) {
+      var digits = hex[1];
+      if (digits.length === 3 || digits.length === 4) {
+        digits = digits.charAt(0) + digits.charAt(0) +
+                 digits.charAt(1) + digits.charAt(1) +
+                 digits.charAt(2) + digits.charAt(2);
+      }
+      if (digits.length === 6 || digits.length === 8) {
+        rgb = [parseInt(digits.slice(0, 2), 16), parseInt(digits.slice(2, 4), 16),
+               parseInt(digits.slice(4, 6), 16)];
+      }
+    } else {
+      var parts = /^rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/i.exec(text);
+      if (parts) rgb = [+parts[1], +parts[2], +parts[3]];
+    }
+    if (!rgb) return null;
+
+    var total = 0;
+    var weights = [0.2126, 0.7152, 0.0722];
+    for (var i = 0; i < 3; i++) {
+      var c = rgb[i] / 255;
+      total += weights[i] * (c <= 0.03928 ? c / 12.92
+                                          : Math.pow((c + 0.055) / 1.055, 2.4));
+    }
+    return total;
+  }
+
+  /** Whichever of the two inks the fill under it can carry. */
+  function rootInk(fill) {
+    var light = luminance(fill);
+    return light === null || light > INK_CROSSOVER ? ROOT_INK_ON_LIGHT
+                                                   : ROOT_INK_ON_DARK;
+  }
 
   // The accent names an author may write in front of a node's text. They name
   // slots in the palette above rather than colour values, so a site that
@@ -303,11 +366,11 @@
    * the box has to be. It never changes afterwards: emphasis says what the
    * material is, not what the reader has done with it.
    *
-   * A marker on the centre node is dropped, the way a colour name there is.
+   * A marker on the centre node is dropped, unlike a colour name there.
    * Emphasis is a node standing out from the ones around it, and the centre
    * node has nothing to stand out from — its subtree is the whole map. It is
-   * also the one box painted from the theme rather than the palette, so
-   * fading it leaves pale theme text on a pale theme fill.
+   * also the one box whose label sits on a solid fill rather than a tint of
+   * one, so fading it leaves pale text on a pale fill.
    */
   function paintModes(node, inherited) {
     var mode = (node.parent ? node.mode : null) || inherited || null;
@@ -1283,7 +1346,18 @@
         (node.emphasis ? ' mm-' + node.emphasis : '')
     });
 
-    if (!isRoot) {
+    // The centre node is painted from the theme rather than from the palette,
+    // so a name there overrides the theme's two centre colours instead of
+    // joining the accents. It reads `accent` rather than `accentIndex`: the
+    // branch painter never reaches the centre, because a name there says what
+    // this one box is, not what the map below it inherits.
+    if (isRoot) {
+      if (typeof node.accent === 'number') {
+        var fill = accentPair(node.accent)[1];
+        g.style.setProperty('--mm-root-bg', fill);
+        g.style.setProperty('--mm-root-text', rootInk(fill));
+      }
+    } else {
       var pair = accentPair(node.accentIndex);
       g.style.setProperty('--mm-a', pair[0]);
       g.style.setProperty('--mm-a-dark', pair[1]);

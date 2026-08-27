@@ -74,7 +74,8 @@ its child.
 - Blank lines are ignored.
 - A line starting with `//` is a comment.
 - `[+]` before the text makes that branch start folded; `[-]` makes it start open.
-- `[blue]` in front of the text paints that branch in an accent you name.
+- `[blue]` in front of the text paints that branch — or the centre node — in an accent
+  you name.
 - `[dim]` fades a branch into the background; `[hot]` picks one out.
 - Node text understands a little inline Markdown (below). No HTML.
 
@@ -237,7 +238,7 @@ original block instead, it never hears the copy, which lives over in the map. Dr
 Blocks meant to be read — a table, a card, a worked example — copy cleanly; a working
 widget is worth checking in the node.
 
-## Colouring a branch
+## Colouring the map
 
 Branches take an accent from a built-in palette, in the order they appear. To choose one
 yourself, name it in front of the text, the way you would a fold marker:
@@ -257,11 +258,31 @@ accepted as well, for orange and slate.
 
 A name holds from that node down. On a top-level branch it colours the branch; further in
 it recolours the rest of that branch, which is how one sub-topic gets picked out from the
-rest. The centre node takes its colours from the theme rather than the palette, so a name
-there has nothing to paint and is dropped.
+rest.
 
 Naming one branch leaves the others as they were: the unnamed ones still follow branch
 order, so adding a colour recolours what you named and nothing else.
+
+The centre node takes a name too, and wears it differently. It is the one box drawn as a
+solid slab rather than a tint of an accent, so it fills with the *bright* half of the pair
+— the counterpart of the colour the same name gives a branch — and writes in an ink dark
+enough to read on it, which for every colour in the built-in palette is a near-black:
+
+```
+[gold] Software Engineering
+  Requirements
+  Design
+  Testing
+```
+
+That is the same colour in both themes, unlike the default centre node, which flips from
+dark to light with the page. The bright halves are the ones picked to carry a dark page,
+and they carry a light one as well, so there is nothing to flip to; the ink on them stays
+put for the same reason.
+
+A name there is about that one box. It takes no slot from the branches, so the first
+branch is still the first accent, and it overrides `--mm-root-bg` and `--mm-root-text`
+for that map — an author naming a colour outranks the theme underneath it.
 
 Colour markers follow the fold markers' rules, and the two stack in either order —
 `[+] [green] Design` and `[green] [+] Design` are the same node. Both go after any bullet,
@@ -304,9 +325,9 @@ Requirements
 
 Highlighting deepens the branch's own accent rather than bringing a colour of its own, so
 a picked-out node still says which branch it belongs to, still has a dark version, and
-still follows a replaced palette. A marker on the centre node is dropped, the way a colour
-name there is: emphasis is a node standing out from the ones around it, and the centre
-node has nothing to stand out from.
+still follows a replaced palette. A marker on the centre node is dropped, unlike a colour
+name there: emphasis is a node standing out from the ones around it, and the centre node
+has nothing to stand out from.
 
 Dimming fades the box and the curve into it, and moves the label to the muted text colour
 rather than fading it as well. A dimmed topic is one the reader is past, not one they
@@ -452,10 +473,14 @@ follows the reader's system setting. `data-theme` on a map overrides both.
 }
 ```
 
+A colour named on the centre line wins over the two `--mm-root-*` values for that map.
+
 Branch accents cycle through a built-in palette in the order the top-level branches
 appear. Override `window.MindMap.palette` (an array of `[light, dark]` pairs) to change
 them. The names an author writes point at positions in that array rather than at colour
-values, so a replaced palette recolours the named branches along with the rest.
+values, so a replaced palette recolours the named branches — and a named centre node —
+along with the rest. The centre node's ink is picked from the colour underneath it, so a
+dark colour in that half gets white text rather than a label lost in its own box.
 
 The palette is read as each map is drawn, so it has to be set **before the maps it should
 affect are rendered**. Maps already on the page are drawn once the document has been

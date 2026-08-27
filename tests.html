@@ -507,12 +507,16 @@ Same map
 </div>
 
 <h2>47. Palette override</h2>
-<p class="want">Expect: the first map is red/green; the second keeps the built-in accents.</p>
+<p class="want">Expect: the first map is red/green, centre node included; the second
+keeps the built-in accents; the third has a near-black centre with white text on
+it, rather than a label lost in its own box.</p>
 <div class="case" id="palette">
-  <pre id="pal-custom">Custom palette
+  <pre id="pal-custom">[blue] Custom palette
   One
   Two</pre>
   <pre id="pal-bad">Unusable palette
+  One</pre>
+  <pre id="pal-ink">[blue] Dark bright half
   One</pre>
 </div>
 
@@ -914,6 +918,37 @@ wider than the 77px limit set on the map.</p>
 Chips
   `a b` and `c d`
   `aa bb` tail
+</pre></div>
+
+<h2>78. A named centre node</h2>
+<p class="want">Expect: the centre node a solid bright gold with near-black text on
+it, in either theme, and the three branches in the accents their order gives them.</p>
+<div class="case" id="rootcolour"><pre class="mindmap">
+[gold] Software Engineering
+  Requirements
+  Design
+  Testing
+</pre></div>
+
+<h2>79. Centre lines that only look like names</h2>
+<p class="want">Expect: both centre nodes reading their brackets as typed, and both
+in the theme's own centre colours rather than an accent.</p>
+<div class="case" id="rootcolourescape"><pre class="mindmap">
+\[gold] Course map
+  Requirements
+</pre></div>
+<div class="case" id="rootcolourliteral"><pre class="mindmap">
+[Draft] Course map
+  Requirements
+</pre></div>
+
+<h2>80. A named centre node pinned to a theme</h2>
+<p class="want">Expect: a bright teal centre with near-black text on the dark
+theme's own background, and the same colours after the shape switch below it.</p>
+<div class="case" id="rootcolourdark"><pre class="mindmap" data-theme="dark">
+[teal] Pinned dark
+  Requirements
+  Design
 </pre></div>
 
 <script>document.write('<script src="mindmap.js?v='+Date.now()+'"><\/script>');</script>

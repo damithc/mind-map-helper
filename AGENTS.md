@@ -91,7 +91,7 @@ check 206 holds it to that.
 |---|---|---|
 | `children` | parser | Every child, folded away or not. |
 | `fold` | parser | The author's `[+]` / `[-]` marker, or `null`. Sets the opening fold state in `render`, beating `data-collapse-level`. |
-| `accent` | parser | The palette slot the author named, or `null`. Overrides the branch accent from this node down. |
+| `accent` | parser | The palette slot the author named, or `null`. Overrides the branch accent from this node down — and on the centre node, where there is no branch accent, fills that one box with the bright half of the pair instead. |
 | `mode` | parser | The author's `[dim]` / `[hot]` / `[normal]` marker, or `null`. |
 | `emphasis` | `paintModes` | The mode in force here: `'dim'`, `'hot'` or `null`. Inherited from the nearest `mode` above, which `[normal]` clears. |
 | `key` | `nodeKey` | A number, handed out on first use, for keying a node across a re-layout. |

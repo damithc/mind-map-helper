@@ -144,7 +144,7 @@
     <li><a href="#formatting">Formatting inside a node</a></li>
     <li><a href="#embeds">Blocks of your own HTML</a></li>
     <li><a href="#collapsing">Collapsing and expanding</a></li>
-    <li><a href="#colours">Colouring a branch</a></li>
+    <li><a href="#colours">Colouring the map</a></li>
     <li><a href="#emphasis">Dimming and highlighting</a></li>
     <li><a href="#shape">Choosing the shape</a></li>
     <li><a href="#dragging">Moving nodes</a></li>
@@ -242,7 +242,7 @@ Software Engineering
   <li>Blank lines are ignored, so you can use them to group things while writing.</li>
   <li>A line starting with <code>//</code> is a comment and is not drawn.</li>
   <li><code>[+]</code> before the text makes that branch start folded; <code>[-]</code> makes it start open — see below.</li>
-  <li><code>[blue]</code> in front of the text paints that branch in an accent you name — see below.</li>
+  <li><code>[blue]</code> in front of the text paints that branch — or the centre node — in an accent you name — see below.</li>
   <li><code>[dim]</code> fades a branch into the background, <code>[hot]</code> picks one out — see below.</li>
   <li>Node text understands a little inline Markdown — see below. No HTML.</li>
 </ul>
@@ -657,7 +657,7 @@ markup inside a label, so both the marker and its escape work whatever
 <p>To turn interaction off entirely and get a plain static diagram, set
 <code>data-interactive="false"</code>.</p>
 
-<h2 id="colours">Colouring a branch</h2>
+<h2 id="colours">Colouring the map</h2>
 
 <p>Branches take an accent from a built-in palette, in the order they appear. To
 choose one yourself, name it in front of the text, the way you would a fold
@@ -706,9 +706,7 @@ Accents
 
 <p>A name holds from that node down. On a top-level branch it colours the whole
 branch; further in it recolours the rest of that branch, which is how one
-sub-topic gets picked out from the rest. The centre node takes its colours from
-the theme rather than the palette, so a name there has nothing to paint and is
-dropped.</p>
+sub-topic gets picked out from the rest.</p>
 
 <div class="split">
 <pre><code>Testing
@@ -734,6 +732,39 @@ Testing
 <p>Naming one branch leaves the others as they were: the unnamed ones still
 follow branch order, so adding a colour recolours what you named and nothing
 else.</p>
+
+<h3 id="centre-colour">Colouring the centre node</h3>
+
+<p>The centre node takes a name too, and wears it differently. It is the one box
+drawn as a solid slab rather than a tint of an accent, so it fills with the
+<em>bright</em> half of the pair — the counterpart of the colour the same name
+gives a branch — and writes in an ink dark enough to read on it, which for every
+colour in the built-in palette is a near-black.</p>
+
+<div class="split">
+<pre><code>[gold] Software Engineering
+  Requirements
+  Design
+  Testing</code></pre>
+<div class="demo">
+<pre class="mindmap" data-interactive="false" data-credit="false">
+[gold] Software Engineering
+  Requirements
+  Design
+  Testing
+</pre>
+</div>
+</div>
+
+<p>That is the same colour in both themes, unlike the default centre node, which
+flips from dark to light with the page. The bright halves are the ones picked to
+carry a dark page, and they carry a light one as well, so there is nothing to
+flip to; the ink on them stays put for the same reason.</p>
+
+<p>A name there is about that one box. It takes no slot from the branches, so the
+first branch is still the first accent, and it overrides <code>--mm-root-bg</code>
+and <code>--mm-root-text</code> for that map — an author naming a colour outranks
+the theme underneath it.</p>
 
 <p>Colour markers follow the fold markers' rules, and the two stack in either
 order — <code>[+] [green] Design</code> and <code>[green] [+] Design</code> are
@@ -802,8 +833,8 @@ Requirements
 <p>Highlighting deepens the branch's own accent rather than bringing a colour of
 its own, so a picked-out node still says which branch it belongs to, still has a
 dark version, and still follows a replaced palette. A marker on the centre node
-is dropped, the way a colour name there is: emphasis is a node standing out from
-the ones around it, and the centre node has nothing to stand out from.</p>
+is dropped, unlike a colour name there: emphasis is a node standing out from the
+ones around it, and the centre node has nothing to stand out from.</p>
 
 <p>Dimming fades the box and the curve into it, and moves the label to the muted
 text colour rather than fading it as well. A dimmed topic is one the reader is
@@ -1137,12 +1168,17 @@ pin one map either way, add <code>data-theme="light"</code> or
   --mm-link:      #2563a8;  /* link text             */
 }</code></pre>
 
+<p>A colour named on the centre line wins over the two
+<code>--mm-root-*</code> values for that map.</p>
+
 <p>Branch accent colours cycle through a built-in palette in the order your
 top-level branches appear. To use your own, override
 <code>window.MindMap.palette</code> — each entry is a
 <code>[light, dark]</code> pair. The names you write in a map point at positions
 in that array rather than at colour values, so your palette recolours the named
-branches along with the rest.</p>
+branches — and a named centre node — along with the rest. The centre node's ink
+is picked from the colour underneath it, so a dark colour in that half gets white
+text rather than a label lost in its own box.</p>
 
 <p>The palette is read as each map is drawn, so it has to be set <strong>before
 the maps it should affect are rendered</strong>. Maps already on the page are
@@ -1332,7 +1368,7 @@ never touches its script tag keeps the behaviour it was built against.</p>
 </footer>
 </div>
 
-<script src="mindmap.js?v=1.10.5"></script>
+<script src="mindmap.js?v=1.11.0"></script>
 <script>
   // Taken from the library itself, so the badge can never drift from the
   // script actually loaded (and a stale cache is visible at a glance).

@@ -315,6 +315,32 @@ window.addEventListener('load', function () {
       check(159, 'every curve meets its two boxes, in every map on the page',
         maps.length >= 40 && maps.every(edgesMeetBoxes));
     })();
+
+    // A named centre survives the two things that could take it away: a theme
+    // pinned against the machine's own, since the colour is inline on the node
+    // and the theme's is not; and the shape switch, which is the one re-render
+    // that re-runs `assignSides` and could plausibly repaint the centre with
+    // it. Placed after check 159 so the switch below cannot leave a map
+    // mid-animation while that one walks every map on the page.
+    (function () {
+      var done = group('a named centre through a re-layout');
+      var host = document.getElementById('rootcolourdark');
+      var container = host.querySelector('.mm-container');
+      function colours() {
+        var root = container.querySelector('.mm-root');
+        return getComputedStyle(root.querySelector('.mm-box')).fill + ' / ' +
+               getComputedStyle(root.querySelector('.mm-label')).fill;
+      }
+      var pinned = colours();
+      MindMap.setDirection(container, 'right');
+      settled('rootcolourdark', function () {
+        check(214, 'a named centre keeps its colours in a pinned theme, and ' +
+          'through the shape switch',
+          pinned === 'rgb(111, 192, 207)' + ' / ' + 'rgb(22, 27, 34)' &&
+          colours() === pinned);
+        done();
+      });
+    })();
     check(5, 'deep nesting: 7 boxes', boxes('deep').length === 7);
 
     // Case 6: no two boxes overlap.
@@ -425,16 +451,28 @@ window.addEventListener('load', function () {
       var custom = MindMap.render(document.getElementById('pal-custom'));
       MindMap.palette = ['not a pair'];
       var fallback = MindMap.render(document.getElementById('pal-bad'));
+      // A pair whose bright half is dark. Nothing stops a site assigning one,
+      // and the centre node is the only box that fills with a palette colour
+      // and writes on top of it, so it is the only one that can lose its label.
+      MindMap.palette = [['#ffffff', '#161b22']];
+      var inked = MindMap.render(document.getElementById('pal-ink'));
       MindMap.palette = saved;
 
       var painted = custom.querySelector('.mm-node:not(.mm-root)');
-      check(107, 'an assigned palette reaches the branches',
+      check(107, 'an assigned palette reaches the branches and a named centre',
         painted.style.getPropertyValue('--mm-a') === '#ff0000' &&
         painted.style.getPropertyValue('--mm-a-dark') === '#00ff00' &&
-        custom.querySelector('.mm-edge').style.getPropertyValue('--mm-a') === '#ff0000');
+        custom.querySelector('.mm-edge').style.getPropertyValue('--mm-a') === '#ff0000' &&
+        custom.querySelector('.mm-root').style.getPropertyValue('--mm-root-bg') ===
+          '#00ff00');
       check(108, 'an unusable palette falls back to the built-in one',
         fallback.querySelector('.mm-node:not(.mm-root)')
           .style.getPropertyValue('--mm-a') === '#3b6ea5');
+      check(213, 'a dark colour in the bright half turns the centre ink white',
+        inked.querySelector('.mm-root').style.getPropertyValue('--mm-root-bg') ===
+          '#161b22' &&
+        inked.querySelector('.mm-root').style.getPropertyValue('--mm-root-text') ===
+          '#ffffff');
 
       var refreshHost = document.getElementById('embedrefresh');
       function embedText() {
@@ -1128,6 +1166,57 @@ window.addEventListener('load', function () {
       check(144, 'a colour marker and its escape are read with markup off',
         accentIn('colourraw', 'Marked') === '#2f7f8f' &&
         raw.indexOf('[green] Escaped') > -1);
+    })();
+
+    // --- a named centre node ---
+    //
+    // The centre node is the one box painted from the theme rather than from
+    // the palette, so a name there redirects the theme's two centre colours
+    // instead of joining the accents. It takes the bright half of the pair in
+    // both themes, which is why neither assertion below has a dark variant to
+    // accept: the colour a named centre lands on is the same either way.
+    (function () {
+      function rootIn(id) {
+        return document.querySelector('#' + id + ' .mm-root');
+      }
+      function accentIn(id, name) {
+        var g = nodeIn(id, name);
+        return g ? g.style.getPropertyValue('--mm-a').trim() : '';
+      }
+      function labelOf(g) { return g.querySelector('.mm-label').textContent; }
+
+      var named = rootIn('rootcolour');
+      check(208, 'a name on the centre line fills it with the bright half of its pair',
+        named.style.getPropertyValue('--mm-root-bg') === '#ddb85c' &&
+        getComputedStyle(named.querySelector('.mm-box')).fill === 'rgb(221, 184, 92)');
+      check(209, 'the centre label flips to the ink that reads on every bright half',
+        named.style.getPropertyValue('--mm-root-text') === '#161b22' &&
+        getComputedStyle(named.querySelector('.mm-label')).fill === 'rgb(22, 27, 34)');
+
+      // Both themes are accepted: the suite runs in whichever one the machine
+      // prefers, and the point is that the centre node followed it.
+      var plain = rootIn('single');
+      check(210, 'an unnamed centre node is still painted by the theme',
+        !plain.style.getPropertyValue('--mm-root-bg') &&
+        !plain.style.getPropertyValue('--mm-root-text') &&
+        ['rgb(44, 62, 80)', 'rgb(223, 230, 238)'].indexOf(
+          getComputedStyle(plain.querySelector('.mm-box')).fill) > -1);
+
+      // The branch painter never reaches the centre, so a name there is about
+      // that one box: it takes no slot from the branches and leaves no marker.
+      check(211, 'a name on the centre line changes nothing but that box',
+        labelOf(named) === 'Software Engineering' &&
+        accentIn('rootcolour', 'Requirements') === '#3b6ea5' &&
+        accentIn('rootcolour', 'Design') === '#b0563a' &&
+        accentIn('rootcolour', 'Testing') === '#3f7d5c');
+
+      var escaped = rootIn('rootcolourescape');
+      var literal = rootIn('rootcolourliteral');
+      check(212, 'a centre line that only looks like a name is left as typed',
+        labelOf(escaped) === '[gold] Course map' &&
+        !escaped.style.getPropertyValue('--mm-root-bg') &&
+        labelOf(literal) === '[Draft] Course map' &&
+        !literal.style.getPropertyValue('--mm-root-bg'));
     })();
 
     // --- emphasis markers ---
