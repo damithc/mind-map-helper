@@ -1174,11 +1174,14 @@ pin one map either way, add <code>data-theme="light"</code> or
 <p>Branch accent colours cycle through a built-in palette in the order your
 top-level branches appear. To use your own, override
 <code>window.MindMap.palette</code> — each entry is a
-<code>[light, dark]</code> pair. The names you write in a map point at positions
-in that array rather than at colour values, so your palette recolours the named
-branches — and a named centre node — along with the rest. The centre node's ink
-is picked from the colour underneath it, so a dark colour in that half gets white
-text rather than a label lost in its own box.</p>
+<code>[light, dark]</code> pair, written as hex, <code>rgb()</code>,
+<code>hsl()</code> or a colour word. The names you write in a map point at
+positions in that array rather than at colour values, so your palette recolours
+the named branches — and a named centre node — along with the rest. The centre
+node's ink is picked from the colour underneath it, so a dark colour in that
+half gets white text rather than a label lost in its own box. A colour only the
+page can work out, such as <code>var(--brand)</code>, is one the ink cannot
+read, and that centre node falls back to dark text.</p>
 
 <p>The palette is read as each map is drawn, so it has to be set <strong>before
 the maps it should affect are rendered</strong>. Maps already on the page are

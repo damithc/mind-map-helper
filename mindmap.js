@@ -51,13 +51,50 @@
   var INK_CROSSOVER = 0.2025;
 
   /**
-   * sRGB relative luminance of `#rgb`, `#rrggbb`, either with a trailing alpha
-   * pair, or `rgb()` / `rgba()`. Null for anything else — a palette is written
-   * in one of these in practice, and a form this cannot read falls back to the
-   * ink the built-in palette wants rather than guessing.
+   * The colour a browser would paint for `text`, written as `#rrggbb` or
+   * `rgba(...)`, or `text` itself where it would paint nothing. A 2D context
+   * is the one thing in the platform that resolves a colour on its own, and it
+   * knows every self-contained form CSS knows — `MindMap.palette` takes any
+   * colour string, and `navy` is as reasonable a thing to write there as
+   * `#000080`.
+   *
+   * What it cannot reach is a value that only the page can resolve, because
+   * those mean something different in every place they land and a context
+   * sitting outside the document is in none of them. `var(--brand)` is
+   * rejected and so takes care of itself; `currentColor` is worse, because a
+   * context outside a document answers it with black rather than declining —
+   * a confident wrong answer about the page's own text colour. It is turned
+   * away by name for that reason. Both then fall through to the built-in
+   * palette's ink, which is the documented fallback rather than a guess.
+   *
+   * Two probes, because a value the context rejects leaves `fillStyle` at
+   * whatever it already held. Only a value that lands on the same answer from
+   * two opposite starting points is one the context understood.
+   */
+  var probeCtx;   // undefined until first asked for, null where unavailable
+  function paintedColour(text) {
+    if (probeCtx === undefined) {
+      var canvas = document.createElement('canvas');
+      probeCtx = (canvas.getContext && canvas.getContext('2d')) || null;
+    }
+    if (!probeCtx || /^currentcolor$/i.test(text)) return text;
+    probeCtx.fillStyle = '#000000';
+    probeCtx.fillStyle = text;
+    var first = probeCtx.fillStyle;
+    probeCtx.fillStyle = '#ffffff';
+    probeCtx.fillStyle = text;
+    return probeCtx.fillStyle === first ? first : text;
+  }
+
+  /**
+   * sRGB relative luminance of a colour, in any form a browser can resolve on
+   * its own. Null for anything else — a value nothing can read falls back to
+   * the ink the built-in palette wants rather than guessing. Alpha is read as
+   * opaque: what a translucent colour really weighs depends on whatever the
+   * page has put behind it, which is not ours to know.
    */
   function luminance(colour) {
-    var text = String(colour).trim();
+    var text = paintedColour(String(colour).trim());
     var rgb = null;
     var hex = /^#([0-9a-f]+)$/i.exec(text);
     if (hex) {
@@ -150,6 +187,12 @@
   }
 
   var TOGGLE_R = 7.5;
+
+  // How far the centre node's focus ring is set in from its box. Enough that
+  // the whole 2px stroke lands on the fill the ring has to read against, with
+  // a sliver of that fill still showing outside it so the ring reads as a ring
+  // rather than as a border the box grew.
+  var ROOT_RING_INSET = 3.2;
 
   // The largest length an author can ask for, in any of the places one can be
   // asked for. Well past any map a reader can take in, and short of the point
@@ -1369,6 +1412,8 @@
       rx: node.radius, ry: node.radius
     }));
 
+    if (isRoot) g.appendChild(buildRootRing(node));
+
     g.appendChild(buildLabel(node));
 
     // Root has children on both sides, so a toggle there would be ambiguous
@@ -1568,10 +1613,53 @@
       box.setAttribute('height', node.h);
     }
 
+    var ring = node.el.querySelector('.mm-root-ring');
+    if (ring) sizeRootRing(ring, node);
+
     var old = node.el.querySelector('.mm-label');
     var fresh = buildLabel(node);
     if (old) node.el.replaceChild(fresh, old);
     else node.el.insertBefore(fresh, node.el.firstChild);
+  }
+
+  /**
+   * The centre node's focus ring, which the shared one cannot draw. Every
+   * other node takes its ring as a stroke in --mm-root-bg, and the centre node
+   * is the one box *filled* with that colour, so there the ring lands in the
+   * fill's own colour and the focused box merely grows a fraction of a pixel.
+   * A name on the centre line only moves the problem: the fill becomes a
+   * palette colour and the stroke follows it.
+   *
+   * So the centre carries a second rect instead, set inside the box far enough
+   * that the whole stroke falls on the fill, and drawn in the ink the label
+   * already uses. That ink is chosen from the fill's own luminance, so it
+   * reads against every fill that luminance weighs correctly — either theme,
+   * any palette slot, and a replaced palette written in opaque colours that
+   * stand on their own. Elsewhere the ring is no better than the label and no
+   * worse, because it is the same colour: a translucent fill is weighed as
+   * though it were opaque, and one only the page can resolve is not weighed
+   * at all and takes the built-in ink. Either way the label and the ring can
+   * be lost together, and neither one alone.
+   *
+   * Drawn for every centre node rather than only focusable ones: the CSS keeps
+   * it out of sight until :focus-visible, and a node that cannot be focused
+   * never gets there.
+   */
+  function buildRootRing(node) {
+    var ring = svgEl('rect', { 'class': 'mm-root-ring' });
+    sizeRootRing(ring, node);
+    return ring;
+  }
+
+  /** Follows the box, which a late re-measure can resize under it. */
+  function sizeRootRing(ring, node) {
+    var r = Math.max(0, node.radius - ROOT_RING_INSET);
+    ring.setAttribute('x', ROOT_RING_INSET);
+    ring.setAttribute('y', ROOT_RING_INSET);
+    ring.setAttribute('width', Math.max(0, node.w - ROOT_RING_INSET * 2));
+    ring.setAttribute('height', Math.max(0, node.h - ROOT_RING_INSET * 2));
+    ring.setAttribute('rx', r);
+    ring.setAttribute('ry', r);
   }
 
   function buildToggle(node) {
@@ -2788,9 +2876,21 @@
     '.mm-interactive .mm-box{transition:filter .12s ease;}',
     '.mm-interactive:hover .mm-box{filter:brightness(.97);}',
     '.mm-interactive:focus,.mm-draggable:focus{outline:none;}',
-    '.mm-interactive:focus-visible .mm-box,.mm-draggable:focus-visible .mm-box',
+    // Every node but the centre one. The ring is a stroke in --mm-root-bg,
+    // which is the colour the centre node is *filled* with — there it would
+    // draw in the fill's own colour and do nothing but fatten the box by a
+    // fraction of a pixel. The centre gets a ring of its own below instead.
+    '.mm-interactive:focus-visible .mm-box,',
+    '.mm-draggable:not(.mm-root):focus-visible .mm-box',
     '{stroke:var(--mm-root-bg);stroke-width:2.4;}',
     '.mm-interactive:focus-visible .mm-toggle-bg{stroke-width:2.4;}',
+
+    // The centre node's own ring, drawn inside the box by buildRootRing. Hidden
+    // rather than transparent, so an unfocused ring is out of hit testing as
+    // well as out of sight.
+    '.mm-root-ring{display:none;fill:none;stroke:var(--mm-root-text);',
+    'stroke-width:2;}',
+    '.mm-root:focus-visible .mm-root-ring{display:inline;}',
 
     '.mm-toggle{cursor:pointer;}',
     // fill:none would let presses fall straight through it.

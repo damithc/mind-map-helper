@@ -67,6 +67,36 @@ window.addEventListener('load', function () {
     }
 
     /**
+     * The contrast ratio between two `rgb(...)` colours, as WCAG states it.
+     * Written out here rather than reached for inside the library, so a ring
+     * that reads only because the two of them share a mistake is not one this
+     * suite would call visible.
+     */
+    function contrast(a, b) {
+      function light(colour) {
+        var p = /(\d+)[\s,]+(\d+)[\s,]+(\d+)/.exec(colour);
+        var weights = [0.2126, 0.7152, 0.0722];
+        var total = 0;
+        for (var i = 0; i < 3; i++) {
+          var c = +p[i + 1] / 255;
+          total += weights[i] * (c <= 0.03928 ? c / 12.92
+                                              : Math.pow((c + 0.055) / 1.055, 2.4));
+        }
+        return total;
+      }
+      var hi = light(a), lo = light(b);
+      if (hi < lo) { var swap = hi; hi = lo; lo = swap; }
+      return (hi + 0.05) / (lo + 0.05);
+    }
+
+    /** Whether a centre node's focus ring can be seen against its own fill. */
+    function readable(root) {
+      return contrast(
+        getComputedStyle(root.querySelector('.mm-root-ring')).stroke,
+        getComputedStyle(root.querySelector('.mm-box')).fill) >= 4.5;
+    }
+
+    /**
      * Whether every drawn curve in one map starts on its parent's outward edge
      * and finishes on its child's inward one, both at the box's vertical
      * centre. Read off the path rather than recomputed, because a layout that
@@ -456,6 +486,24 @@ window.addEventListener('load', function () {
       // and writes on top of it, so it is the only one that can lose its label.
       MindMap.palette = [['#ffffff', '#161b22']];
       var inked = MindMap.render(document.getElementById('pal-ink'));
+      // The same pair written the way an author reaching for words would write
+      // it. `MindMap.palette` takes any colour string CSS takes, and a value
+      // the ink cannot read is a label — and now a focus ring — lost in its
+      // own box.
+      MindMap.palette = [['white', 'navy']];
+      var worded = MindMap.render(document.getElementById('pal-word'));
+      // A colour the page alone could work out. It reaches the box, because
+      // SVG resolves it where the box sits, but nothing outside the document
+      // can say what it came to — so the ink takes the documented fallback
+      // rather than a guess.
+      MindMap.palette = [['white', 'var(--brand, #4a2f6b)']];
+      var unresolved = MindMap.render(document.getElementById('pal-unresolved'));
+      // The other half of that: a value a canvas outside the document answers
+      // rather than declines, and answers with black however the page has its
+      // text set. Confidently wrong is worse than unreadable, so it has to be
+      // turned away rather than trusted.
+      MindMap.palette = [['white', 'currentColor']];
+      var inherited = MindMap.render(document.getElementById('pal-current'));
       MindMap.palette = saved;
 
       var painted = custom.querySelector('.mm-node:not(.mm-root)');
@@ -473,6 +521,23 @@ window.addEventListener('load', function () {
           '#161b22' &&
         inked.querySelector('.mm-root').style.getPropertyValue('--mm-root-text') ===
           '#ffffff');
+      check(220, 'a colour word in the bright half is read, not guessed at',
+        worded.querySelector('.mm-root').style.getPropertyValue('--mm-root-bg') ===
+          'navy' &&
+        worded.querySelector('.mm-root').style.getPropertyValue('--mm-root-text') ===
+          '#ffffff');
+      check(223, 'a colour only the page could read falls back rather than guessing',
+        unresolved.querySelector('.mm-root').style.getPropertyValue('--mm-root-text') ===
+          '#161b22' &&
+        inherited.querySelector('.mm-root').style.getPropertyValue('--mm-root-text') ===
+          '#161b22');
+      // The centre's focus ring is drawn in that ink, so a replaced palette
+      // that darkens the box takes the ring along with the label rather than
+      // leaving it to disappear into the fill.
+      check(219, 'a replaced palette carries the centre focus ring with the ink',
+        readable(inked.querySelector('.mm-root')) &&
+        readable(worded.querySelector('.mm-root')) &&
+        readable(custom.querySelector('.mm-root')));
 
       var refreshHost = document.getElementById('embedrefresh');
       function embedText() {
@@ -1217,6 +1282,118 @@ window.addEventListener('load', function () {
         !escaped.style.getPropertyValue('--mm-root-bg') &&
         labelOf(literal) === '[Draft] Course map' &&
         !literal.style.getPropertyValue('--mm-root-bg'));
+    })();
+
+    // --- the centre node's focus ring ---
+    //
+    // The centre node is the one box *filled* with --mm-root-bg, so the ring
+    // every other node takes — a stroke in that same colour — lands invisibly
+    // on it. It carries a ring of its own instead, set inside the box and
+    // drawn in the ink the label already uses.
+    (function () {
+      function ringOf(root) { return root.querySelector('.mm-root-ring'); }
+      function num(el, name) { return parseFloat(el.getAttribute(name)); }
+
+      // Every map on the page rather than one fixture, so a centre node whose
+      // box a late re-measure resized is included: a ring left at the old size
+      // would straddle the box's edge instead of sitting inside it.
+      var centres = Array.prototype.slice.call(
+        document.querySelectorAll('.mm-container .mm-root'));
+      check(215, 'every centre node carries a ring, out of sight and inside its box',
+        centres.length >= 40 && centres.every(function (g) {
+          var ring = ringOf(g);
+          var box = g.querySelector('.mm-box');
+          if (!ring || !box) return false;
+          return getComputedStyle(ring).display === 'none' &&
+            num(ring, 'x') > 0 && num(ring, 'y') > 0 &&
+            num(ring, 'x') + num(ring, 'width') < num(box, 'width') &&
+            num(ring, 'y') + num(ring, 'height') < num(box, 'height');
+        }));
+
+      // Read against the label rather than against a colour literal: the ink
+      // is picked from the fill's own luminance, so tying the ring to it is
+      // what makes the same statement hold for the theme's centre colours and
+      // for a name from the palette alike.
+      function inkMatches(root) {
+        var stroke = getComputedStyle(ringOf(root)).stroke;
+        return stroke === getComputedStyle(root.querySelector('.mm-label')).fill &&
+               stroke !== getComputedStyle(root.querySelector('.mm-box')).fill;
+      }
+      check(216, 'the ring is drawn in the ink that reads on the fill, not the fill',
+        inkMatches(document.querySelector('#single .mm-root')) &&
+        inkMatches(document.querySelector('#rootcolour .mm-root')) &&
+        inkMatches(document.querySelector('#rootcolourdark .mm-root')) &&
+        document.querySelectorAll('.mm-container .mm-root-ring').length ===
+          document.querySelectorAll('.mm-container .mm-root').length &&
+        document.querySelectorAll('.mm-node:not(.mm-root) .mm-root-ring').length === 0);
+
+      // The state itself is out of reach from here: :focus-visible is the
+      // browser's own judgement about how a focus arrived, and page script
+      // cannot make a programmatic one look like a keyboard's — a real key
+      // press through the browser is what confirms the drawn result. What is
+      // in reach is the wiring, and it is the half that has gone wrong before:
+      // a ring that resolves to the colour underneath it is a rule pointed at
+      // the wrong element, not a browser being difficult. So each focus rule
+      // is asked which elements it claims, by stripping the pseudo-class off
+      // its selector and matching what is left.
+      function focusRules() {
+        var sheet = document.getElementById('mind-maps-helper-styles').sheet;
+        return Array.prototype.filter.call(sheet.cssRules, function (rule) {
+          return rule.selectorText &&
+            rule.selectorText.indexOf(':focus-visible') > -1;
+        });
+      }
+      /** What a focus would set on `el`, for one property. */
+      function onFocus(el, prop) {
+        var value = '';
+        focusRules().forEach(function (rule) {
+          if (!el.matches(rule.selectorText.replace(/:focus-visible/g, ''))) return;
+          var v = rule.style.getPropertyValue(prop);
+          if (v) value = v;
+        });
+        return value;
+      }
+
+      var centre = document.querySelector('#single .mm-root');
+      var centreRing = ringOf(centre);
+      // The centre box takes nothing at all: the ring is the whole indicator
+      // there, and the shared stroke would only fatten the silhouette in the
+      // fill's own colour — the non-indicator this replaced.
+      check(217, 'focus reveals the centre ring and leaves the centre box alone',
+        getComputedStyle(centreRing).display === 'none' &&
+        onFocus(centreRing, 'display') === 'inline' &&
+        onFocus(centre.querySelector('.mm-box'), 'stroke') === '' &&
+        onFocus(centre.querySelector('.mm-box'), 'stroke-width') === '');
+
+      // Both arms of the shared rule: a node that can be dragged, and one on a
+      // map where dragging is off and folding is all the focus is for.
+      var draggable = nodeIn('rootdrag', 'Alpha').querySelector('.mm-box');
+      var foldOnly = document.querySelector('#nodrag .mm-interactive .mm-box');
+      check(218, 'ordinary nodes still take the shared focus stroke',
+        [draggable, foldOnly].every(function (box) {
+          return onFocus(box, 'stroke') === 'var(--mm-root-bg)' &&
+                 onFocus(box, 'stroke-width') === '2.4';
+        }));
+
+      // The ring's colour is settled one box at a time, from the fill under
+      // it, so every slot a name can reach is its own case.
+      var slots = Array.prototype.slice.call(
+        document.querySelectorAll('#rootcolourall .mm-root'));
+      check(221, 'a named centre is legible in every slot of the palette',
+        slots.length === MindMap.palette.length && slots.every(readable) &&
+        readable(document.querySelector('#single .mm-root')) &&
+        readable(document.querySelector('#rootcolourdark .mm-root')));
+
+      // The three things outside the drawing that focus in --mm-root-bg too.
+      // They read it off the container, where a named centre's inline override
+      // cannot reach them, so they have to be left on the theme's colour.
+      check(222, 'the shape switch, the credit link and the fold badge are left alone',
+        onFocus(document.querySelector('#credit .mm-ctl'), 'outline')
+          .indexOf('var(--mm-root-bg)') > -1 &&
+        onFocus(document.querySelector('#credit .mm-credit-link'), 'outline')
+          .indexOf('var(--mm-root-bg)') > -1 &&
+        onFocus(document.querySelector('#rootdrag .mm-toggle-bg'), 'stroke') ===
+          'var(--mm-root-bg)');
     })();
 
     // --- emphasis markers ---

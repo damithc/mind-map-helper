@@ -509,7 +509,10 @@ Same map
 <h2>47. Palette override</h2>
 <p class="want">Expect: the first map is red/green, centre node included; the second
 keeps the built-in accents; the third has a near-black centre with white text on
-it, rather than a label lost in its own box.</p>
+it, rather than a label lost in its own box; the fourth is the same story for a
+palette written in colour words rather than hex; the fifth and sixth name
+colours only the page could work out, and fall back to the theme's own dark
+ink.</p>
 <div class="case" id="palette">
   <pre id="pal-custom">[blue] Custom palette
   One
@@ -517,6 +520,12 @@ it, rather than a label lost in its own box.</p>
   <pre id="pal-bad">Unusable palette
   One</pre>
   <pre id="pal-ink">[blue] Dark bright half
+  One</pre>
+  <pre id="pal-word">[blue] Palette in colour words
+  One</pre>
+  <pre id="pal-unresolved">[blue] Palette only the page could read
+  One</pre>
+  <pre id="pal-current">[blue] Palette in the page's own ink
   One</pre>
 </div>
 
@@ -950,6 +959,28 @@ theme's own background, and the same colours after the shape switch below it.</p
   Requirements
   Design
 </pre></div>
+
+<h2>81. Every named centre colour</h2>
+<p class="want">Expect: eight centre nodes, one per palette slot, each a solid
+bright colour with a label that reads on it.</p>
+<div class="case" id="rootcolourall">
+  <pre class="mindmap">[blue] blue
+  One</pre>
+  <pre class="mindmap">[orange] orange
+  One</pre>
+  <pre class="mindmap">[green] green
+  One</pre>
+  <pre class="mindmap">[purple] purple
+  One</pre>
+  <pre class="mindmap">[gold] gold
+  One</pre>
+  <pre class="mindmap">[teal] teal
+  One</pre>
+  <pre class="mindmap">[pink] pink
+  One</pre>
+  <pre class="mindmap">[slate] slate
+  One</pre>
+</div>
 
 <script>document.write('<script src="mindmap.js?v='+Date.now()+'"><\/script>');</script>
 <script>document.write('<script src="tests.js?v='+Date.now()+'"><\/script>');</script>

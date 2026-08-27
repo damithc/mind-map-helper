@@ -476,11 +476,14 @@ follows the reader's system setting. `data-theme` on a map overrides both.
 A colour named on the centre line wins over the two `--mm-root-*` values for that map.
 
 Branch accents cycle through a built-in palette in the order the top-level branches
-appear. Override `window.MindMap.palette` (an array of `[light, dark]` pairs) to change
-them. The names an author writes point at positions in that array rather than at colour
-values, so a replaced palette recolours the named branches — and a named centre node —
-along with the rest. The centre node's ink is picked from the colour underneath it, so a
-dark colour in that half gets white text rather than a label lost in its own box.
+appear. Override `window.MindMap.palette` (an array of `[light, dark]` pairs, written as
+hex, `rgb()`, `hsl()` or a colour word) to change them. The names an author writes point
+at positions in that array rather than at colour values, so a replaced palette recolours
+the named branches — and a named centre node — along with the rest. The centre node's
+ink is picked from the colour underneath it, so a dark colour in that half gets white
+text rather than a label lost in its own box. A colour only the page can work out, such
+as `var(--brand)`, is one the ink cannot read, and that centre node falls back to dark
+text.
 
 The palette is read as each map is drawn, so it has to be set **before the maps it should
 affect are rendered**. Maps already on the page are drawn once the document has been
