@@ -229,7 +229,7 @@ window.addEventListener('load', function () {
     function settled(where, cb) {
       until(function () {
         var st = mapState(where);
-        return !st || (!st.raf && !st.pendingBounds);
+        return !st || !st.animation.frame;
       }, cb);
     }
 
@@ -2086,6 +2086,104 @@ window.addEventListener('load', function () {
       });
     })();
 
+    // ---- the frame loop, pumped by hand
+    //
+    // Every other check here runs under the reduced-motion shim in the page
+    // head, where a re-layout finishes in one synchronous step and the frame
+    // loop never runs at all — so the animated path, the one an actual reader
+    // gets, went untested in exactly the tab this suite is usually opened in.
+    // Standing in for requestAnimationFrame covers it without needing the tab
+    // to be painted, and makes the timing exact instead of merely likely.
+    (function () {
+      var done = group('the frame loop');
+
+      var host = document.createElement('div');
+      host.style.cssText = 'position:absolute;left:-9999px;width:400px';
+      host.innerHTML = '<pre class="mindmap">Pump\n  Branch\n    Leaf\n  Other</pre>';
+      document.body.appendChild(host);
+      MindMap.renderAll(host);
+      var st = mapState(host);
+
+      var realRaf = window.requestAnimationFrame;
+      var realCancel = window.cancelAnimationFrame;
+      var realMatch = window.matchMedia;
+      var queue = [];
+      var nextId = 1;
+
+      // The library asks for reduced motion and for a frame afresh every time,
+      // so both can be answered from here.
+      window.matchMedia = function (q) {
+        if (q.indexOf('reduced-motion') > -1) return { matches: false };
+        return realMatch.call(window, q);
+      };
+      window.requestAnimationFrame = function (fn) {
+        queue.push({ id: nextId, fn: fn });
+        return nextId++;
+      };
+      window.cancelAnimationFrame = function (id) {
+        queue = queue.filter(function (f) { return f.id !== id; });
+      };
+      function pump(now) {
+        var due = queue;
+        queue = [];
+        due.forEach(function (f) { f.fn(now); });
+      }
+      function restore() {
+        window.requestAnimationFrame = realRaf;
+        window.cancelAnimationFrame = realCancel;
+        window.matchMedia = realMatch;
+        host.remove();
+      }
+
+      function model(label) {
+        var found = null;
+        (function walk(n) {
+          if (n.label === label) found = n;
+          for (var i = 0; i < n.children.length; i++) walk(n.children[i]);
+        })(st.root);
+        return found;
+      }
+
+      var leaf = model('Leaf');
+      nodeIn(host, 'Branch').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+      var opened = !!st.animation.frame && st.animation.nodes === true &&
+        !!st.animation.bounds;
+
+      // Measuring where the map is *going* must not move it. The old
+      // targetBounds wrote every target into the live coordinates and put the
+      // old values back from a parallel array afterwards, so a traversal out of
+      // step would have left nodes drawn from coordinates that were only ever
+      // meant to be hypothetical. Nothing has been pumped yet, so every node
+      // must still be exactly where the re-layout found it.
+      var undisturbed = true;
+      (function walk(n) {
+        if (n.ax !== n.fromX || n.acy !== n.fromCy) undisturbed = false;
+        for (var i = 0; i < n.children.length; i++) walk(n.children[i]);
+      })(st.root);
+
+      pump(0);
+      pump(150);                      // half of ANIM_MS
+      var midway = leaf.fade > 0.001 && leaf.fade < 0.999 && !!st.animation.frame;
+
+      pump(400);                      // past the end, so the loop clamps and stops
+      var landed = st.animation.frame === null && st.animation.nodes === false &&
+        st.animation.bounds === null;
+      var onTarget = leaf.ax === leaf.tx && leaf.acy === leaf.tcy &&
+        leaf.fade === leaf.toFade;
+
+      check(204, 'a fold starts the frame loop, and the last frame closes it',
+        opened && midway && landed);
+      check(205, 'every node lands exactly on its target, not merely near it',
+        onTarget && leaf.el.style.display === 'none' &&
+        model('Other').ax === model('Other').tx);
+      check(206, 'working out where the map is going does not move it',
+        undisturbed);
+
+      restore();
+      done();
+    })();
+
     // ---- the wait the rest of the suite leans on
     //
     // Twenty-odd checks now wait through `settled` rather than out-sitting a
@@ -2096,17 +2194,17 @@ window.addEventListener('load', function () {
     (function () {
       var done = group('the wait helper');
       var st = mapState('single');
-      var wasBusy = st.raf;
+      var wasBusy = st.animation.frame;
       var fired = false;
       var heldAt = Date.now();
 
-      st.raf = -1;                     // a frame id that will never come back
+      st.animation.frame = -1;         // a frame id that will never come back
       settled('single', function () { fired = true; });
 
       setTimeout(function () {
         var stillHeldInTime = Date.now() - heldAt < WAIT_LIMIT;
         var waitedWhileBusy = !fired;
-        st.raf = wasBusy || null;      // the animation "finishes"
+        st.animation.frame = wasBusy || null;   // the animation "finishes"
 
         until(function () { return fired; }, function () {
           if (!stillHeldInTime) {

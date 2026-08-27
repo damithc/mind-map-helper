@@ -62,9 +62,12 @@ fastest way into the file.
 6. **Draw and attach.** `buildSvg` builds the SVG, `paint` sets the viewBox, then
    interaction, images, embeds and controls attach.
 
-The `state` object built at the end — `root`, `opts`, `sides`, `size`, `svg`,
-`direction`, `container` — is the handle for everything afterwards, and is parked on the
-container as `container.mindMap`. Folding and dragging take it as their first argument.
+The `state` object built at the end is the handle for everything afterwards, and is
+parked on the container as `container.mindMap`. Folding and dragging take it as their
+first argument. It is declared complete in one literal — `root`, `opts`, `sides`, `size`,
+`svg`, `direction`, `container`, plus `bounds`, `controls`, `suppressClick` and
+`animation` at their resting values — so what the handle carries can be read off the
+declaration rather than gathered by grepping for the functions that assign to it.
 
 Re-renders are partial, and which stages re-run is the thing to get right:
 
@@ -76,6 +79,12 @@ Re-renders are partial, and which stages re-run is the thing to get right:
 - **Nothing re-measures** after the first pass except the embed and image callbacks,
   which do it precisely because their content arrived late.
 
+An animation in flight lives in `state.animation` — `frame`, `nodes`, `bounds` — set and
+cleared together, because a half-cleared set is what strands nodes part of the way to
+where they were going. `targetBounds` reads a node's landing place through an accessor
+rather than writing targets into the live coordinates and putting them back afterwards;
+check 206 holds it to that.
+
 ### Node fields worth knowing
 
 | Field | Set by | Meaning |
@@ -85,6 +94,7 @@ Re-renders are partial, and which stages re-run is the thing to get right:
 | `accent` | parser | The palette slot the author named, or `null`. Overrides the branch accent from this node down. |
 | `mode` | parser | The author's `[dim]` / `[hot]` / `[normal]` marker, or `null`. |
 | `emphasis` | `paintModes` | The mode in force here: `'dim'`, `'hot'` or `null`. Inherited from the nearest `mode` above, which `[normal]` clears. |
+| `key` | `nodeKey` | A number, handed out on first use, for keying a node across a re-layout. |
 | `kids` | `refreshVisibility` | The *visible* children — `[]` when the node is collapsed. |
 | `w`, `h` | measurement | Box size. |
 | `x`, `cy` | layout | Where the node belongs once the map settles. |
@@ -93,6 +103,11 @@ Re-renders are partial, and which stages re-run is the thing to get right:
 | `dx`, `dy` | dragging | One node's own manual offset. |
 | `edx`, `edy` | `accumulateOffsets` | `dx`/`dy` plus every ancestor's, so dragging a node carries its subtree. |
 | `vis` | `markVisible` | Whether some ancestor has folded it out of sight. |
+
+`newNode` in the parser writes out every field a node leaves the parser with, resting
+values included — that is the shape `MindMap.parse` hands back, and the only one anything
+outside the file sees, so renaming one of those fields is a breaking change. Everything
+below `emphasis` in the table is added later by the stage that owns it.
 
 `children` versus `kids` is the pair that bites. The parser builds `children` and never
 touches it again; layout walks `kids` and so only ever sees the unfolded tree. Walk the

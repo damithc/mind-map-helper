@@ -1,5 +1,5 @@
 /*!
- * mind-maps-helper v1.10.4
+ * mind-maps-helper v1.10.5
  * Simple indented-text syntax -> interactive-ready SVG mind maps.
  * PlantUML-style geometry with a refined palette.
  * No dependencies. MIT licensed.
@@ -8,7 +8,7 @@
 (function (global) {
   'use strict';
 
-  var VERSION = '1.10.4';
+  var VERSION = '1.10.5';
 
   // Where the credit chip under a map points.
   var HOME = 'https://se-education.org/mind-maps-helper/';
@@ -229,8 +229,7 @@
 
     for (var k = 0; k < lines.length; k++) {
       var ln = lines[k];
-      var node = { label: ln.label, children: [], fold: ln.fold,
-                   accent: ln.accent, mode: ln.mode, lineNo: ln.lineNo };
+      var node = newNode(ln);
 
       while (stack.length && ln.indent <= stack[stack.length - 1].indent) stack.pop();
 
@@ -262,10 +261,33 @@
     return root;
   }
 
+  /**
+   * Every field a node carries out of the parser, written out in one place.
+   * Later stages hang more on it — runs and measurements, layout coordinates,
+   * animation coordinates, drag offsets, DOM handles — but this is the shape
+   * `MindMap.parse` hands back, and the only one anything outside this file
+   * ever sees. Fields the parser cannot know yet start at their resting value
+   * rather than absent, so nothing downstream has to tell "not set yet" from
+   * "set to nothing".
+   */
+  function newNode(ln) {
+    return {
+      label: ln.label,
+      children: [],
+      parent: null,
+      depth: 0,
+      lineNo: ln.lineNo,
+      collapsed: false,
+      fold: ln.fold,        // the author's [+] / [-], or null
+      accent: ln.accent,    // the palette slot the author named, or null
+      mode: ln.mode,        // the author's [dim] / [hot] / [normal], or null
+      emphasis: null        // resolved from `mode` down the subtree, later
+    };
+  }
+
   function assignDepth(node, depth, parent) {
     node.depth = depth;
     node.parent = parent || null;
-    node.collapsed = false;
     for (var i = 0; i < node.children.length; i++) {
       assignDepth(node.children[i], depth + 1, node);
     }
@@ -1723,8 +1745,8 @@
       return;
     }
 
-    state.pendingNodes = true;
-    state.pendingBounds = toBounds;
+    state.animation.nodes = true;
+    state.animation.bounds = toBounds;
     var start = null;
 
     function step(now) {
@@ -1744,16 +1766,16 @@
       // the view first.
       hold();
 
-      if (t < 1) state.raf = global.requestAnimationFrame(step);
+      if (t < 1) state.animation.frame = global.requestAnimationFrame(step);
       else {
-        state.raf = null;
-        state.pendingNodes = false;
-        state.pendingBounds = null;
+        state.animation.frame = null;
+        state.animation.nodes = false;
+        state.animation.bounds = null;
         paint(state, toBounds);
         hold();
       }
     }
-    state.raf = global.requestAnimationFrame(step);
+    state.animation.frame = global.requestAnimationFrame(step);
   }
 
   var keySeq = 0;
@@ -1766,20 +1788,38 @@
     return (opts.interactive && n.depth > 0 && n.children.length) ? TOGGLE_R + 1 : 0;
   }
 
+  /** Where a node is drawn this frame. */
+  function drawnAt(n) {
+    return { x: nx(n), y: ny(n), fade: n.fade };
+  }
+
+  /**
+   * Where a node will be once the re-layout in flight lands. An animation moves
+   * ax/acy and leaves dx/dy alone, so the offsets it will carry there are the
+   * ones it carries here.
+   */
+  function landingAt(n) {
+    return { x: n.tx + (n.edx || 0), y: n.tcy + (n.edy || 0), fade: n.toFade };
+  }
+
   /**
    * The canvas is the laid-out area, widened to take in anything the reader has
    * dragged outside it. With nothing dragged this is exactly the layout box.
+   * `at` says which coordinates to measure — where the nodes are now, or where
+   * they are going.
    */
-  function boundsOf(state, size) {
+  function boundsOf(state, size, at) {
+    at = at || drawnAt;
     var pad = state.opts.padding;
     var x0 = 0, y0 = 0, x1 = size.width, y1 = size.height;
     eachNode(state.root, function (n) {
-      if (n.fade <= 0.001 || (!n.edx && !n.edy)) return;
+      var p = at(n);
+      if (p.fade <= 0.001 || (!n.edx && !n.edy)) return;
       var bulge = toggleBulge(n, state.opts);
-      x0 = Math.min(x0, nx(n) - pad - (n.side < 0 ? bulge : 0));
-      x1 = Math.max(x1, nx(n) + n.w + pad + (n.side > 0 ? bulge : 0));
-      y0 = Math.min(y0, ny(n) - n.h / 2 - pad);
-      y1 = Math.max(y1, ny(n) + n.h / 2 + pad);
+      x0 = Math.min(x0, p.x - pad - (n.side < 0 ? bulge : 0));
+      x1 = Math.max(x1, p.x + n.w + pad + (n.side > 0 ? bulge : 0));
+      y0 = Math.min(y0, p.y - n.h / 2 - pad);
+      y1 = Math.max(y1, p.y + n.h / 2 + pad);
     });
     return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
   }
@@ -1820,6 +1860,20 @@
     svg.style.minWidth = Math.round(bounds.w * MIN_SCALE) + 'px';
   }
 
+  /**
+   * What a re-layout in flight has to remember. One record rather than three
+   * fields on the state: they are only ever set together and cleared together,
+   * and it is a half-cleared set that strands nodes part of the way to where
+   * they were going.
+   */
+  function newAnimation() {
+    return {
+      frame: null,    // the requestAnimationFrame id, or null when at rest
+      nodes: false,   // whether nodes still have targets they have not reached
+      bounds: null    // the canvas size the animation is heading for
+    };
+  }
+
   function lerpBounds(a, b, e) {
     return {
       x: a.x + (b.x - a.x) * e, y: a.y + (b.y - a.y) * e,
@@ -1827,21 +1881,18 @@
     };
   }
 
-  /** Bounds the map will occupy once the pending animation finishes. */
+  /**
+   * Bounds the map will occupy once the pending animation finishes. This used
+   * to write every node's target into its live ax/acy/fade, measure, and put
+   * the old values back from a parallel array — correct only for as long as
+   * two traversals stayed in the same order, and wrong in a way that would have
+   * shown up as a map drawn from coordinates it was only supposed to be
+   * imagining. Reading the targets through an accessor asks the same question
+   * without touching anything.
+   */
   function targetBounds(state, size) {
-    var saved = [];
-    eachNode(state.root, function (n) {
-      saved.push([n.ax, n.acy, n.fade]);
-      n.ax = n.tx; n.acy = n.tcy; n.fade = n.toFade;
-    });
     accumulateOffsets(state.root);
-    var b = boundsOf(state, size);
-    var i = 0;
-    eachNode(state.root, function (n) {
-      var s = saved[i++]; n.ax = s[0]; n.acy = s[1]; n.fade = s[2];
-    });
-    accumulateOffsets(state.root);
-    return b;
+    return boundsOf(state, size, landingAt);
   }
 
   /**
@@ -1849,18 +1900,18 @@
    * this would cancel the frame loop and strand nodes part-way there.
    */
   function finishAnimation(state) {
-    if (!state.raf) return;
-    global.cancelAnimationFrame(state.raf);
-    state.raf = null;
-    if (state.pendingNodes) {
+    if (!state.animation.frame) return;
+    global.cancelAnimationFrame(state.animation.frame);
+    state.animation.frame = null;
+    if (state.animation.nodes) {
       eachNode(state.root, function (n) {
         n.ax = n.tx; n.acy = n.tcy; n.fade = n.toFade;
       });
-      state.pendingNodes = false;
+      state.animation.nodes = false;
     }
-    if (state.pendingBounds) {
-      paint(state, state.pendingBounds);
-      state.pendingBounds = null;
+    if (state.animation.bounds) {
+      paint(state, state.animation.bounds);
+      state.animation.bounds = null;
     }
   }
 
@@ -1873,16 +1924,20 @@
 
     if (prefersReducedMotion()) { paint(state, to); return; }
 
-    state.pendingBounds = to;
+    state.animation.bounds = to;
     var start = null;
     function step(now) {
       if (start === null) start = now;
       var t = Math.min(1, (now - start) / ANIM_MS);
       paint(state, lerpBounds(from, to, easeInOut(t)));
-      if (t < 1) state.raf = global.requestAnimationFrame(step);
-      else { state.raf = null; state.pendingBounds = null; paint(state, to); }
+      if (t < 1) state.animation.frame = global.requestAnimationFrame(step);
+      else {
+        state.animation.frame = null;
+        state.animation.bounds = null;
+        paint(state, to);
+      }
     }
-    state.raf = global.requestAnimationFrame(step);
+    state.animation.frame = global.requestAnimationFrame(step);
   }
 
   /**
@@ -2944,9 +2999,16 @@
       container.appendChild(scroller);
       container.appendChild(buildOutline(root));
 
+      // Declared in full here, resting values and all. The rest used to be
+      // added by whichever function happened to need one first, so what the
+      // handle carried could only be learnt by grepping for the assignments.
       var state = {
         root: root, opts: opts, sides: sides, size: size, svg: svg,
-        direction: opts.direction, container: container
+        direction: opts.direction, container: container,
+        bounds: null,              // the viewBox as last painted
+        controls: null,            // the shape switch, when there is one
+        suppressClick: false,      // a drag just ended; the click it becomes is not one
+        animation: newAnimation()
       };
       paint(state, sizeBounds(size));
       if (opts.interactive) attachInteraction(state);
