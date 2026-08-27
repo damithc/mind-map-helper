@@ -1,5 +1,5 @@
 /*!
- * mind-maps-helper v1.9.0
+ * mind-maps-helper v1.10.0
  * Simple indented-text syntax -> interactive-ready SVG mind maps.
  * PlantUML-style geometry with a refined palette.
  * No dependencies. MIT licensed.
@@ -8,7 +8,7 @@
 (function (global) {
   'use strict';
 
-  var VERSION = '1.9.0';
+  var VERSION = '1.10.0';
 
   // Where the credit chip under a map points.
   var HOME = 'https://se-education.org/mind-maps-helper/';
@@ -45,6 +45,13 @@
     red: 1, grey: 7, gray: 7
   };
 
+  // The emphasis an author may ask for, alongside the accents above. `dim`
+  // plays a node and its descendants down, `hot` picks them out, and `normal`
+  // is how a node inside either one steps back to the ordinary look. Kept
+  // short, because these go in front of the text on line after line, and kept
+  // away from the accent names so no word has to mean both.
+  var MODES = { dim: 'dim', hot: 'hot', normal: 'normal' };
+
   function isArray(v) {
     return Object.prototype.toString.call(v) === '[object Array]';
   }
@@ -53,6 +60,12 @@
   function accentSlot(name) {
     var key = name.toLowerCase();
     return Object.prototype.hasOwnProperty.call(ACCENTS, key) ? ACCENTS[key] : null;
+  }
+
+  /** The emphasis a name asks for, or null if it names nothing. */
+  function modeName(name) {
+    var key = name.toLowerCase();
+    return Object.prototype.hasOwnProperty.call(MODES, key) ? MODES[key] : null;
   }
 
   /**
@@ -157,7 +170,8 @@
       var label = body.replace(/^[-*+][ ]+/, '').trim();
 
       // Markers in front of the text say how the node should start: `[+]` /
-      // `[-]` folded away or open, an accent name for the colour it takes.
+      // `[-]` folded away or open, an accent name for the colour it takes, an
+      // emphasis name for how loudly it is drawn.
       // They are the signs the fold badge itself shows and the names the docs
       // list, so an author writes what the reader will see. A marker is
       // structure rather than markup, like the bullet above it, so it is read
@@ -173,24 +187,30 @@
       // map with markup turned off still has markers to escape.
       var fold = null;
       var accent = null;
+      var mode = null;
       for (;;) {
         var mark = MARKER.exec(label);
         if (!mark) break;
         var tag = mark[2];
         var isFold = tag === '+' || tag === '-';
-        var slot = isFold ? 0 : accentSlot(tag);
-        if (slot === null) break;                        // a word, not a marker
+        var slot = isFold ? null : accentSlot(tag);
+        var emphasis = (isFold || slot !== null) ? null : modeName(tag);
+        var kind = isFold ? 'fold' :
+                   slot !== null ? 'colour' : emphasis ? 'emphasis' : null;
+        if (!kind) break;                                // a word, not a marker
         if (mark[1]) { label = label.slice(1); break; }  // escaped: lose the backslash
-        if (isFold) fold = tag; else accent = slot;
+        if (isFold) fold = tag;
+        else if (slot !== null) accent = slot;
+        else mode = emphasis;
         label = label.slice(tag.length + 2).trim();
         if (!label) {
-          throw new MindMapError('This line has a ' + (isFold ? 'fold' : 'colour') +
+          throw new MindMapError('This line has a ' + kind +
             ' marker but no text after it.', i + 1);
         }
       }
 
       lines.push({ indent: indent, label: label, fold: fold, accent: accent,
-                   lineNo: i + 1 });
+                   mode: mode, lineNo: i + 1 });
     }
 
     if (!lines.length) {
@@ -210,7 +230,7 @@
     for (var k = 0; k < lines.length; k++) {
       var ln = lines[k];
       var node = { label: ln.label, children: [], fold: ln.fold,
-                   accent: ln.accent, lineNo: ln.lineNo };
+                   accent: ln.accent, mode: ln.mode, lineNo: ln.lineNo };
 
       while (stack.length && ln.indent <= stack[stack.length - 1].indent) stack.pop();
 
@@ -248,6 +268,30 @@
     node.collapsed = false;
     for (var i = 0; i < node.children.length; i++) {
       assignDepth(node.children[i], depth + 1, node);
+    }
+  }
+
+  /**
+   * Resolves each node's emphasis from the nearest one written above it, so an
+   * author marks a topic once rather than every line beneath it, and `normal`
+   * takes a node and its own descendants back out of it.
+   *
+   * Runs before measurement rather than with the accents at layout time,
+   * because a highlighted label is a heavier one and weight decides how wide
+   * the box has to be. It never changes afterwards: emphasis says what the
+   * material is, not what the reader has done with it.
+   *
+   * A marker on the centre node is dropped, the way a colour name there is.
+   * Emphasis is a node standing out from the ones around it, and the centre
+   * node has nothing to stand out from — its subtree is the whole map. It is
+   * also the one box painted from the theme rather than the palette, so
+   * fading it leaves pale theme text on a pale theme fill.
+   */
+  function paintModes(node, inherited) {
+    var mode = (node.parent ? node.mode : null) || inherited || null;
+    node.emphasis = mode === 'normal' ? null : mode;
+    for (var i = 0; i < node.children.length; i++) {
+      paintModes(node.children[i], node.emphasis);
     }
   }
 
@@ -789,9 +833,21 @@
     return { width: widest, height: y };
   }
 
+  /**
+   * A highlighted node's own metrics: the depth's, with a heavier label. The
+   * weight is settled here rather than in CSS because it changes how wide the
+   * text measures, and every box size and position downstream comes from that.
+   */
+  function metricsFor(node) {
+    var m = metrics(node.depth);
+    if (node.emphasis !== 'hot') return m;
+    return { size: m.size, weight: '700', padX: m.padX, padY: m.padY,
+             radius: m.radius };
+  }
+
   /** Fills in .runs, .lines, .w and .h on every node. */
   function measureNode(node, opts) {
-    var m = metrics(node.depth);
+    var m = metricsFor(node);
     node.metrics = m;
     node.radius = m.radius;
     node.fontSize = m.size;
@@ -1078,7 +1134,8 @@
   function drawNode(node, group, opts) {
     var isRoot = node.depth === 0;
     var g = svgEl('g', {
-      'class': 'mm-node ' + (isRoot ? 'mm-root' : 'mm-d' + Math.min(node.depth, 3))
+      'class': 'mm-node ' + (isRoot ? 'mm-root' : 'mm-d' + Math.min(node.depth, 3)) +
+        (node.emphasis ? ' mm-' + node.emphasis : '')
     });
 
     if (!isRoot) {
@@ -1352,9 +1409,13 @@
     for (var i = 0; i < node.children.length; i++) {
       var child = node.children[i];
       var pair = accentPair(child.accentIndex);
+      // A curve belongs to the child it arrives at, the way its colour does,
+      // so it takes that child's emphasis: a topic played down is reached by a
+      // line played down, and the whole subtree recedes together.
       var path = svgEl('path', {
-        'class': 'mm-edge',
-        'stroke-width': strokeWidth(child.depth)
+        'class': 'mm-edge' + (child.emphasis ? ' mm-edge-' + child.emphasis : ''),
+        'stroke-width': round(strokeWidth(child.depth) *
+          (child.emphasis === 'hot' ? 1.5 : 1))
       });
       path.style.setProperty('--mm-a', pair[0]);
       path.style.setProperty('--mm-a-dark', pair[1]);
@@ -2088,11 +2149,27 @@
       }
     }
 
+    /**
+     * Emphasis is meaning as much as looks — what is already covered, what is
+     * today's — and none of it survives into text. Named where it changes,
+     * since it then holds down the subtree: saying it again on every
+     * descendant would bury the labels it is there to qualify. The centre node
+     * never carries one, so only the list items are given this.
+     */
+    function noteEmphasis(el, node) {
+      var inherited = node.parent ? node.parent.emphasis : null;
+      if (node.emphasis === inherited) return;
+      el.appendChild(document.createTextNode(
+        node.emphasis === 'hot' ? ' (highlighted)' :
+        node.emphasis === 'dim' ? ' (dimmed)' : ' (normal)'));
+    }
+
     (function build(node, parent) {
       var ul = document.createElement('ul');
       for (var i = 0; i < node.children.length; i++) {
         var li = document.createElement('li');
         fillLabel(li, node.children[i]);
+        noteEmphasis(li, node.children[i]);
         if (node.children[i].children.length) build(node.children[i], li);
         ul.appendChild(li);
       }
@@ -2240,6 +2317,49 @@
 
     '.mm-edge{--mm-accent:var(--mm-a);fill:none;stroke:var(--mm-accent);',
     'stroke-linecap:round;opacity:.85;}',
+
+    // --- emphasis ---
+    // Dimming fades the decoration and recolours the text, rather than fading
+    // both. Opacity over the page cannot keep text readable: a label faded far
+    // enough to read as dimmed lands near 3.5:1 against the page, a link
+    // starts at 6:1 and breaks 4.5:1 at any fade worth seeing, and a deep
+    // label is already muted, so fading it a second time reaches 2.3:1. A
+    // dimmed topic is one the reader is past, not one they cannot read. So the
+    // label takes the muted text colour instead — the same one the deepest
+    // labels already carry, 5.3:1 or better in both themes — and links and
+    // code keep their own colours, which set fill on themselves and so are
+    // left alone by the group's.
+    //
+    // What does fade is the box and the curve into it, which are decoration
+    // around a label that carries the meaning. Both land on a node's parts
+    // rather than on the node itself: a fold animation writes the group's own
+    // opacity frame by frame and would wipe out a rule set there, while on the
+    // parts the two multiply and a dimmed node stays dimmed the whole way
+    // across. The curves take it as stroke-opacity for the same reason.
+    '.mm-dim .mm-box{opacity:.45;}',
+    '.mm-dim .mm-label{fill:var(--mm-muted);}',
+    // The fold badge is a control rather than decoration, so it stops at the
+    // fade that keeps its outline at 3:1 against the page.
+    '.mm-dim .mm-toggle{opacity:.75;}',
+    '.mm-edge-dim{stroke-opacity:.4;}',
+    // Highlighting goes deeper into the branch's own accent rather than
+    // bringing a colour of its own: a picked-out node still says which branch
+    // it belongs to, still has a dark version, and still follows a replaced
+    // palette. Its label's weight is set back in measurement, since weight
+    // decides the width of the box, and its colour is set here so that a
+    // highlighted node deep in a branch escapes the muting its depth would
+    // otherwise give it. Neither rule needs to dodge the centre node: it never
+    // carries an emphasis class.
+    '.mm-hot .mm-box{fill:var(--mm-surface);',
+    'fill:color-mix(in srgb, var(--mm-accent) 24%, var(--mm-surface));',
+    'stroke-width:2.2;}',
+    '.mm-hot .mm-label{fill:var(--mm-text);}',
+    // The one place a highlighted curve differs from a dimmed one: it drops
+    // the .85 every other curve rests at, rather than multiplying into it.
+    '.mm-edge-hot{opacity:1;}',
+    // Neither mode has a print rule of its own, unlike the controls and the
+    // credit above: paper is where a syllabus map is often read, and which
+    // topics are behind and which are today's is the reason it was printed.
 
     // --- shape switch ---
     // Quiet at rest, but still legible at rest: the label has to carry its own
@@ -2589,6 +2709,7 @@
       if (opts.theme) container.setAttribute('data-theme', opts.theme);
 
       var root = parse(source);
+      paintModes(root, null);
       measureTree(root, opts, hostRef);
 
       // A node's own `[+]`/`[-]` beats the map-wide level in both directions,

@@ -62,6 +62,7 @@ its child.
 - A line starting with `//` is a comment.
 - `[+]` in front of the text makes that branch open folded, `[-]` open.
 - `[blue]` in front of the text paints that branch in an accent you name.
+- `[dim]` fades a branch into the background; `[hot]` picks one out.
 - Node text understands a little inline Markdown (below). No HTML.
 
 Bad input produces a short on-page message naming the problem and the line, rather than
@@ -222,6 +223,61 @@ both need a space after them, both are read whatever `data-markup` says, and `\[
 gives you a label that really does begin with one. A bracketed word that names no accent
 is left alone, so `[TODO] Revise this` stays as typed.
 
+## Dimming and highlighting
+
+Two more markers change how loudly a node is drawn. `[dim]` fades a node and everything
+under it into the background. `[hot]` picks one out: a deeper fill in the branch's own
+accent, a thicker outline, a bolder label, and a heavier curve arriving at it.
+
+```
+Syllabus
+  [dim] Requirements
+    Elicitation
+  [hot] Design
+    Architecture
+  Testing
+```
+
+The ordinary look sits between the two, so a dimmed topic reads as one you are past and a
+highlighted one as the one to look at, with everything else left alone. A lecture map can
+dim what the course has covered, highlight what today is about, and leave what is still
+ahead exactly as it was.
+
+Emphasis holds from that node down, the way a colour does. `[normal]` takes a node and its
+own descendants back out of it, which is how one sub-topic stays at full strength inside a
+chapter you have dimmed:
+
+```
+Requirements
+  [dim] Elicitation
+    Interviews
+    [normal] Prototyping
+      Throwaway prototypes
+  Specification
+```
+
+Highlighting deepens the branch's own accent rather than bringing a colour of its own, so
+a picked-out node still says which branch it belongs to, still has a dark version, and
+still follows a replaced palette. A marker on the centre node is dropped, the way a colour
+name there is: emphasis is a node standing out from the ones around it, and the centre
+node has nothing to stand out from.
+
+Dimming fades the box and the curve into it, and moves the label to the muted text colour
+rather than fading it as well. A dimmed topic is one the reader is past, not one they
+cannot read, so it stays comfortably above the contrast a reader needs; links and code
+inside a dimmed node keep their own colours for the same reason.
+
+Both carry into print — which topics are behind and which are today's is often the reason
+a map is on paper at all. And because emphasis says something about the material rather
+than merely decorating it, the hidden outline behind the map names it too, once where it
+changes, so it reaches a screen reader.
+
+Emphasis markers follow the other markers' rules, and all three stack in any order —
+`[+] [green] [dim] Design` and `[dim] [green] [+] Design` are the same node. They go after
+any bullet, need a space after them, are read whatever `data-markup` says, and `\[dim]`
+gives you a label that really does begin with one. A bracketed word that names no emphasis
+is left alone, so `[Draft] Notes` stays as typed.
+
 ## Choosing the shape
 
 Balanced is compact and reads as a figure; one-sided reads top-to-bottom like an indented
@@ -360,8 +416,8 @@ under a new path (`/v2/mindmap.js`) so existing pages keep working.
 
 ## Roadmap
 
-Collapse/expand, dragging, inline formatting, embedded HTML blocks and branch colours
-have shipped. Possible next steps:
+Collapse/expand, dragging, inline formatting, embedded HTML blocks, branch colours and
+emphasis have shipped. Possible next steps:
 
 - saving a reader's folds and moves across visits
 

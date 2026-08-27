@@ -653,6 +653,62 @@ Raw colours
   \[green] Escaped
 </pre></div>
 
+<h2>61. Emphasis markers</h2>
+<p class="want">Expect: Covered and everything under it faded, Today and Design patterns
+drawn stronger in the branch's accent, Aside and Later back to normal inside it, the
+second Sizing sample heavier and wider than the first, Stacked gold, faded and folded,
+and no marker in any label.</p>
+<div class="case" id="emphasis"><pre class="mindmap">
+Emphasis markers
+  [dim] Covered
+    Elicitation
+      Interviews
+  [hot] Today
+    Design patterns
+    [normal] Aside
+      Later
+  Ahead
+    Sizing sample
+    [hot] Sizing sample
+  - [+] [gold] [DIM] Stacked
+    Hidden child
+</pre></div>
+
+<h2>62. ERROR: emphasis marker with no text</h2>
+<div class="case" id="emphasisempty"><pre class="mindmap">
+Root
+  [hot]
+</pre></div>
+
+<h2>63. An emphasis marker needs its space, and can be escaped</h2>
+<p class="want">Expect: <code>[dim]NoSpace</code> shown as typed with its child visible,
+one node reading <code>[hot] Escaped</code>, and <code>[Draft] Notes</code> as typed and
+drawn normally.</p>
+<div class="case" id="emphasisliteral"><pre class="mindmap">
+Literal emphasis
+  [dim]NoSpace
+    Child
+  \[hot] Escaped
+  [Draft] Notes
+</pre></div>
+
+<h2>64. Emphasis markers with data-markup="false"</h2>
+<p class="want">Expect: Marked highlighted, and one node reading <code>[dim] Escaped</code>.</p>
+<div class="case" id="emphasisraw"><pre class="mindmap" data-markup="false">
+Raw emphasis
+  [hot] Marked
+  \[dim] Escaped
+</pre></div>
+
+<h2>65. An emphasis marker on the centre node is dropped</h2>
+<p class="want">Expect: every node drawn normally, and the centre reading
+<code>Centre</code> with no marker.</p>
+<div class="case" id="emphasisroot"><pre class="mindmap">
+[dim] Centre
+  Branch
+    Leaf
+</pre></div>
+
 <script>document.write('<script src="mindmap.js?v='+Date.now()+'"><\/script>');</script>
 <script>
 // Minimal assertions over the rendered DOM.
@@ -1576,6 +1632,112 @@ window.addEventListener('load', function () {
       check(144, 'a colour marker and its escape are read with markup off',
         accentIn('colourraw', 'Marked') === '#2f7f8f' &&
         raw.indexOf('[green] Escaped') > -1);
+    })();
+
+    // --- emphasis markers ---
+    (function () {
+      function nodesIn(id, name) {
+        return Array.prototype.filter.call(
+          document.getElementById(id).querySelectorAll('.mm-node'),
+          function (g) { return g.querySelector('.mm-label').textContent === name; });
+      }
+      function nodeIn(id, name) { return nodesIn(id, name)[0]; }
+      function mode(id, name) {
+        var g = nodeIn(id, name);
+        if (!g) return 'missing';
+        return g.classList.contains('mm-dim') ? 'dim' :
+               g.classList.contains('mm-hot') ? 'hot' : 'plain';
+      }
+      function labelsIn(id) {
+        return Array.prototype.map.call(
+          document.getElementById(id).querySelectorAll('.mm-label'),
+          function (l) { return l.textContent; });
+      }
+      function countIn(id, sel) {
+        return document.getElementById(id).querySelectorAll(sel).length;
+      }
+
+      check(145, 'a dimmed node takes its whole subtree down with it',
+        mode('emphasis', 'Covered') === 'dim' &&
+        mode('emphasis', 'Elicitation') === 'dim' &&
+        mode('emphasis', 'Interviews') === 'dim');
+      check(146, 'a highlighted node brings its subtree up with it',
+        mode('emphasis', 'Today') === 'hot' &&
+        mode('emphasis', 'Design patterns') === 'hot');
+      check(147, 'normal steps a node and its own subtree back out',
+        mode('emphasis', 'Aside') === 'plain' &&
+        mode('emphasis', 'Later') === 'plain');
+      check(148, 'an unmarked branch is left alone',
+        mode('emphasis', 'Ahead') === 'plain');
+
+      // One curve per node below the root, each carrying the emphasis of the
+      // node it arrives at: five into the dimmed nodes, three into the
+      // highlighted ones.
+      check(149, 'the curves take the emphasis of the node they arrive at',
+        countIn('emphasis', '.mm-edge-dim') === 5 &&
+        countIn('emphasis', '.mm-edge-hot') === 3);
+
+      var stacked = nodeIn('emphasis', 'Stacked');
+      check(150, 'emphasis stacks with fold and colour markers, and none reaches the label',
+        !!stacked && stacked.classList.contains('mm-collapsed') &&
+        stacked.classList.contains('mm-dim') &&
+        stacked.style.getPropertyValue('--mm-a').trim() === '#a8842c' &&
+        labelsIn('emphasis').join('|').indexOf('[') === -1);
+
+      // Same text, same depth, one of them highlighted: the heavier label has
+      // to have been measured heavier, or it would overflow its box.
+      var pair = nodesIn('emphasis', 'Sizing sample');
+      var weights = pair.map(function (g) {
+        return g.querySelector('.mm-label text').getAttribute('font-weight');
+      });
+      var widths = pair.map(function (g) {
+        return parseFloat(g.querySelector('.mm-box').getAttribute('width'));
+      });
+      check(151, 'a highlighted label is drawn heavier, and its box grew to fit',
+        pair.length === 2 && weights[0] === '400' && weights[1] === '700' &&
+        widths[1] > widths[0]);
+
+      var bad = document.querySelector('#emphasisempty .mm-error');
+      check(152, 'an emphasis marker with no text after it names the line',
+        !!bad && bad.textContent.indexOf('Line 2') > -1 &&
+        bad.textContent.indexOf('emphasis marker') > -1);
+
+      var lit = labelsIn('emphasisliteral');
+      check(153, 'an emphasis marker without its space, escaped, or unknown, is just a label',
+        lit.indexOf('[dim]NoSpace') > -1 && lit.indexOf('Child') > -1 &&
+        lit.indexOf('[hot] Escaped') > -1 &&
+        lit.indexOf('[Draft] Notes') > -1 &&
+        mode('emphasisliteral', '[Draft] Notes') === 'plain');
+
+      var rawLabels = labelsIn('emphasisraw');
+      check(154, 'an emphasis marker and its escape are read with markup off',
+        mode('emphasisraw', 'Marked') === 'hot' &&
+        rawLabels.indexOf('[dim] Escaped') > -1);
+
+      // Dimming has to stay readable: a dimmed topic is one the reader is
+      // past, not one they cannot read. The label is recoloured rather than
+      // faded, so it must carry no opacity of its own and must land on the
+      // muted text colour — whichever theme the suite is running in.
+      var dimLabel = getComputedStyle(nodeIn('emphasis', 'Covered').querySelector('.mm-label'));
+      check(156, 'a dimmed label is recoloured, not faded to an unreadable one',
+        dimLabel.opacity === '1' &&
+        ['rgb(91, 105, 118)', 'rgb(167, 179, 192)'].indexOf(dimLabel.fill) > -1);
+
+      // Emphasis is a node standing out from the ones around it, and the
+      // centre node has nothing to stand out from.
+      check(157, 'an emphasis marker on the centre node is dropped, marker and all',
+        countIn('emphasisroot', '.mm-dim') === 0 &&
+        countIn('emphasisroot', '.mm-edge-dim') === 0 &&
+        !!nodeIn('emphasisroot', 'Centre'));
+
+      // The drawing is the only place emphasis shows, so the outline has to
+      // say it in words — once, where it changes.
+      var outline = document.querySelector('#emphasis .mm-a11y').textContent;
+      check(155, 'the outline names emphasis where it changes, and only there',
+        outline.indexOf('Covered (dimmed)') > -1 &&
+        outline.indexOf('Today (highlighted)') > -1 &&
+        outline.indexOf('Aside (normal)') > -1 &&
+        outline.indexOf('Elicitation (dimmed)') === -1);
     })();
 
     // --- embedded page HTML ---

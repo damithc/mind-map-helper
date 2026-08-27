@@ -195,6 +195,7 @@ Software Engineering
   <li>A line starting with <code>//</code> is a comment and is not drawn.</li>
   <li><code>[+]</code> in front of the text makes that branch open folded, <code>[-]</code> open — see below.</li>
   <li><code>[blue]</code> in front of the text paints that branch in an accent you name — see below.</li>
+  <li><code>[dim]</code> fades a branch into the background, <code>[hot]</code> picks one out — see below.</li>
   <li>Node text understands a little inline Markdown — see below. No HTML.</li>
 </ul>
 
@@ -661,6 +662,87 @@ read whatever <code>data-markup</code> says, and <code>\[green]</code> gives you
 label that really does begin with one. A bracketed word that names no accent is
 left alone, so <code>[TODO] Revise this</code> stays as typed.</p>
 
+<h2>Dimming and highlighting</h2>
+
+<p>Two more markers change how loudly a node is drawn. <code>[dim]</code> fades a
+node and everything under it into the background. <code>[hot]</code> picks one
+out: a deeper fill in the branch's own accent, a thicker outline, a bolder label,
+and a heavier curve arriving at it.</p>
+
+<div class="split">
+<pre><code>Syllabus
+  [dim] Requirements
+    Elicitation
+  [hot] Design
+    Architecture
+  Testing
+    Unit Testing</code></pre>
+<div class="demo">
+<pre class="mindmap" data-credit="false">
+Syllabus
+  [dim] Requirements
+    Elicitation
+  [hot] Design
+    Architecture
+  Testing
+    Unit Testing
+</pre>
+</div>
+</div>
+
+<p>The ordinary look sits between the two, so a dimmed topic reads as one the
+reader is past and a highlighted one as the one to look at, with everything else
+left alone. A map of a syllabus can dim what the course has covered, highlight
+what today is about, and leave what is still ahead exactly as it was.</p>
+
+<p>Emphasis holds from that node down, the way a colour does.
+<code>[normal]</code> takes a node and its own descendants back out of it, which
+is how one sub-topic stays at full strength inside a chapter you have
+dimmed.</p>
+
+<div class="split">
+<pre><code>Requirements
+  [dim] Elicitation
+    Interviews
+    [normal] Prototyping
+      Throwaway prototypes
+  Specification</code></pre>
+<div class="demo">
+<pre class="mindmap" data-credit="false">
+Requirements
+  [dim] Elicitation
+    Interviews
+    [normal] Prototyping
+      Throwaway prototypes
+  Specification
+</pre>
+</div>
+</div>
+
+<p>Highlighting deepens the branch's own accent rather than bringing a colour of
+its own, so a picked-out node still says which branch it belongs to, still has a
+dark version, and still follows a replaced palette. A marker on the centre node
+is dropped, the way a colour name there is: emphasis is a node standing out from
+the ones around it, and the centre node has nothing to stand out from.</p>
+
+<p>Dimming fades the box and the curve into it, and moves the label to the muted
+text colour rather than fading it as well. A dimmed topic is one the reader is
+past, not one they cannot read, so it stays comfortably above the contrast a
+reader needs; links and code inside a dimmed node keep their own colours for the
+same reason.</p>
+
+<p>Both carry into print — which topics are behind and which are today's is often
+the reason a map is on paper at all. And because emphasis says something about
+the material rather than merely decorating it, the hidden outline behind the map
+names it too, once where it changes, so it reaches a screen reader.</p>
+
+<p>Emphasis markers follow the other markers' rules, and all three stack in any
+order — <code>[+] [green] [dim] Design</code> and <code>[dim] [green] [+]
+Design</code> are the same node. They go after any bullet, need a space after
+them, are read whatever <code>data-markup</code> says, and <code>\[dim]</code>
+gives you a label that really does begin with one. A bracketed word that names no
+emphasis is left alone, so <code>[Draft] Notes</code> stays as typed.</p>
+
 <h2>Choosing the shape</h2>
 
 <p>The same content reads differently depending on how it is arranged.
@@ -1015,7 +1097,7 @@ CS2103 Software Engineering
 
 </div>
 
-<script src="mindmap.js?v=1.9.0"></script>
+<script src="mindmap.js?v=1.10.0"></script>
 <script>
   // Taken from the library itself, so the badge can never drift from the
   // script actually loaded (and a stale cache is visible at a glance).
