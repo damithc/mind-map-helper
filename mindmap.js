@@ -1,5 +1,5 @@
 /*!
- * mind-maps-helper v1.10.3
+ * mind-maps-helper v1.10.4
  * Simple indented-text syntax -> interactive-ready SVG mind maps.
  * PlantUML-style geometry with a refined palette.
  * No dependencies. MIT licensed.
@@ -8,7 +8,7 @@
 (function (global) {
   'use strict';
 
-  var VERSION = '1.10.3';
+  var VERSION = '1.10.4';
 
   // Where the credit chip under a map points.
   var HOME = 'https://se-education.org/mind-maps-helper/';
@@ -1093,7 +1093,6 @@
     eachNode(root, function (n) { n.kids = n.collapsed ? [] : n.children; });
   }
 
-  /** Assigns .x (left edge), .cy, .side and .accentIndex to every node. */
   /**
    * Decides which branches sit on which side, and paints each branch with its
    * accent. Done once per map: if the split were recomputed after every
@@ -1679,10 +1678,10 @@
     var hold = holdRoot(state);
     finishAnimation(state);
     var root = state.root;
-    var prev = {};
-    eachNode(root, function (n) {
-      prev[nodeKey(n)] = { x: n.ax, cy: n.acy, vis: n.vis, shown: n.shown };
-    });
+    // Only visibility has to be remembered: where each node was is still on the
+    // node itself, in ax/acy, which nothing below here has moved yet.
+    var wasVisible = {};
+    eachNode(root, function (n) { wasVisible[nodeKey(n)] = n.vis; });
     var fromBounds = state.bounds || sizeBounds(state.size);
 
     markVisible(root);
@@ -1691,15 +1690,15 @@
 
     // Targets, plus a sensible start for anything that was not on screen.
     eachNode(root, function (n) {
-      var before = prev[nodeKey(n)];
+      var before = wasVisible[nodeKey(n)];
       n.tx = n.x;
       n.tcy = n.cy;
-      if (n.vis && !before.vis) {
+      if (n.vis && !before) {
         var anchor = visibleAnchor(n);
         n.ax = anchor.tx !== undefined ? anchor.tx : n.x;
         n.acy = anchor.tcy !== undefined ? anchor.tcy : n.cy;
         n.fade = 0;
-      } else if (!n.vis && before.vis) {
+      } else if (!n.vis && before) {
         var out = visibleAnchor(n);
         n.tx = out.tx !== undefined ? out.tx : n.ax;
         n.tcy = out.tcy !== undefined ? out.tcy : n.acy;
@@ -2462,10 +2461,10 @@
 
   var CSS = [
     '.mm-container{',
-    '--mm-surface:#ffffff;--mm-text:#1f2933;--mm-muted:#5b6976;',
-    '--mm-root-bg:#2c3e50;--mm-root-text:#ffffff;',
-    '--mm-code-bg:#eceff2;--mm-code-text:#8a3033;',
-    '--mm-link:#2563a8;--mm-link-hover:#17406e;',
+    // The same call a host override uses to force a map back to light. Written
+    // out twice, a palette tweak could land on the ordinary light map and miss
+    // the forced one, or the other way about.
+    lightVars(),
     'display:block;margin:1.25em 0;',
     // min-width:0 stops the SVG's own min-width from blowing out a flex or
     // grid track on the host page.

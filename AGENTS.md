@@ -121,6 +121,12 @@ A feature is not done until all five of these are true:
 
 Docs and demos are not optional extras here — the site is the product.
 
+Checks 196-201 enforce points 3-5 and the release version as far as text comparison can:
+they fetch `mindmap.js`, `README.md` and `index.html` and compare the options
+`readOptions` reads, the calls `MindMap` exports, the defaults a bare map ends up with,
+and the four places the version is written. An option added to the script but not to both
+tables fails the suite.
+
 ## Running the tests
 
 There is a preview server configured in `.claude/launch.json`. Start it with the preview
@@ -142,9 +148,10 @@ may add `, M skipped` for a lane that could not run at all. Three things will bi
 
 - **Cache.** The static server serves stale HTML happily. Append a changing
   `?bust=<n>` to every navigation.
-- **`pending`.** Near the top of the script block, `var pending` counts the asynchronous
-  case groups. Add an async group and you must increment it, or the suite finishes early
-  and silently skips your checks.
+- **Asynchronous groups.** An async group opens with `var done = group('<name>');` and
+  must call that `done` on every path out. Registering is what makes the suite wait for
+  it, so a group that skips the call is named as a failure after 30 seconds rather than
+  leaving the page on `running…`.
 - **Viewport.** The real-pointer lane hit tests with `elementFromPoint`, which needs a
   viewport with a size. A pane or headless tab reporting `innerWidth` of 0 skips those
   seven checks rather than failing them — give the tab a size (`resize_window`) to run
@@ -197,6 +204,8 @@ build must not advertise itself as a dev build:
 - the `mindmap.js?v=1.5.0` cache-buster in `index.html` (this is what makes readers pick
   up a new release; the site prints `MindMap.version` as a badge so the deployed version
   is visible)
+
+Check 201 compares all three, so a half-done bump fails the suite rather than shipping.
 
 Commit messages follow the SE-EDU conventions: imperative mood, capitalised, no trailing
 period, under ~50 characters. Release commits end with `; release vX.Y.Z` —

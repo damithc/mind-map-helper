@@ -934,10 +934,29 @@ window.addEventListener('load', function () {
     var cases = document.querySelectorAll('.case');
     var out = [];
     var fails = 0;
-    var pending = 12;  // collapse, drag, shape, root-drag, markup, images, embeds,
-                       // folds, real input, the API, the image race, the held
-                       // root
-    function done() { if (--pending === 0) finish(); }
+    /**
+     * Asynchronous groups register themselves here and report back through the
+     * function they are handed. The count used to be written out by hand, which
+     * was a standing trap in both directions: a group added without touching the
+     * number let the suite finish while that group's checks were still
+     * outstanding — reading as a clean pass over checks that had never run — and
+     * a group that forgot to report left the page on "running…" for ever.
+     */
+    var open = [];
+    var registered = false;   // true once every group has been reached
+    function group(name) {
+      open.push(name);
+      var settled = false;
+      return function done() {
+        // A group with two exits — the real-pointer lane either skips or runs —
+        // must release the suite once, whichever exit it takes.
+        if (settled) return;
+        settled = true;
+        var at = open.indexOf(name);
+        if (at > -1) open.splice(at, 1);
+        if (registered && !open.length) finish();
+      };
+    }
 
     function check(n, label, ok) {
       if (!ok) fails++;
@@ -1303,6 +1322,7 @@ window.addEventListener('load', function () {
 
     // Collapse / expand. Animation is ~300ms, so these await settling.
     (function () {
+      var done = group('collapse');
       function visibleLabels(id) {
         return Array.prototype.filter.call(
           document.getElementById(id).querySelectorAll('.mm-node'),
@@ -1354,6 +1374,7 @@ window.addEventListener('load', function () {
 
     // Dragging.
     (function () {
+      var done = group('drag');
       var host = document.getElementById('drag');
       function nodeNamed(name) {
         return Array.prototype.filter.call(host.querySelectorAll('.mm-node'), function (g) {
@@ -1440,6 +1461,7 @@ window.addEventListener('load', function () {
 
     // Reader-facing shape switch.
     (function () {
+      var done = group('shape switch');
       var host = document.getElementById('shape');
       var container = host.querySelector('.mm-container');
       function btn(dir) { return host.querySelector('.mm-ctl[data-dir="' + dir + '"]'); }
@@ -1569,6 +1591,7 @@ window.addEventListener('load', function () {
 
     // The root moves alone -- carrying its subtree would just slide the map.
     (function () {
+      var done = group('root drag');
       var host = document.getElementById('rootdrag');
       function nodeNamed(n) {
         return Array.prototype.filter.call(host.querySelectorAll('.mm-node'), function (g) {
@@ -1626,6 +1649,7 @@ window.addEventListener('load', function () {
 
     // Inline markup.
     (function () {
+      var done = group('inline markup');
       function nodesIn(id) {
         return Array.prototype.slice.call(
           document.getElementById(id).querySelectorAll('.mm-node'));
@@ -1728,6 +1752,7 @@ window.addEventListener('load', function () {
 
     // An image with no size hint must re-flow the node once it loads.
     (function () {
+      var done = group('images');
       var host = document.getElementById('autoimg');
 
       setTimeout(function () {
@@ -1799,6 +1824,7 @@ window.addEventListener('load', function () {
 
     // --- fold markers ---
     (function () {
+      var done = group('fold markers');
       function visibleIn(id) {
         return Array.prototype.filter.call(
           document.getElementById(id).querySelectorAll('.mm-node'),
@@ -2042,6 +2068,7 @@ window.addEventListener('load', function () {
 
     // --- embedded page HTML ---
     (function () {
+      var done = group('embedded HTML');
       var host = document.getElementById('embed');
       var blocks = host.querySelectorAll('foreignObject.mm-embed-host');
 
@@ -2136,6 +2163,7 @@ window.addEventListener('load', function () {
     // elementFromPoint, capture is recorded as the library takes it, and
     // everything after the press goes where a browser would send it.
     (function () {
+      var done = group('real pointer input');
       var host = document.getElementById('realinput');
       var captured = null;
       var realCapture = Element.prototype.setPointerCapture;
@@ -2290,6 +2318,7 @@ window.addEventListener('load', function () {
     // The documented API, exercised as an API rather than as setup for
     // something else.
     (function () {
+      var done = group('the API');
       var tree = MindMap.parse(
         '- Root\n' +
         '  // a comment\n' +
@@ -2467,6 +2496,7 @@ window.addEventListener('load', function () {
     // meanwhile. Real files load in whatever order the network gives them, so
     // the loader is stood in for here to make the order the point.
     (function () {
+      var done = group('the image race');
       var loaders = [];
       var RealImage = window.Image;
       window.Image = function () {
@@ -2881,6 +2911,7 @@ window.addEventListener('load', function () {
 
     // ---- the centre node stays in view when a narrow map is re-laid out
     (function () {
+      var done = group('the held root');
       var host = document.getElementById('holdroot');
       var scroller = host.querySelector('.mm-scroll');
       function offset() {
@@ -2915,6 +2946,150 @@ window.addEventListener('load', function () {
         }, 450);
       }, 450);
     })();
+
+    // ---- the shipped file and the two documents say the same thing
+    //
+    // Every option is written out in four places — the attributes readOptions
+    // looks up, the README table, the provider-site table, and the defaults the
+    // parser actually applies — and the release version in three. AGENTS.md
+    // lists keeping those together as a checklist item, which is another way of
+    // saying that nothing checks it. This does, so a row left out of one
+    // document, or a cache-buster left on the previous release, fails here
+    // rather than shipping.
+    (function () {
+      var done = group('docs parity');
+      var want = ['mindmap.js', 'README.md', 'index.html'];
+      var files = {};
+      var left = want.length;
+      want.forEach(function (name) {
+        var xhr = new XMLHttpRequest();
+        // The static server hands out stale copies happily.
+        xhr.open('GET', name + '?bust=' + Date.now());
+        xhr.onload = function () {
+          files[name] = xhr.status === 200 ? xhr.responseText : null;
+          if (!--left) compare();
+        };
+        xhr.onerror = function () { files[name] = null; if (!--left) compare(); };
+        xhr.send();
+      });
+
+      /** The text between two markers, or '' if either is missing. */
+      function section(text, from, to) {
+        var a = text.indexOf(from);
+        var b = a > -1 ? text.indexOf(to, a + from.length) : -1;
+        return a > -1 && b > -1 ? text.slice(a, b) : '';
+      }
+
+      /** Every distinct capture of `re` in `text`, sorted, so two lists compare. */
+      function names(text, re) {
+        var seen = {}, list = [], m;
+        re.lastIndex = 0;
+        while ((m = re.exec(text))) {
+          if (!seen[m[1]]) { seen[m[1]] = true; list.push(m[1]); }
+        }
+        return list.sort();
+      }
+
+      function missing(from, inList) {
+        return from.filter(function (x) { return inList.indexOf(x) === -1; });
+      }
+      function same(a, b) { return a.join(',') === b.join(','); }
+
+      /** `data-max-node-width` -> `maxNodeWidth`, the key readOptions writes. */
+      function camel(attr) {
+        return attr.slice(5).replace(/-([a-z])/g, function (_, c) {
+          return c.toUpperCase();
+        });
+      }
+
+      function compare() {
+        if (!files['mindmap.js'] || !files['README.md'] || !files['index.html']) {
+          for (var n = 196; n <= 201; n++) {
+            skip(n, 'docs parity', 'the sources could not be fetched from this origin');
+          }
+          done();
+          return;
+        }
+
+        // Scoped to the one function and the two tables: every other part of
+        // these files is thick with data-* attributes that are not options.
+        var reads = section(files['mindmap.js'], 'function readOptions(', '\n  }\n');
+        var readmeOpts = section(files['README.md'], '## Options', '\n## ');
+        var siteOpts = section(files['index.html'], '<h2>Options</h2>', '</table>');
+
+        var read = names(reads, /'(data-[a-z-]+)'/g);
+        var inReadme = names(readmeOpts, /`(data-[a-z-]+)`/g);
+        var onSite = names(siteOpts, /<code>(data-[a-z-]+)<\/code>/g);
+
+        check(196, 'every option the script reads has a README row',
+          read.length > 0 && missing(read, inReadme).length === 0);
+        check(197, 'every option the script reads has a provider-site row',
+          read.length > 0 && missing(read, onSite).length === 0);
+        check(198, 'neither document lists an option the script never reads',
+          missing(inReadme, read).length === 0 && missing(onSite, read).length === 0);
+
+        // Read off the export rather than the source: what the page can call is
+        // the contract, and the two tables document calls, not properties.
+        var api = [];
+        for (var k in MindMap) if (typeof MindMap[k] === 'function') api.push(k);
+        api.sort();
+        var apiRe = /MindMap\.([a-zA-Z]+)/g;
+        check(199, 'both documents list exactly the calls MindMap exports',
+          api.length > 0 &&
+          same(api, names(section(files['README.md'], '## JavaScript API', '\n## '), apiRe)) &&
+          same(api, names(section(files['index.html'],
+            '<h2>Calling it from JavaScript</h2>', '</table>'), apiRe)));
+
+        // The defaults a map with no attributes on it actually ends up with.
+        var base = cases[0].querySelector('.mm-container').mindMap.opts;
+        var wrong = [];
+        read.forEach(function (attr) {
+          var value = base[camel(attr)];
+          // data-theme and data-collapse-level have no default to state.
+          if (value === undefined) return;
+          var line = readmeOpts.split('\n').filter(function (l) {
+            return l.indexOf('`' + attr + '`') > -1;
+          })[0] || '';
+          var at = siteOpts.indexOf('<code>' + attr + '</code>');
+          var cell = at > -1 ? siteOpts.indexOf('</td>', at) : -1;
+          var site = cell > -1 ? siteOpts.slice(cell, siteOpts.indexOf('</td>', cell + 1)) : '';
+          if ((line.split('|')[2] || '').indexOf(String(value)) === -1) wrong.push('README ' + attr);
+          if (site.indexOf(String(value)) === -1) wrong.push('site ' + attr);
+        });
+        check(200, 'the stated defaults are the ones the parser applies',
+          read.length > 0 && wrong.length === 0);
+
+        // The banner, the constant, the badge and the URL readers pick a new
+        // release up from. A deployed build must not advertise a stale version.
+        var banner = /mind-maps-helper v([\d.]+)/.exec(files['mindmap.js']);
+        var constant = /var VERSION = '([\d.]+)'/.exec(files['mindmap.js']);
+        var buster = /mindmap\.js\?v=([\d.]+)/.exec(files['index.html']);
+        check(201, 'one version in the banner, VERSION, the badge and the cache-buster',
+          !!banner && !!constant && !!buster &&
+          banner[1] === MindMap.version && constant[1] === MindMap.version &&
+          buster[1] === MindMap.version);
+
+        done();
+      }
+    })();
+
+    // Every group has now been reached, so a suite whose groups all happened to
+    // report synchronously still gets its summary.
+    registered = true;
+    if (!open.length) finish();
+
+    // A group that never reports would leave the page on "running…" with nothing
+    // to say which one. Name the stragglers and finish anyway, so a stalled lane
+    // reads as the failure it is. The slowest group settles in about three
+    // seconds; this waits long enough that a throttled background tab is not
+    // mistaken for a stall.
+    setTimeout(function () {
+      if (!open.length) return;
+      while (open.length) {
+        check(0, 'group never reported a result: ' + open.shift(), false);
+      }
+      finish();
+    }, 30000);
 
     function finish() {
     document.getElementById('results').innerHTML =

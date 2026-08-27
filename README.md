@@ -411,10 +411,28 @@ Only needed for maps added after page load.
 
 ## Development
 
-There is no build step — `mindmap.js` is the shipped file.
+There is no build step and nothing to install — `mindmap.js` is the shipped file, and
+`tests.html` loads it straight off disk.
 
-Open `tests.html` in a browser. It checks the rendered DOM and prints a pass/fail summary
-at the top of the page.
+The suite needs a real HTTP origin, so serve the repo rather than opening the file:
+
+```
+python3 -m http.server 8099 --bind 127.0.0.1
+```
+
+Then open `http://127.0.0.1:8099/tests.html`. It renders every case, checks the resulting
+DOM, and prints a summary at the top of the page — `all N checks pass`, or `N FAILING`,
+plus `, M skipped` for a lane that could not run at all — over a line per check. Two
+things to know:
+
+- The page hit tests with `elementFromPoint`, so a tab with no viewport size skips the
+  real-pointer checks rather than failing them. Give the window a size to run them.
+- Folding and dragging depend on real pointer behaviour, and have broken in ways no DOM
+  assertion caught. After changing either, click and drag a map yourself as well —
+  a fold, a drag, a drag that starts on the fold badge, and the shape switch.
+
+The cases below double as a visual gallery: each one states what it should look like, so
+a rendering regression that still passes its assertions is visible.
 
 ## Versioning
 
