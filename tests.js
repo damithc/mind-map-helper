@@ -2611,15 +2611,18 @@ window.addEventListener('load', function () {
       }, 1500);
     })();
 
-    // ---- the shipped file and the two documents say the same thing
+    // ---- the shipped file and the guide say the same thing
     //
-    // Every option is written out in four places — the attributes readOptions
-    // looks up, the README table, the provider-site table, and the defaults the
-    // parser actually applies — and the release version in three. AGENTS.md
-    // lists keeping those together as a checklist item, which is another way of
-    // saying that nothing checks it. This does, so a row left out of one
-    // document, or a cache-buster left on the previous release, fails here
-    // rather than shipping.
+    // Every option is written out in three places — the attributes readOptions
+    // looks up, the guide's table, and the defaults the parser actually applies
+    // — and the release version in three. AGENTS.md lists keeping those
+    // together as a checklist item, which is another way of saying that nothing
+    // checks it. This does, so a row left out of the guide, or a cache-buster
+    // left on the previous release, fails here rather than shipping.
+    //
+    // The README used to carry its own copy of those tables and is now a
+    // landing page pointing at the guide, so what is checked of it is that it
+    // has stayed one.
     (function () {
       var done = group('docs parity');
       var want = ['mindmap.js', 'README.md', 'index.html'];
@@ -2685,26 +2688,37 @@ window.addEventListener('load', function () {
             skip(n, 'docs parity', 'the sources could not be fetched from this origin');
           }
           skip(207, 'guide navigation', 'the sources could not be fetched from this origin');
+          skip(228, 'guide navigation', 'the sources could not be fetched from this origin');
           done();
           return;
         }
 
-        // Scoped to the one function and the two tables: every other part of
+        // Scoped to the one function and the one table: every other part of
         // these files is thick with data-* attributes that are not options.
         var reads = section(files['mindmap.js'], 'function readOptions(', '\n  }\n');
-        var readmeOpts = section(files['README.md'], '## Options', '\n## ');
         var siteOpts = section(files['index.html'], /<h2[^>]*>Options<\/h2>/, '</table>');
 
         var read = names(reads, /'(data-[a-z-]+)'/g);
-        var inReadme = names(readmeOpts, /`(data-[a-z-]+)`/g);
         var onSite = names(siteOpts, /<code>(data-[a-z-]+)<\/code>/g);
+        var inReadme = names(files['README.md'], /(data-[a-z]+-?[a-z-]*)/g);
 
-        check(196, 'every option the script reads has a README row',
-          read.length > 0 && missing(read, inReadme).length === 0);
-        check(197, 'every option the script reads has a provider-site row',
+        check(196, 'every option the script reads has a row in the guide',
           read.length > 0 && missing(read, onSite).length === 0);
-        check(198, 'neither document lists an option the script never reads',
-          missing(inReadme, read).length === 0 && missing(onSite, read).length === 0);
+        // An option named in the README is a second copy of a fact with a
+        // default attached, which is the pair that drifted before. Naming one
+        // here is not a typo to hunt for — it is a line that belongs in the
+        // guide instead. The other half of deferring is actually pointing:
+        // matched on the link target rather than on the bare address, which
+        // the quick start's script tag carries anyway.
+        var guideLinks = names(files['README.md'],
+          /[<(](https:\/\/se-education\.org\/mind-maps-helper\/(?:#[a-z-]+)?)[>)]/g);
+        var home = 'https://se-education.org/mind-maps-helper/';
+        check(197, 'the README defers to the guide rather than restating options',
+          guideLinks.indexOf(home) > -1 &&
+          guideLinks.filter(function (u) { return u !== home; }).length > 0 &&
+          inReadme.length === 0);
+        check(198, 'the guide lists no option the script never reads',
+          missing(onSite, read).length === 0);
 
         // Read off the export rather than the source: what the page can call is
         // the contract, and the two tables document calls, not properties.
@@ -2712,9 +2726,8 @@ window.addEventListener('load', function () {
         for (var k in MindMap) if (typeof MindMap[k] === 'function') api.push(k);
         api.sort();
         var apiRe = /MindMap\.([a-zA-Z]+)/g;
-        check(199, 'both documents list exactly the calls MindMap exports',
+        check(199, 'the guide lists exactly the calls MindMap exports',
           api.length > 0 &&
-          same(api, names(section(files['README.md'], '## JavaScript API', '\n## '), apiRe)) &&
           same(api, names(section(files['index.html'],
             /<h2[^>]*>Calling it from JavaScript<\/h2>/, '</table>'), apiRe)));
 
@@ -2725,14 +2738,11 @@ window.addEventListener('load', function () {
           var value = base[camel(attr)];
           // data-theme and data-collapse-level have no default to state.
           if (value === undefined) return;
-          var line = readmeOpts.split('\n').filter(function (l) {
-            return l.indexOf('`' + attr + '`') > -1;
-          })[0] || '';
           var at = siteOpts.indexOf('<code>' + attr + '</code>');
           var cell = at > -1 ? siteOpts.indexOf('</td>', at) : -1;
-          var site = cell > -1 ? siteOpts.slice(cell, siteOpts.indexOf('</td>', cell + 1)) : '';
-          if ((line.split('|')[2] || '').indexOf(String(value)) === -1) wrong.push('README ' + attr);
-          if (site.indexOf(String(value)) === -1) wrong.push('site ' + attr);
+          var stated = cell > -1
+            ? siteOpts.slice(cell, siteOpts.indexOf('</td>', cell + 1)) : '';
+          if (stated.indexOf(String(value)) === -1) wrong.push(attr);
         });
         check(200, 'the stated defaults are the ones the parser applies',
           read.length > 0 && wrong.length === 0);
@@ -2767,6 +2777,36 @@ window.addEventListener('load', function () {
           headings.indexOf('') === -1 &&
           anchors.length > 0 &&
           dangling.length === 0);
+
+        // The guide is in two parts, and the divider is a promise: a reader who
+        // stops there has read everything an author needs. That only holds if
+        // the contents list agrees with the page, so a section added after the
+        // divider but listed above it — or left out of the list altogether —
+        // fails here rather than sending a reader who was told they could stop
+        // into the advanced half.
+        function linksIn(text) {
+          var out = [], re = /href="#([^"]+)"/g, m;
+          while ((m = re.exec(text))) out.push(m[1]);
+          return out;
+        }
+        function tocGroup(cls) {
+          // From the group's own <ul>, so the heading link that names the
+          // advanced part is not counted as one of its sections.
+          var block = section(site, 'class="' + cls + '"', '</ul>');
+          var at = block.indexOf('<ul');
+          return at > -1 ? linksIn(block.slice(at)) : [];
+        }
+        var split = site.indexOf('<h2 id="advanced"');
+        var above = [], below = [], h2Re = /<h2\s+id="([^"]+)"/g, h2m;
+        while ((h2m = h2Re.exec(site))) {
+          if (h2m.index < split) above.push(h2m[1]);
+          else if (h2m[1] !== 'advanced') below.push(h2m[1]);
+        }
+
+        check(228, 'the contents list names every section, in the part it sits in',
+          split > -1 && above.length > 0 && below.length > 0 &&
+          same(tocGroup('toc-guide'), above) &&
+          same(tocGroup('toc-advanced'), below));
 
         done();
       }

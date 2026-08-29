@@ -102,17 +102,42 @@
   /* The footer sits outside <main> and brings its own bottom room, so the
      content column gives up the padding it used to carry for both. */
   main.wrap { padding-bottom: 0; }
+  /* Two groups side by side, so the split between the everyday guide and the
+     advanced part is visible before the reader starts scrolling. The guide's
+     own list runs in two sub-columns, which keeps the two groups roughly the
+     same height despite one holding four times the sections. */
   .toc {
     border: 1px solid var(--line); background: var(--panel); border-radius: 6px;
     padding: 1rem 1.25rem; margin: 0 0 2.5rem;
+    display: grid; gap: 1.25rem 2rem;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   }
   .toc p { font-weight: 600; font-size: .92rem; margin: 0 0 .5rem; }
-  .toc ul {
-    list-style: none; margin: 0; padding: 0; font-size: .94rem;
-    columns: 2; column-gap: 2rem;
-  }
+  .toc ul { list-style: none; margin: 0; padding: 0; font-size: .94rem; }
+  .toc-guide ul { columns: 2; column-gap: 2rem; }
   .toc li { margin: 0 0 .3rem; break-inside: avoid; }
-  @media (max-width: 44rem) { .toc ul { columns: 1; } }
+  .toc-advanced { border-left: 1px solid var(--line); padding-left: 2rem; }
+  @media (max-width: 44rem) {
+    .toc { grid-template-columns: minmax(0, 1fr); }
+    .toc-guide ul { columns: 1; }
+    .toc-advanced { border-left: 0; padding-left: 0; border-top: 1px solid var(--line); padding-top: 1rem; }
+  }
+  /* The line a non-technical reader may stop at. Heavier than an ordinary
+     section rule, because it separates two halves rather than two topics. */
+  h2.divider { border-bottom: 3px solid var(--accent); margin-top: 5rem; }
+  p.divider-note {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
+    padding: .9rem 1.1rem; margin-bottom: 2.5rem;
+    color: var(--soft); font-size: .96rem;
+  }
+  /* An aside in the everyday guide that only a developer needs, labelled so it
+     can be skipped without reading it first. */
+  .note.tech { border-left-color: var(--soft); }
+  .tech-label {
+    display: block; margin-bottom: .25rem;
+    font-size: .74rem; font-weight: 600; letter-spacing: .07em;
+    text-transform: uppercase; color: var(--soft);
+  }
 </style>
 </head>
 <body>
@@ -129,40 +154,58 @@
 <main id="content" class="wrap">
 
 <p class="lede">
-  If you can write a bulleted list, you can make a mind map. Drop one
+  If you can write a bulleted list, you can make a mind map. Paste one
   <code>&lt;script&gt;</code> tag into your page, wrap your list in a
-  <code>&lt;pre class="mindmap"&gt;</code>, and it is drawn as clean SVG when
-  the page loads. Labels take a little Markdown, and readers can reshape the map,
-  fold branches away and drag nodes around.
+  <code>&lt;pre class="mindmap"&gt;</code>, and it is drawn as a mind map when the
+  page loads. Labels take a little Markdown, and readers can fold branches away,
+  drag nodes around and reshape the map.
+</p>
+
+<p>
+  This guide is written for people who make teaching material — course pages,
+  lecture notes, handbooks. Nothing in it asks you to write JavaScript or CSS,
+  and there is nothing to install or build. The one exception is the
+  <a href="#advanced">Advanced</a> part at the end, which is marked off so you
+  can skip it.
 </p>
 
 <nav class="toc" aria-label="On this page">
-  <p>On this page</p>
-  <ul>
-    <li><a href="#add-it">Add it to your page</a></li>
-    <li><a href="#writing">Writing the text</a></li>
-    <li><a href="#formatting">Formatting inside a node</a></li>
-    <li><a href="#embeds">Blocks of your own HTML</a></li>
-    <li><a href="#collapsing">Collapsing and expanding</a></li>
-    <li><a href="#colours">Colouring the map</a></li>
-    <li><a href="#emphasis">Dimming and highlighting</a></li>
-    <li><a href="#shape">Choosing the shape</a></li>
-    <li><a href="#dragging">Moving nodes</a></li>
-    <li><a href="#credit">Credit link</a></li>
-    <li><a href="#options">Options</a></li>
-    <li><a href="#markdown">Using it in Markdown</a></li>
-    <li><a href="#styling">Changing the look</a></li>
-    <li><a href="#api">Calling it from JavaScript</a></li>
-    <li><a href="#example">A bigger example</a></li>
-    <li><a href="#troubleshooting">Troubleshooting</a></li>
-    <li><a href="#notes">Notes</a></li>
-    <li><a href="#versioning">Versioning</a></li>
-  </ul>
+  <div class="toc-guide">
+    <p>The guide</p>
+    <ul>
+      <li><a href="#add-it">Add it to your page</a></li>
+      <li><a href="#markdown">Writing maps in Markdown</a></li>
+      <li><a href="#writing">Writing the text</a></li>
+      <li><a href="#formatting">Formatting inside a node</a></li>
+      <li><a href="#collapsing">Collapsing and expanding</a></li>
+      <li><a href="#colours">Colouring the map</a></li>
+      <li><a href="#emphasis">Dimming and highlighting</a></li>
+      <li><a href="#shape">Choosing the shape</a></li>
+      <li><a href="#dragging">Moving nodes</a></li>
+      <li><a href="#embeds">Blocks of your own HTML</a></li>
+      <li><a href="#options">Options</a></li>
+      <li><a href="#credit">Credit link</a></li>
+      <li><a href="#example">A bigger example</a></li>
+      <li><a href="#troubleshooting">If something looks wrong</a></li>
+      <li><a href="#notes">Good to know</a></li>
+      <li><a href="#versioning">Versioning</a></li>
+    </ul>
+  </div>
+  <div class="toc-advanced">
+    <p><a href="#advanced">Advanced</a></p>
+    <ul>
+      <li><a href="#styling">Matching the map to your site</a></li>
+      <li><a href="#api">Calling it from JavaScript</a></li>
+      <li><a href="#embed-details">More about embedded blocks</a></li>
+      <li><a href="#csp">Content Security Policy</a></li>
+    </ul>
+  </div>
 </nav>
 
 <h2 id="add-it">Add it to your page</h2>
 
-<p>Add this once anywhere on your page (the end of <code>&lt;body&gt;</code> is a good spot):</p>
+<p>Add this line once per page. Anywhere works; just before the closing
+<code>&lt;/body&gt;</code> tag is the usual spot:</p>
 
 <pre><code>&lt;script src="https://se-education.org/mind-maps-helper/mindmap.js"&gt;&lt;/script&gt;</code></pre>
 
@@ -210,11 +253,77 @@ Software Engineering
   will never think about it again.</p>
 </div>
 
+<h3 id="script-placement">Putting the script on every page at once</h3>
+
+<p>Rather than pasting that line into every page, use whatever your site
+generator offers for site-wide scripts.</p>
+
+<p><strong>MarkBind.</strong> Add the address to <code>externalScripts</code> in
+<code>site.json</code>:</p>
+
+<pre><code>{
+  "externalScripts": [
+    "https://se-education.org/mind-maps-helper/mindmap.js"
+  ]
+}</code></pre>
+
+<p>MarkBind can also carry it in a layout, if you would rather have the script
+only on the pages using that layout: put the <code>&lt;script&gt;</code> line
+inside a <code>&lt;head-bottom&gt;</code> block in your layout file under
+<code>_markbind/layouts/</code>.</p>
+
+<p><strong>Jekyll.</strong> Add the <code>&lt;script&gt;</code> line to the
+layout your pages use.</p>
+
+<h2 id="markdown">Writing maps in Markdown</h2>
+
+<p>Most teaching material is written in Markdown rather than HTML, and there
+<strong>the <code>&lt;pre class="mindmap"&gt;</code> form always works</strong>.
+If you remember one thing from this page, remember that one: paste it into a
+Markdown file exactly as it is, and it accepts every option below.</p>
+
+<pre><code>&lt;pre class="mindmap"&gt;
+Topics
+  Week 1
+  Week 2
+&lt;/pre&gt;</code></pre>
+
+<p>Fenced code blocks work too, but how you write them depends on your site
+generator, because each one records the language differently.</p>
+
+<div class="table-scroll">
+<table>
+  <tr><th>Generator</th><th>Write this</th></tr>
+  <tr>
+    <td>Jekyll / GitHub Pages, MkDocs, Docusaurus, and most others</td>
+    <td><code>```mindmap</code></td>
+  </tr>
+  <tr>
+    <td>MarkBind</td>
+    <td><code>```mindmap {.mindmap}</code></td>
+  </tr>
+</table>
+</div>
+
+<div class="note">
+  <p><strong>Why MarkBind needs the extra bit.</strong> MarkBind passes fenced
+  blocks to its syntax highlighter, which drops the language name, leaving
+  nothing for the script to recognise. The <code>{.mindmap}</code> suffix adds a
+  label that survives. Checked against MarkBind 7.1.</p>
+</div>
+
+<div class="note">
+  <p><strong>Do not use a plain <code>&lt;div&gt;</code> in Markdown.</strong>
+  Markdown reinterprets the indented lines inside a
+  <code>&lt;div&gt;</code>, which mangles the map. A fenced block or a
+  <code>&lt;pre&gt;</code> is safe.</p>
+</div>
+
 <h2 id="writing">Writing the text</h2>
 
 <h3 id="bullets">Bullets are optional</h3>
 
-<p>These two are identical. Use whichever looks better in your source.</p>
+<p>These two produce the same map. Use whichever looks better in your source.</p>
 
 <div class="split">
 <pre><code>Assessment
@@ -241,10 +350,10 @@ Software Engineering
   <li>A leading <code>-</code>, <code>*</code> or <code>+</code> followed by a space is treated as a bullet and dropped.</li>
   <li>Blank lines are ignored, so you can use them to group things while writing.</li>
   <li>A line starting with <code>//</code> is a comment and is not drawn.</li>
-  <li><code>[+]</code> before the text makes that branch start folded; <code>[-]</code> makes it start open — see below.</li>
-  <li><code>[blue]</code> in front of the text paints that branch — or the centre node — in an accent you name — see below.</li>
-  <li><code>[dim]</code> fades a branch into the background, <code>[hot]</code> picks one out — see below.</li>
-  <li>Node text understands a little inline Markdown — see below. No HTML.</li>
+  <li><code>[+]</code> before the text makes that branch start folded; <code>[-]</code> makes it start open — see <a href="#fold-markers">Folding one branch</a>.</li>
+  <li><code>[blue]</code> before the text paints that branch — or the centre node — in a colour you name — see <a href="#colours">Colouring the map</a>.</li>
+  <li><code>[dim]</code> fades a branch into the background, <code>[hot]</code> picks one out — see <a href="#emphasis">Dimming and highlighting</a>.</li>
+  <li>Node text takes a little Markdown — see <a href="#formatting">Formatting inside a node</a>. No HTML.</li>
 </ul>
 
 <p>If something is wrong with your list, the page shows a short message saying
@@ -252,8 +361,8 @@ what and on which line, instead of silently drawing nothing.</p>
 
 <h3 id="wrapping">Longer labels wrap</h3>
 
-<p>A label wider than <code>data-max-node-width</code> breaks onto another line
-rather than stretching the map.</p>
+<p>A long label breaks onto another line rather than stretching the map. Set the
+width it breaks at with <code>data-max-node-width</code>.</p>
 
 <pre><code>&lt;pre class="mindmap" data-max-node-width="110"&gt;
 Course Admin
@@ -273,8 +382,8 @@ Course Admin
 
 <h2 id="formatting">Formatting inside a node</h2>
 
-<p>Node text understands a small slice of Markdown — the inline bits, nothing
-block-level. Everything else is shown exactly as typed.</p>
+<p>Node text takes a small slice of Markdown — the parts that work within a line,
+nothing bigger. Everything else is shown exactly as typed.</p>
 
 <div class="split">
 <pre><code>Software Engineering
@@ -311,8 +420,8 @@ Software Engineering
 
 <h3 id="conservative">It tries hard not to surprise you</h3>
 
-<p>Course material is full of characters that look like markup but are not, so
-the rules are deliberately conservative:</p>
+<p>Teaching material is full of characters that look like Markdown but are not,
+so the rules are deliberately cautious:</p>
 
 <ul class="tight">
   <li><code>snake_case_name</code> stays as typed — underscores only count between words.</li>
@@ -321,38 +430,36 @@ the rules are deliberately conservative:</p>
   <li><code>[not a link]</code> stays as typed — a link needs its <code>(url)</code> part.</li>
 </ul>
 
-<p>If a map still fights you, turn the whole thing off with
-<code>data-markup="false"</code> and the label text is taken literally. What it
-turns off is the markup — indenting, bullets, comments and fold markers are how
-the list is built, and stay.</p>
+<p>If a map still fights you, switch the inline formatting off with
+<code>data-markup="false"</code>: bold, italics, code, links and images stop
+being read, and those characters are drawn as typed. The list itself is
+untouched — indenting, bullets, comments and the <code>[+]</code>-style markers
+are how the map is built rather than formatting, so they keep working.</p>
 
 <h3 id="links">Links</h3>
 
 <p>Clicking the link text follows it; clicking anywhere else on the node folds
-that branch as usual, and dragging does neither. Links also appear in the
-hidden outline that screen readers use.</p>
+that branch as usual, and dragging does neither. Links are also read out to
+screen readers.</p>
 
-<p>For safety, only <code>http</code>, <code>https</code>, <code>mailto</code>
-and ordinary relative paths are accepted. Anything else —
-<code>javascript:</code> in particular — is refused and the text is left
-literal. The scheme is read the way a browser reads it rather than off the raw
-text, so a <code>javascript:</code> dressed up to look like something else is
-refused on the same terms.</p>
+<p>For safety, only ordinary web addresses are accepted:
+<code>http</code>, <code>https</code>, <code>mailto</code> and paths within your
+own site. Anything else — a link that runs code, in particular — is refused
+however it is spelled, and the text is left as typed.</p>
 
 <h3 id="images">Images</h3>
 
 <p>An image sits inline with the text, so <code>Icon ![x](i.png) here</code>
 puts it mid-sentence, while an image alone on a line becomes the node's whole
-content. Unsized images are scaled to fit within 120&times;90; add
-<code>=80x60</code> inside the destination parentheses, after the URL, to set it
-yourself:</p>
+content. An image with no size given is scaled to fit within 120&times;90. To
+set the size yourself, add it inside the brackets, after the address:</p>
 
 <pre><code>![logo](logo.png =80x60)   both dimensions
 ![logo](logo.png =80x)     width, height follows the aspect ratio
 </code></pre>
 
-<p>A map is drawn immediately and re-flows once the images report their real
-size, so a slow file never blocks the rest of the page.</p>
+<p>The map is drawn straight away and tidies itself once the images report their
+real size, so a slow image never holds up the rest of the page.</p>
 
 <p>Both forms in one map — a small icon sitting beside its label, and a diagram
 that is the whole of its node:</p>
@@ -376,156 +483,9 @@ Week 5
 </div>
 </div>
 
-<p>The icon above is given an explicit <code>=18x18</code> because a small
-glyph should not be scaled to whatever the file happens to be. The diagram has
-no size, so it is scaled to fit the 120&times;90 box on its own.</p>
-
-<div class="note">
-  <p><strong>A drawn map is not a standalone file.</strong> Its colours and
-  fonts come from a stylesheet the script puts in your page, so an
-  <code>&lt;svg&gt;</code> copied out on its own renders unstyled. An image
-  referenced by URL is a further step away: it is a link, not part of the SVG,
-  so a saved copy loses the picture too. A <code>data:</code> URI carries the
-  picture with it.</p>
-</div>
-
-<h2 id="embeds">Blocks of your own HTML</h2>
-
-<p>Some things do not fit in a line of text — a marks table, a worked example,
-a styled callout. Write that block anywhere on the page, give it an
-<code>id</code>, and address it the same way you would address a picture. A
-<code>#</code> means "the element with this id" rather than a file:</p>
-
-<pre><code>![Grade breakdown](#marks-box)</code></pre>
-
-<p>The block is <em>copied</em> into the node, so the original stays where you
-put it and one block can appear in several maps. It keeps your own classes and
-your own CSS, so it looks in the node exactly as it looks on the page.</p>
-
-<h3 id="embed-source">Where the block lives</h3>
-
-<p>Usually you do not want the source showing up twice. Either put it in a
-<code>&lt;template&gt;</code>, which the browser never renders:</p>
-
-<pre><code>&lt;template id="tip-box"&gt;
-  &lt;div class="tip"&gt;&lt;b&gt;Watch out&lt;/b&gt; — coupling is not dependency.&lt;/div&gt;
-&lt;/template&gt;</code></pre>
-
-<p>or mark an ordinary element with <code>class="mm-source"</code>, which this
-script hides for you:</p>
-
-<pre><code>&lt;div id="marks-box" class="mm-source"&gt;
-  &lt;table&gt; ... &lt;/table&gt;
-&lt;/div&gt;</code></pre>
-
-<p>A block that is <em>meant</em> to be visible on the page needs neither: point
-at it and it appears in both places.</p>
-
-<div class="split">
-<pre><code>Week 5
-  Assessment
-    ![Marks](#marks-box)
-  Design
-    Coupling
-      ![](#tip-box)
-    Cohesion</code></pre>
-<div class="demo">
-<div id="marks-box" class="mm-source">
-  <table class="demo-table">
-    <tr><th>Component</th><th>Weight</th></tr>
-    <tr><td>Project</td><td>40%</td></tr>
-    <tr><td>Exam</td><td>35%</td></tr>
-    <tr><td>Participation</td><td>25%</td></tr>
-  </table>
-</div>
-<template id="tip-box">
-  <div class="demo-tip">
-    <b>Watch out</b>
-    <p>Coupling is not the same as <em>dependency</em>.</p>
-  </div>
-</template>
-<pre class="mindmap" data-credit="false" data-direction="right">
-Week 5
-  Assessment
-    ![Marks](#marks-box)
-  Design
-    Coupling
-      ![](#tip-box)
-    Cohesion
-</pre>
-</div>
-</div>
-
-<p>A block lays itself out within 260px unless you say otherwise.
-<code>data-embed-max-width</code> changes that width for a whole map;
-<code>![](#id =240x160)</code> fixes one block's size exactly.</p>
-
-<p>Height is capped as well: a block you have not sized gets at most 400px of
-it. Nothing is lost when the content is taller — the block keeps all of it and
-scrolls inside the node. Sizing the block yourself replaces that cap with the
-height you asked for, so <code>![](#id =240x600)</code> lays out 600px tall, and
-scrolls only if the content outgrows even that.</p>
-
-<h3 id="embed-behaviour">What changes inside such a node</h3>
-
-<ul>
-  <li>Clicking the block does not fold the branch, since you are meant to read
-      and use what is in it. The <strong>&minus;</strong> button still folds it.</li>
-  <li>Links inside the block work normally. The node can still be
-      dragged by any other part of the block.</li>
-  <li>A screen reader meets the map as an outline rather than a drawing, so the
-      words in front of the <code>#</code> are what names the block there:
-      <code>![Grade breakdown](#marks-box)</code> reads as "Grade breakdown".
-      Leave them out and the block's own opening words stand in, shortened.</li>
-  <li><code>id</code>s are dropped from the copy, so nothing on your page ends
-      up with a duplicate id. So is anything that would start running when the
-      copy is inserted — <code>&lt;script&gt;</code>, <code>&lt;iframe&gt;</code>,
-      <code>&lt;object&gt;</code>, <code>&lt;embed&gt;</code>,
-      <code>&lt;base&gt;</code>, <code>&lt;meta&gt;</code>,
-      <code>&lt;link&gt;</code>, <code>&lt;style&gt;</code>,
-      <code>on*</code> handlers and
-      <code>javascript:</code> URLs however they are spelled. Inside a
-      <code>&lt;template&gt;</code> none of those has ever been live, so the
-      copy is where they would start.</li>
-</ul>
-
-<div class="note">
-  <p><strong>Two caveats.</strong> An embedded block leans on your own
-  stylesheet as well as the script's, so it is one more thing that does not
-  travel with an <code>&lt;svg&gt;</code> copied out of the page. And the
-  element has to be in the page already when the map is <em>first</em> drawn.</p>
-  <p>That second one does not forgive lateness. A map naming an id that is not
-  there yet fails with an on-page message, and the message takes the place of
-  the map's source — so there is nothing left for a later
-  <code>MindMap.renderAll()</code> to find, and no way for it to retry. If a
-  script builds the block, keep the map out of the automatic pass that runs on
-  load and draw it yourself once the block is in the page:</p>
-  <pre><code>&lt;pre id="later" class="mindmap-pending"&gt;
-Grades
-  ![Breakdown](#marks-box)
-&lt;/pre&gt;
-&lt;script&gt;
-  buildMarksBox();                  // creates #marks-box
-  var el = document.getElementById('later');
-  el.className = 'mindmap';         // now the script will match it
-  MindMap.render(el);
-&lt;/script&gt;</code></pre>
-</div>
-
-<div class="note">
-  <p><strong>What the copy is, is a copy.</strong> Anything wired up with
-  <code>addEventListener</code> stays behind on the original, so a button whose
-  handler was attached that way does nothing in the node. A delegated listener
-  can still catch it, but only where it is bound to an ancestor of the
-  <em>copy</em> — a shared page container the map itself sits inside. Bound to
-  an ancestor of the original block instead, it never hears the copy, which
-  lives over in the map. And dropping the <code>id</code>s costs whatever
-  depended on them: a
-  <code>&lt;label for&gt;</code>, an <code>aria-labelledby</code>, a link to
-  <code>#somewhere</code> inside the block, a rule written as
-  <code>#id .thing</code>. Blocks meant to be read — a table, a card, a worked
-  example — copy cleanly; a working widget is worth checking in the node.</p>
-</div>
+<p>The icon above is given an explicit <code>=18x18</code>, because a small glyph
+should not be scaled to whatever size the file happens to be. The diagram is
+given none, so it is scaled to fit the 120&times;90 box on its own.</p>
 
 <h2 id="collapsing">Collapsing and expanding</h2>
 
@@ -555,14 +515,15 @@ Testing
 </div>
 
 <p>It works with the keyboard too: <kbd>Tab</kbd> to a node, then
-<kbd>Enter</kbd> or <kbd>Space</kbd>. The map animates as it re-flows, and
-respects <code>prefers-reduced-motion</code> if the reader has asked for less
-movement.</p>
+<kbd>Enter</kbd> or <kbd>Space</kbd>. The map slides into its new shape as it
+folds; for a reader whose device is set to reduce motion it arrives there in one
+step instead, without the animation.</p>
 
 <h3 id="collapse-level">Starting a map partly folded</h3>
 
-<p>Big maps are friendlier if they open as an overview. <code>data-collapse-level</code>
-sets how many levels show at first — the rest stay one click away.</p>
+<p>Big maps are friendlier if they open as an overview.
+<code>data-collapse-level</code> sets how many levels show at first — the rest
+stay one click away.</p>
 
 <div class="split">
 <pre><code>&lt;pre class="mindmap"
@@ -589,7 +550,7 @@ Testing
 <h3 id="fold-markers">Folding one branch</h3>
 
 <p>To fold one branch rather than a whole level, put <code>[+]</code> in front of
-its text. It is the sign the fold badge itself shows, so what you write is the
+its text. It is the same sign the fold button shows, so what you write is the
 state the reader opens on.</p>
 
 <div class="split">
@@ -643,23 +604,23 @@ Testing
 </div>
 </div>
 
-<p>A marker goes after any bullet — <code>- [+] Design</code> — and never reaches
-the label. It sets only the state the map <em>opens</em> in; the reader folds and
-unfolds as usual afterwards. A node with nothing under it has nothing to fold, so
-there the marker is simply dropped.</p>
+<p>A marker goes after any bullet — <code>- [+] Design</code> — and never shows up
+in the label. It sets only the state the map <em>opens</em> in; the reader folds
+and unfolds as usual afterwards. A node with nothing under it has nothing to
+fold, so there the marker is simply dropped.</p>
 
 <p>Like a bullet, a marker needs a space after it, which leaves
 <code>[+](notes.html)</code> a link. Write <code>\[+]</code> for a label that
-really does begin with one. Markers are part of how the list is built rather than
-markup inside a label, so both the marker and its escape work whatever
-<code>data-markup</code> says.</p>
+really does begin with one. Markers work whatever <code>data-markup</code>
+says, because they are part of how the list is built rather than formatting
+inside a label.</p>
 
-<p>To turn interaction off entirely and get a plain static diagram, set
+<p>To switch all of this off and get a plain static diagram, set
 <code>data-interactive="false"</code>.</p>
 
 <h2 id="colours">Colouring the map</h2>
 
-<p>Branches take an accent from a built-in palette, in the order they appear. To
+<p>Branches take a colour from a built-in set, in the order they appear. To
 choose one yourself, name it in front of the text, the way you would a fold
 marker.</p>
 
@@ -684,8 +645,10 @@ Software Engineering
 </div>
 </div>
 
-<p>The eight names are the palette's own accents. Each has a light and a dark
-version, so a branch you name follows the page's theme like any other.
+<p>The eight names are <code>blue</code>, <code>orange</code>,
+<code>green</code>, <code>purple</code>, <code>gold</code>, <code>teal</code>,
+<code>pink</code> and <code>slate</code>. Each has a light and a dark version, so
+a branch you name still follows the page's light or dark theme like any other.
 <code>red</code>, <code>grey</code> and <code>gray</code> are accepted as well,
 for orange and slate. Every branch below is named, so none of them is the colour
 its position would otherwise have given it.</p>
@@ -736,10 +699,8 @@ else.</p>
 <h3 id="centre-colour">Colouring the centre node</h3>
 
 <p>The centre node takes a name too, and wears it differently. It is the one box
-drawn as a solid slab rather than a tint of an accent, so it fills with the
-<em>bright</em> half of the pair — the counterpart of the colour the same name
-gives a branch — and writes in an ink dark enough to read on it, which for every
-colour in the built-in palette is a near-black.</p>
+filled solidly rather than tinted, so it takes the <em>bright</em> version of the
+colour, with dark text on top of it.</p>
 
 <div class="split">
 <pre><code>[gold] Software Engineering
@@ -756,28 +717,26 @@ colour in the built-in palette is a near-black.</p>
 </div>
 </div>
 
-<p>That is the same colour in both themes, unlike the default centre node, which
-flips from dark to light with the page. The bright halves are the ones picked to
-carry a dark page, and they carry a light one as well, so there is nothing to
-flip to; the ink on them stays put for the same reason.</p>
+<p>A centre node you have coloured stays that colour in both light and dark
+themes, unlike the default one, which flips from dark to light with the page.
+The bright colours are legible on either.</p>
 
-<p>A name there is about that one box. It takes no slot from the branches, so the
-first branch is still the first accent, and it overrides <code>--mm-root-bg</code>
-and <code>--mm-root-text</code> for that map — an author naming a colour outranks
-the theme underneath it.</p>
+<p>Naming the centre node changes that one box and nothing else. It does not take
+a colour away from the branches, so the first branch is still the first
+colour.</p>
 
-<p>Colour markers follow the fold markers' rules, and the two stack in either
-order — <code>[+] [green] Design</code> and <code>[green] [+] Design</code> are
-the same node. Both go after any bullet, both need a space after them, both are
-read whatever <code>data-markup</code> says, and <code>\[green]</code> gives you a
-label that really does begin with one. A bracketed word that names no accent is
+<p>Colour markers follow the same rules as fold markers, and the two stack in
+either order — <code>[+] [green] Design</code> and <code>[green] [+] Design</code>
+are the same node. Both go after any bullet, both need a space after them, both
+work whatever <code>data-markup</code> says, and <code>\[green]</code> gives you a
+label that really does begin with one. A bracketed word that names no colour is
 left alone, so <code>[TODO] Revise this</code> stays as typed.</p>
 
 <h2 id="emphasis">Dimming and highlighting</h2>
 
 <p>Two more markers change how loudly a node is drawn. <code>[dim]</code> fades a
 node and everything under it into the background. <code>[hot]</code> picks one
-out: a deeper fill in the branch's own accent, a thicker outline, a bolder label,
+out: a deeper fill in the branch's own colour, a thicker outline, a bolder label,
 and a heavier curve arriving at it.</p>
 
 <div class="split">
@@ -807,7 +766,7 @@ left alone. A map of a syllabus can dim what the course has covered, highlight
 what today is about, and leave what is still ahead exactly as it was.</p>
 
 <p>Emphasis holds from that node down, the way a colour does.
-<code>[normal]</code> takes a node and its own descendants back out of it, which
+<code>[normal]</code> takes a node and everything under it back out of it, which
 is how one sub-topic stays at full strength inside a chapter you have
 dimmed.</p>
 
@@ -830,28 +789,26 @@ Requirements
 </div>
 </div>
 
-<p>Highlighting deepens the branch's own accent rather than bringing a colour of
-its own, so a picked-out node still says which branch it belongs to, still has a
-dark version, and still follows a replaced palette. A marker on the centre node
-is dropped, unlike a colour name there: emphasis is a node standing out from the
-ones around it, and the centre node has nothing to stand out from.</p>
+<p>Highlighting deepens the branch's own colour rather than bringing a colour of
+its own, so a picked-out node still says which branch it belongs to. On the
+centre node an emphasis marker is dropped, unlike a colour name: emphasis is a
+node standing out from the ones around it, and the centre node has nothing to
+stand out from.</p>
 
-<p>Dimming fades the box and the curve into it, and moves the label to the muted
-text colour rather than fading it as well. A dimmed topic is one the reader is
-past, not one they cannot read, so it stays comfortably above the contrast a
-reader needs; links and code inside a dimmed node keep their own colours for the
-same reason.</p>
+<p>Dimming fades the box and the curve into it, but keeps the label readable
+rather than fading that too — a dimmed topic is one the reader is past, not one
+they cannot read. Links and code inside a dimmed node keep their own colours for
+the same reason.</p>
 
-<p>Both carry into print — which topics are behind and which are today's is often
-the reason a map is on paper at all. And because emphasis says something about
-the material rather than merely decorating it, the hidden outline behind the map
-names it too, once where it changes, so it reaches a screen reader.</p>
+<p>Both carry into print, which matters, because "what we have covered" and "what
+today is about" is often why a map is on paper at all. Screen readers are told
+about them as well, once wherever the emphasis changes.</p>
 
 <p>Emphasis markers follow the other markers' rules, and all three stack in any
 order — <code>[+] [green] [dim] Design</code> and <code>[dim] [green] [+]
 Design</code> are the same node. They go after any bullet, need a space after
-them, are read whatever <code>data-markup</code> says, and <code>\[dim]</code>
-gives you a label that really does begin with one. A bracketed word that names no
+them, work whatever <code>data-markup</code> says, and <code>\[dim]</code> gives
+you a label that really does begin with one. A bracketed word that names no
 emphasis is left alone, so <code>[Draft] Notes</code> stays as typed.</p>
 
 <h2 id="shape">Choosing the shape</h2>
@@ -859,10 +816,9 @@ emphasis is left alone, so <code>[Draft] Notes</code> stays as typed.</p>
 <p>The same content reads differently depending on how it is arranged.
 <strong>Balanced</strong> is compact and works well as a figure;
 <strong>one-sided</strong> reads top-to-bottom like an indented outline, which
-some readers find easier to follow. To avoid making the decision for everyone, each map
-carries a small switch in its top corner — it fades in when you hover the map.
-The two shapes share one outline, because they are alternatives rather than two
-separate settings: picking one drops the other.</p>
+some readers find easier to follow. Rather than making the choice for everyone,
+each map carries a small switch in its top corner — it fades in when you hover
+the map.</p>
 
 <div class="demo">
 <pre class="mindmap" data-credit="false">
@@ -892,13 +848,41 @@ keys move between the two shapes, the way a set of radio buttons works.</p>
 <p>The switch does not print. A printed map keeps whichever shape the reader
 left it in, which is the one they chose to print.</p>
 
+<h3 id="one-sided">One-sided maps</h3>
+
+<p>Good for short lists, or when the map sits in a narrow column.</p>
+
+<div class="split">
+<pre><code>&lt;pre class="mindmap"
+     data-direction="right"&gt;
+Git
+  Local
+    commit
+    branch
+  Remote
+    push
+    pull
+&lt;/pre&gt;</code></pre>
+<div class="demo">
+<pre class="mindmap" data-credit="false" data-direction="right">
+Git
+  Local
+    commit
+    branch
+  Remote
+    push
+    pull
+</pre>
+</div>
+</div>
+
 <h2 id="dragging">Moving nodes</h2>
 
 <p>Readers can drag any node to somewhere clearer. The branch below it comes
 along, and the connecting curves follow. Drag the map above and see.</p>
 
 <ul class="tight">
-  <li>Dragging a node moves its whole subtree, so branches keep their shape.</li>
+  <li>Dragging a node moves its whole branch, so branches keep their shape.</li>
   <li>The centre node is the exception: it moves on its own. Taking its branches
       along would just slide the entire map, which changes nothing.</li>
   <li>The rest of the map stays exactly where it was — nothing reflows around you.</li>
@@ -910,44 +894,124 @@ along, and the connecting curves follow. Drag the map above and see.</p>
       Anything else drags.</li>
 </ul>
 
-<p>Moves are per-reader and per-visit — reloading the page brings the tidy
-layout back. To add your own reset button, call
-<code>MindMap.resetPositions(el)</code>. To turn dragging off but keep folding,
-set <code>data-draggable="false"</code>.</p>
+<p>Moves last for that reader and that visit only — reloading the page brings
+the tidy layout back. To turn dragging off but keep folding, set
+<code>data-draggable="false"</code>.</p>
 
-<h2 id="credit">Credit link</h2>
+<div class="note tech">
+  <p><span class="tech-label">For developers</span>To offer a "reset layout"
+  button of your own, call <a href="#api"><code>MindMap.resetPositions()</code></a>.</p>
+</div>
 
-<p>A small caption sits under the bottom right of every map, reading
-<em>« Made with Mind Maps Helper »</em> and linking back to this page. A reader
-who runs into a mind map in somebody's lecture notes has no other way of
-finding out what drew it.</p>
+<h2 id="embeds">Blocks of your own HTML</h2>
+
+<p>Some things do not fit in a line of text — a marks table, a worked example,
+a styled callout. Write that block anywhere on the page, give it an
+<code>id</code>, and point at it the same way you would point at a picture. A
+<code>#</code> means "the element with this id" rather than a file:</p>
+
+<pre><code>![Grade breakdown](#marks-box)</code></pre>
+
+<p>The block is <em>copied</em> into the node, so the original stays where you
+put it and one block can appear in several maps. It keeps your own classes and
+your own CSS, so it looks in the node exactly as it looks on the page.</p>
+
+<h3 id="embed-source">Where the block lives</h3>
+
+<p>Usually you do not want the block showing up twice on the page. Either put it
+in a <code>&lt;template&gt;</code>, which the browser never displays:</p>
+
+<pre><code>&lt;template id="tip-box"&gt;
+  &lt;div class="tip"&gt;&lt;b&gt;Watch out&lt;/b&gt; — coupling is not dependency.&lt;/div&gt;
+&lt;/template&gt;</code></pre>
+
+<p>or mark an ordinary element with <code>class="mm-source"</code>, which this
+script hides for you:</p>
+
+<pre><code>&lt;div id="marks-box" class="mm-source"&gt;
+  &lt;table&gt; ... &lt;/table&gt;
+&lt;/div&gt;</code></pre>
+
+<p>A block that is <em>meant</em> to be visible on the page needs neither: point
+at it and it appears in both places.</p>
 
 <div class="split">
-<pre><code>&lt;pre class="mindmap"&gt;
-Testing
-  Unit
-  Integration
-  System
-&lt;/pre&gt;</code></pre>
+<pre><code>Week 5
+  Assessment
+    ![Marks](#marks-box)
+  Design
+    Coupling
+      ![](#tip-box)
+    Cohesion</code></pre>
 <div class="demo">
-<pre class="mindmap">
-Testing
-  Unit
-  Integration
-  System
+<div id="marks-box" class="mm-source">
+  <table class="demo-table">
+    <tr><th>Component</th><th>Weight</th></tr>
+    <tr><td>Project</td><td>40%</td></tr>
+    <tr><td>Exam</td><td>35%</td></tr>
+    <tr><td>Participation</td><td>25%</td></tr>
+  </table>
+</div>
+<template id="tip-box">
+  <div class="demo-tip">
+    <b>Watch out</b>
+    <p>Coupling is not the same as <em>dependency</em>.</p>
+  </div>
+</template>
+<pre class="mindmap" data-credit="false" data-direction="right">
+Week 5
+  Assessment
+    ![Marks](#marks-box)
+  Design
+    Coupling
+      ![](#tip-box)
+    Cohesion
 </pre>
 </div>
 </div>
 
-<p>The caption is chrome rather than part of the drawing, so a wide map scrolls
-underneath it rather than carrying it off the screen, and the link opens in a
-new tab rather than taking your reader off your page. Where there is a mouse it
-rests faint and comes up to full strength while the pointer is inside the map;
-on a touch screen, where no pointer can come inside, it stays legible. It does
-not print: on paper the link is dead ink, so the map goes to the printer on its
-own. To drop it from the screen as well, set
-<code>data-credit="false"</code> — which is what every other demo on this page
-does, since a link from this site back to this site helps nobody.</p>
+<h3 id="embed-size">How big the block gets</h3>
+
+<p>A block lays itself out within 260px wide unless you say otherwise.
+<code>data-embed-max-width</code> changes that width for a whole map;
+<code>![](#id =240x160)</code> fixes one block's size exactly.</p>
+
+<p>Height is capped as well: a block you have not sized gets at most 400px of it.
+Nothing is lost when the content is taller — the block keeps all of it and
+scrolls inside the node. Giving the block a size of your own replaces that cap
+with the height you asked for, so <code>![](#id =240x600)</code> lays out 600px
+tall, and scrolls only if the content outgrows even that.</p>
+
+<h3 id="embed-behaviour">What changes inside such a node</h3>
+
+<ul class="tight">
+  <li>Clicking the block does not fold the branch, since you are meant to read
+      and use what is in it. The <strong>&minus;</strong> button still folds it.</li>
+  <li>Links inside the block work normally, and the node can still be dragged by
+      any other part of it.</li>
+  <li>The words in front of the <code>#</code> are what a screen reader reads out
+      for the block: <code>![Grade breakdown](#marks-box)</code> reads as "Grade
+      breakdown". Leave them out and the block's own opening words stand in,
+      shortened — so write them whenever those first words would not say what
+      the node is.</li>
+  <li>The copy is tidied on the way in: <code>id</code>s are removed, so nothing
+      on your page ends up with a duplicate, and anything that could run is left
+      out.</li>
+</ul>
+
+<div class="note">
+  <p><strong>The block has to be on the page before the map is drawn.</strong>
+  If the map names an id that is not there, it shows a message instead of
+  drawing — usually a typo in the id. Blocks written straight into the page are
+  always in time.</p>
+</div>
+
+<div class="note tech">
+  <p><span class="tech-label">For developers</span>Exactly what is stripped from
+  the copy, what a copy loses that the original had, and how to handle a block
+  some other script builds after the page loads:
+  <a href="#embed-details">More about embedded blocks</a>.</p>
+</div>
 
 <h2 id="options">Options</h2>
 
@@ -991,7 +1055,7 @@ does, since a link from this site back to this site helps nobody.</p>
     <td><code>data-markup</code></td>
     <td><code>true</code></td>
     <td>Set to <code>false</code> to take the label text literally, with no
-        bold, links or images. Bullets, comments and fold markers are
+        bold, links or images. Bullets, comments and the markers are
         structure, and stay.</td>
   </tr>
   <tr>
@@ -1025,17 +1089,9 @@ does, since a link from this site back to this site helps nobody.</p>
 </table>
 </div>
 
-<p><strong>Where they may sit.</strong> An option is read from the code block
-itself, from its <code>&lt;pre&gt;</code>, or from any highlighter wrapper the
-script already recognises around it — innermost wins. A wrapper of your own
-making is <em>not</em> consulted, so a <code>&lt;div&gt;</code> you add around a
-fenced block just to carry attributes does nothing.</p>
-
-<p>With a fenced block, whether an option reaches the map depends on where your
-generator puts the attribute, and generators differ.
-<strong>When you need options, write the map as
-<code>&lt;pre class="mindmap" ...&gt;</code></strong> — that form carries them
-everywhere, and is worth the few extra characters:</p>
+<p><strong>Write the map as <code>&lt;pre class="mindmap" ...&gt;</code> whenever
+you use an option.</strong> That form carries options in every site generator,
+and it is worth the few extra characters:</p>
 
 <pre><code>&lt;pre class="mindmap" data-direction="right" data-collapse-level="1"&gt;
 Software Engineering
@@ -1043,120 +1099,170 @@ Software Engineering
   Design
 &lt;/pre&gt;</code></pre>
 
-<p>If you would rather keep the fence, both common generators can carry options,
-because both put them somewhere the script reads: in MarkBind, write
-<code>```mindmap {.mindmap data-direction="right"}</code> and the attribute lands
-on the <code>&lt;code&gt;</code> beside the class; in Jekyll, put
-<code>{: data-direction="right"}</code> on the line after the fence and it lands
-on the highlighter wrapper. Either way, confirm it before trusting it — inspect
-the drawn map in your browser and check the attribute really is on the
-<code>&lt;code&gt;</code>, the <code>&lt;pre&gt;</code>, or the wrapper the
-script replaced.</p>
+<p>Fenced blocks can carry options too, but whether they reach the map depends on
+your generator. In MarkBind, write
+<code>```mindmap {.mindmap data-direction="right"}</code>. In Jekyll, put
+<code>{: data-direction="right"}</code> on the line after the fence. If an option
+you set that way seems to be ignored, write the map as a
+<code>&lt;pre class="mindmap"&gt;</code> instead — that always works.</p>
 
-<h3 id="one-sided">One-sided maps</h3>
+<div class="note">
+  <p><strong>Wrapping the map in your own <code>&lt;div&gt;</code> will not carry
+  options.</strong> Put them on the map itself. A
+  <code>&lt;div data-direction="right"&gt;</code> around a fenced block does
+  nothing.</p>
+</div>
 
-<p>Good for short lists, or when the map sits in a narrow column.</p>
+<h2 id="credit">Credit link</h2>
+
+<p>A small caption sits under the bottom right of every map, reading
+<em>« Made with Mind Maps Helper »</em> and linking back to this page. A reader
+who runs into a mind map in somebody's lecture notes has no other way of
+finding out what drew it.</p>
 
 <div class="split">
-<pre><code>&lt;pre class="mindmap"
-     data-direction="right"&gt;
-Git
-  Local
-    commit
-    branch
-  Remote
-    push
-    pull
+<pre><code>&lt;pre class="mindmap"&gt;
+Testing
+  Unit
+  Integration
+  System
 &lt;/pre&gt;</code></pre>
 <div class="demo">
-<pre class="mindmap" data-credit="false" data-direction="right">
-Git
-  Local
-    commit
-    branch
-  Remote
-    push
-    pull
+<pre class="mindmap">
+Testing
+  Unit
+  Integration
+  System
 </pre>
 </div>
 </div>
 
-<h2 id="markdown">Using it in Markdown</h2>
+<p>The caption is not part of the drawing, so a wide map scrolls underneath it
+rather than carrying it off the screen, and the link opens in a new tab rather
+than taking your reader off your page. Where there is a mouse it rests faint and
+comes up to full strength while the pointer is inside the map; on a touch screen
+it stays legible. It does not print: on paper the link is dead ink, so the map
+goes to the printer on its own. To drop it from the screen as well, set
+<code>data-credit="false"</code> — which is what every other demo on this page
+does, since a link from this site back to this site helps nobody.</p>
 
-<p>In a Markdown source file, <strong>the <code>&lt;pre class="mindmap"&gt;</code>
-form always works</strong>. If you only remember one thing, remember that one —
-it needs nothing from your site generator and it accepts the options above.</p>
+<h2 id="example">A bigger example</h2>
 
-<pre><code>&lt;pre class="mindmap"&gt;
-Topics
-  Week 1
-  Week 2
-&lt;/pre&gt;</code></pre>
-
-<p>Fenced code blocks also work, but exactly how depends on your generator,
-because each one records the language differently.</p>
-
-<div class="table-scroll">
-<table>
-  <tr><th>Generator</th><th>Write this</th></tr>
-  <tr>
-    <td>Jekyll / GitHub Pages, MkDocs, Docusaurus, and most others</td>
-    <td><code>```mindmap</code></td>
-  </tr>
-  <tr>
-    <td>MarkBind</td>
-    <td><code>```mindmap {.mindmap}</code></td>
-  </tr>
-</table>
+<div class="demo">
+<pre class="mindmap" data-credit="false">
+CS2103 Software Engineering
+  Requirements
+    Stakeholders
+    User Stories
+    Use Cases
+    Non-Functional
+  Design
+    Architecture
+    OO Design
+    Design Patterns
+    UML Diagrams
+  Implementation
+    Code Quality
+    Refactoring
+    Error Handling
+    Documentation
+  Quality Assurance
+    Unit Testing
+    Integration Testing
+    Test Coverage
+    Code Review
+  Project Management
+    Revision Control
+    Workflows
+    Scheduling
+    Teamwork
+</pre>
 </div>
 
-<div class="note">
-  <p><strong>Why MarkBind needs the extra bit.</strong> MarkBind hands fenced
-  blocks to its syntax highlighter and drops the language name from the output,
-  so there is nothing left for the script to find. The
-  <code>{.mindmap}</code> suffix adds a class that survives. Verified against
-  MarkBind 7.1.</p>
-</div>
+<h2 id="troubleshooting">If something looks wrong</h2>
 
-<div class="note">
-  <p><strong>Why not a plain <code>&lt;div&gt;</code> in Markdown?</strong>
-  Markdown processors reinterpret indented lines inside a
-  <code>&lt;div&gt;</code>, which mangles the map. A fenced block or a
-  <code>&lt;pre&gt;</code> is safe.</p>
-</div>
+<p><strong>The map is still showing as indented text.</strong> The script did not
+run, or it did not recognise your block. Check that the
+<code>&lt;script&gt;</code> line is on the page and the address is spelled
+correctly, then check the block itself — a <code>&lt;pre class="mindmap"&gt;</code>
+always works, while a fenced block has to be written the way your generator
+needs.</p>
 
-<h3 id="script-placement">Where to put the script</h3>
+<p><strong>The map says something is wrong with a line.</strong> Read the message
+— it names the line and the problem. The usual cause is a second line that is
+not indented under anything: a map has exactly one starting line, and everything
+else sits somewhere under it.</p>
 
-<p>Once per page is enough, and the bottom of the <code>&lt;body&gt;</code> is
-a good spot. To get it on every page instead of pasting it into each one, use
-whatever your generator offers for site-wide scripts.</p>
+<p><strong>"This node asks for the page element with id&nbsp;…".</strong> The map
+points at a block that was not on the page when it was drawn — usually a typo in
+the <code>id</code>. See
+<a href="#embeds">Blocks of your own HTML</a>.</p>
 
-<p><strong>MarkBind.</strong> Add the URL to <code>externalScripts</code> in
-<code>site.json</code>:</p>
+<p><strong>The map draws, but with the wrong colours and odd stray text.</strong>
+Your site is blocking the stylesheet the script adds. See
+<a href="#csp">Content Security Policy</a>.</p>
 
-<pre><code>{
-  "externalScripts": [
-    "https://se-education.org/mind-maps-helper/mindmap.js"
-  ]
-}</code></pre>
+<p><strong>Anything else.</strong> A map that fails for a reason you can act on
+names the problem and the line on the page itself. Anything else is reported in
+the browser console.</p>
 
-<p>MarkBind also lets a layout carry it, if you would rather scope the script to
-the pages using one layout: put the <code>&lt;script&gt;</code> tag inside a
-<code>&lt;head-bottom&gt;</code> block in your layout file under
-<code>_markbind/layouts/</code>.</p>
+<h2 id="notes">Good to know</h2>
 
-<p><strong>Jekyll.</strong> Add the <code>&lt;script&gt;</code> tag to the layout
-your pages use.</p>
+<ul class="tight">
+  <li>Maps are drawn as SVG, so they stay sharp at any zoom and print cleanly.
+      The drawing is all that prints: the shape switch and the credit caption
+      are for a reader who can click, so they stay off the page.</li>
+  <li>Maps shrink to fit a narrow screen, down to 70% of full size, and scroll
+      sideways if they still do not fit. A scrolled map starts centred on its
+      centre node.</li>
+  <li>Screen readers get the map as a nested list. An embedded block is
+      announced by the words you put in front of its <code>#</code>, or by a
+      shortened version of its own text where you left those out.</li>
+  <li>No tracking and nothing else loaded: once the script is on your page it
+      fetches nothing of its own. Images you point at by address, and whatever is
+      inside an embedded block, are fetched by the browser as usual.</li>
+  <li>Nesting goes 100 levels deep. Past that a map tells you which line went too
+      far rather than failing part-way through drawing.</li>
+  <li>A drawn map is not a standalone picture file. Its colours and fonts come
+      from a stylesheet the script adds to your page, so an
+      <code>&lt;svg&gt;</code> saved out on its own arrives unstyled. An image
+      you pointed at by address stays a pointer rather than becoming part of the
+      drawing, so a saved copy still fetches it from where it lives, and shows
+      nothing anywhere that address does not reach. Write the address as a
+      <code>data:</code> URI and the picture travels with the copy instead. An
+      embedded block does come along, but it leaves your own styling
+      behind.</li>
+</ul>
 
-<h2 id="styling">Changing the look</h2>
+<h2 id="versioning">Versioning</h2>
 
-<p>Colours come from CSS custom properties, so you can match your site's theme
-with a few lines of CSS.</p>
+<p>The address of the script carries no version number, and always serves the
+current release. That cuts both ways, and it is worth being plain about: your
+pages pick up new releases automatically, as they ship, without you changing
+anything and without a chance to try them first.</p>
 
-<p>Light and dark are both handled already. If your site has its own dark-mode
+<p>What you get in exchange is that your existing maps keep working. Any future
+change that would break them ships at a new address
+(<code>/v2/mindmap.js</code>) rather than landing on this one, so a page that
+never touches its <code>&lt;script&gt;</code> line keeps the behaviour it was
+built against.</p>
+
+<h2 id="advanced" class="divider">Advanced — you can stop here</h2>
+
+<p class="divider-note">Everything above is all you need to put mind maps on
+your pages. What follows is for people who want to go further, and it assumes
+you are comfortable with CSS or JavaScript. Nothing here is required, and
+skipping it costs you nothing.</p>
+
+<h2 id="styling">Matching the map to your site</h2>
+
+<p>Colours come from CSS custom properties, so a few lines of CSS match a map to
+your site's own palette.</p>
+
+<p>Light and dark are handled already. If your site has its own dark-mode
 toggle, the map follows it — MarkBind, Bootstrap 5.3, Docusaurus and Tailwind
-are all detected. Failing that, it follows the reader's system setting. To
-pin one map either way, add <code>data-theme="light"</code> or
+are all detected. Failing that, it follows the reader's system setting. To pin
+one map either way, add <code>data-theme="light"</code> or
 <code>data-theme="dark"</code>; that beats everything else.</p>
 
 <pre><code>.mm-container {
@@ -1173,17 +1279,22 @@ pin one map either way, add <code>data-theme="light"</code> or
 <p>A colour named on the centre line wins over the two
 <code>--mm-root-*</code> values for that map.</p>
 
-<p>Branch accent colours cycle through a built-in palette in the order your
-top-level branches appear. To use your own, override
+<h3 id="palette">Replacing the branch colours</h3>
+
+<p>Branch colours cycle through a built-in palette in the order your top-level
+branches appear. To use your own, override
 <code>window.MindMap.palette</code> — each entry is a
 <code>[light, dark]</code> pair, written as hex, <code>rgb()</code>,
-<code>hsl()</code> or a colour word. The names you write in a map point at
-positions in that array rather than at colour values, so your palette recolours
-the named branches — and a named centre node — along with the rest. The centre
-node's ink is picked from the colour underneath it, so a dark colour in that
-half gets white text rather than a label lost in its own box. A colour only the
-page can work out, such as <code>var(--brand)</code>, is one the ink cannot
-read, and that centre node falls back to dark text.</p>
+<code>hsl()</code> or a colour word. The names you write in a map
+(<code>[blue]</code> and the rest) point at positions in that array rather than
+at colour values, so your palette recolours the named branches — and a named
+centre node — along with the rest.</p>
+
+<p>The centre node's text colour is worked out from the colour underneath it, so
+a dark colour in the bright half of a pair gets white text rather than a label
+lost in its own box. A colour only the page can resolve, such as
+<code>var(--brand)</code>, is one that calculation cannot read, and such a centre
+node falls back to dark text.</p>
 
 <p>The palette is read as each map is drawn, so it has to be set <strong>before
 the maps it should affect are rendered</strong>. Maps already on the page are
@@ -1259,49 +1370,56 @@ map: it returns a container showing an on-page error instead.
 <code>parse()</code> is the one call that does throw — carrying the offending
 line number — since it has no page to put a message on.</p>
 
-<h2 id="example">A bigger example</h2>
+<h2 id="embed-details">More about embedded blocks</h2>
 
-<div class="demo">
-<pre class="mindmap" data-credit="false">
-CS2103 Software Engineering
-  Requirements
-    Stakeholders
-    User Stories
-    Use Cases
-    Non-Functional
-  Design
-    Architecture
-    OO Design
-    Design Patterns
-    UML Diagrams
-  Implementation
-    Code Quality
-    Refactoring
-    Error Handling
-    Documentation
-  Quality Assurance
-    Unit Testing
-    Integration Testing
-    Test Coverage
-    Code Review
-  Project Management
-    Revision Control
-    Workflows
-    Scheduling
-    Teamwork
-</pre>
-</div>
+<p>This section is the fine print behind
+<a href="#embeds">Blocks of your own HTML</a>. Blocks meant to be read — a
+table, a card, a worked example — copy cleanly and need none of it; a working
+widget is worth checking in the node.</p>
 
-<h2 id="troubleshooting">Troubleshooting</h2>
+<p><strong>What is stripped from the copy.</strong> <code>id</code>s are removed,
+so no id ends up duplicated, and so is anything that would start running when
+the copy is inserted: <code>&lt;script&gt;</code>, <code>&lt;iframe&gt;</code>,
+<code>&lt;object&gt;</code>, <code>&lt;embed&gt;</code>, <code>&lt;base&gt;</code>,
+<code>&lt;meta&gt;</code>, <code>&lt;link&gt;</code>, <code>&lt;style&gt;</code>,
+<code>on*</code> handlers and <code>javascript:</code> URLs however they are
+spelled. Inside a <code>&lt;template&gt;</code> none of those has ever been live,
+so the copy is where they would start.</p>
 
-<p><strong>The map is still showing as indented text.</strong> The script did not
-run, or it did not recognise the block. Check the browser console for a failed
-request to <code>mindmap.js</code>, then check that the block really carries one
-of the recognised forms — with a fenced block, that the language name survived
-your generator.</p>
+<p><strong>What the copy is, is a copy.</strong> Anything wired up with
+<code>addEventListener</code> stays behind on the original, so a button whose
+handler was attached that way does nothing in the node. A delegated listener can
+still catch it, but only where it is bound to an ancestor of the <em>copy</em> —
+a shared page container the map itself sits inside. Bound to an ancestor of the
+original block instead, it never hears the copy, which lives over in the map. And
+dropping the <code>id</code>s costs whatever depended on them: a
+<code>&lt;label for&gt;</code>, an <code>aria-labelledby</code>, a link to
+<code>#somewhere</code> inside the block, a rule written as
+<code>#id .thing</code>.</p>
 
-<p><strong>A Content Security Policy can block the drawing without blocking the
-script.</strong> Two separate directives matter:</p>
+<p><strong>A block built by another script.</strong> The element has to be in the
+page when the map is <em>first</em> drawn, and lateness is not forgiven. A map
+naming an id that is not there fails with an on-page message, and that message
+takes the place of the map's source — so there is nothing left for a later
+<code>MindMap.renderAll()</code> to find, and no way for it to retry. Keep such a
+map out of the automatic pass that runs on load, and draw it yourself once the
+block is in the page:</p>
+
+<pre><code>&lt;pre id="later" class="mindmap-pending"&gt;
+Grades
+  ![Breakdown](#marks-box)
+&lt;/pre&gt;
+&lt;script&gt;
+  buildMarksBox();                  // creates #marks-box
+  var el = document.getElementById('later');
+  el.className = 'mindmap';         // now the script will match it
+  MindMap.render(el);
+&lt;/script&gt;</code></pre>
+
+<h2 id="csp">Content Security Policy</h2>
+
+<p>A Content Security Policy can block the drawing without blocking the script.
+Two separate directives matter:</p>
 
 <ul class="tight">
   <li><code>script-src</code> has to allow
@@ -1323,44 +1441,6 @@ script.</strong> Two separate directives matter:</p>
 CSP does not police that, so those survive a strict policy — it is the
 stylesheet that goes. Loosen only the directive you need, and only for the pages
 carrying maps.</p>
-
-<p><strong>"This node asks for the page element with id&nbsp;…".</strong> The map
-names a block that was not in the page when it was drawn — a typo in the id, or
-an element some other script adds later. See the caveats under
-<a href="#embeds">Blocks of your own HTML</a>.</p>
-
-<p><strong>Anything else.</strong> A map that fails for a reason you cannot act
-on says so on the page and puts the details in the browser console; a map that
-fails for a reason you <em>can</em> act on names the problem and the line number
-on the page itself.</p>
-
-<h2 id="notes">Notes</h2>
-
-<ul class="tight">
-  <li>Output is SVG, so it stays sharp at any zoom and prints cleanly. The
-      drawing is all that prints: the shape switch and the credit caption are
-      controls and captions for a reader who can click, so they stay off the
-      page.</li>
-  <li>Maps scale down to fit narrow screens and scroll sideways if they still do not fit.</li>
-  <li>Screen readers get the map as a nested list, so the content is not lost.</li>
-  <li>No dependencies and no tracking: the script makes no calls of its own
-      once it has loaded. Images you point at by URL, and whatever is inside an
-      embedded block, are fetched by the browser as usual.</li>
-  <li>Nesting goes 100 levels deep. Past that a map tells you which line went
-      too far, rather than running out of stack part-way through drawing.</li>
-</ul>
-
-<h2 id="versioning">Versioning</h2>
-
-<p>The script URL carries no version, and always serves the current release.
-That cuts both ways, and it is worth being plain about: your pages pick up new
-releases automatically, as they ship, without you changing anything and without
-a chance to try them first.</p>
-
-<p>What you get in exchange is that existing maps keep working. Any future
-breaking change ships under a new path
-(<code>/v2/mindmap.js</code>) rather than landing on this one, so a page that
-never touches its script tag keeps the behaviour it was built against.</p>
 
 </main>
 

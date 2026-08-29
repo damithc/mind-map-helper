@@ -1,8 +1,8 @@
 # Working on this repo
 
 Notes for coding agents. Written to save you from rediscovering things the hard way;
-`README.md` is the user-facing documentation and is the better place to learn what the
-library *does*.
+`index.html` is the user guide and is the better place to learn what the library
+*does*.
 
 ## What this is
 
@@ -27,10 +27,10 @@ error messages that say what to fix rather than what went wrong.
 | File | Role |
 |---|---|
 | `mindmap.js` | The entire library. The only shipped code. |
-| `index.html` | The provider site — docs, live demos, the thing GitHub Pages serves. |
+| `index.html` | The provider site — the user guide, live demos, the thing GitHub Pages serves. |
 | `tests.html` | The fixtures — one map per case, each with an `id`, and a gallery to look at. |
 | `tests.js` | The assertions over those fixtures. Loaded by `tests.html`; never shipped. |
-| `README.md` | GitHub-facing docs, roughly mirroring `index.html`. |
+| `README.md` | The GitHub landing page: what this is, a quick start, and a link to the guide. Not a second copy of the docs. |
 | `.nojekyll` | Stops Pages running Jekyll over the site. Do not delete. |
 
 The repo is `se-edu/mind-maps-helper`, and the local directory matches.
@@ -132,21 +132,45 @@ carry real reasoning and are worth reading before changing nearby code.
 
 ## Changing anything
 
-A feature is not done until all five of these are true:
+A feature is not done until all four of these are true:
 
 1. `mindmap.js` implements it.
 2. `tests.html` has checks for it, and the whole suite passes.
-3. `README.md` documents it.
-4. `index.html` documents it *and* demonstrates it with a live map.
-5. Any new `data-` attribute is in the options table of both docs.
+3. `index.html` documents it *and* demonstrates it with a live map.
+4. Any new `data-` attribute is in the options table there.
 
 Docs and demos are not optional extras here — the site is the product.
 
-Checks 196-201 enforce points 3-5 and the release version as far as text comparison can:
+`index.html` is the only copy of the documentation. `README.md` is a landing page for
+GitHub: a quick start, and links into the guide. Adding a feature does not mean writing it
+up twice — put it in the guide, and leave the README alone unless the *quick start itself*
+changed.
+
+### Where a section goes in the guide
+
+The guide is in two parts, split by a divider at `<h2 id="advanced">`. Above it is
+everything an author needs, written for someone who edits Markdown or basic HTML and does
+not program: no CSS, no JavaScript, no browser internals. Below it is the material that
+assumes one of those — CSS custom properties and the palette, the JavaScript API, what a
+copied HTML block loses, Content Security Policy.
+
+The divider is a promise that a reader may stop there, so anything an ordinary author has
+to know belongs above it, however technical the *reason* behind it is. Say what to do
+above the line; explain the mechanism below it, and link down to it. Where a paragraph in
+the everyday half really is only for a developer, mark it with
+`<div class="note tech"><p><span class="tech-label">For developers</span>…` so it can be
+skipped without being read first.
+
+Both parts are listed in the contents at the top, in their own column each. Check 228
+compares the two lists against the two halves of the page, so a new section in the wrong
+column, or missing from the list, fails the suite.
+
+Checks 196-201 enforce points 3-4 and the release version as far as text comparison can:
 they fetch `mindmap.js`, `README.md` and `index.html` and compare the options
 `readOptions` reads, the calls `MindMap` exports, the defaults a bare map ends up with,
-and the four places the version is written. An option added to the script but not to both
-tables fails the suite.
+and the four places the version is written. An option added to the script but not to the
+guide's table fails the suite — and so does an option name reappearing in the README,
+which is how the two copies drifted before.
 
 ## Running the tests
 
