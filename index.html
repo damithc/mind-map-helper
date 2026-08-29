@@ -917,10 +917,10 @@ set <code>data-draggable="false"</code>.</p>
 
 <h2 id="credit">Credit link</h2>
 
-<p>A hairline rule closes off the bottom of every map, with a small chip
-sitting astride it near the right, reading <em>Made with Mind Maps Helper</em>
-and linking back to this page. A reader who runs into a mind map in somebody's
-lecture notes has no other way of finding out what drew it.</p>
+<p>A small caption sits under the bottom right of every map, reading
+<em>« Made with Mind Maps Helper »</em> and linking back to this page. A reader
+who runs into a mind map in somebody's lecture notes has no other way of
+finding out what drew it.</p>
 
 <div class="split">
 <pre><code>&lt;pre class="mindmap"&gt;
@@ -939,11 +939,13 @@ Testing
 </div>
 </div>
 
-<p>The rule and the chip are chrome rather than part of the drawing, so a wide
-map scrolls underneath them rather than carrying them off the screen, and the
-link opens in a new tab rather than taking your reader off your page. Neither
-prints: on paper the link is dead ink, so the map goes to the printer on its
-own. To drop both from the screen as well, set
+<p>The caption is chrome rather than part of the drawing, so a wide map scrolls
+underneath it rather than carrying it off the screen, and the link opens in a
+new tab rather than taking your reader off your page. Where there is a mouse it
+rests faint and comes up to full strength while the pointer is inside the map;
+on a touch screen, where no pointer can come inside, it stays legible. It does
+not print: on paper the link is dead ink, so the map goes to the printer on its
+own. To drop it from the screen as well, set
 <code>data-credit="false"</code> — which is what every other demo on this page
 does, since a link from this site back to this site helps nobody.</p>
 
@@ -1017,7 +1019,7 @@ does, since a link from this site back to this site helps nobody.</p>
   <tr>
     <td><code>data-credit</code></td>
     <td><code>true</code></td>
-    <td>Set to <code>false</code> to drop the rule and the small link back to
+    <td>Set to <code>false</code> to drop the small caption linking back to
         this project from under the map.</td>
   </tr>
 </table>
@@ -1336,7 +1338,7 @@ on the page itself.</p>
 
 <ul class="tight">
   <li>Output is SVG, so it stays sharp at any zoom and prints cleanly. The
-      drawing is all that prints: the shape switch and the credit chip are
+      drawing is all that prints: the shape switch and the credit caption are
       controls and captions for a reader who can click, so they stay off the
       page.</li>
   <li>Maps scale down to fit narrow screens and scroll sideways if they still do not fit.</li>
@@ -1371,7 +1373,7 @@ never touches its script tag keeps the behaviour it was built against.</p>
 </footer>
 </div>
 
-<script src="mindmap.js?v=1.11.0"></script>
+<script src="mindmap.js?v=1.11.1"></script>
 <script>
   // Taken from the library itself, so the badge can never drift from the
   // script actually loaded (and a stale cache is visible at a glance).

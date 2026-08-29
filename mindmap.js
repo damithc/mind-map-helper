@@ -1,5 +1,5 @@
 /*!
- * mind-maps-helper v1.11.0
+ * mind-maps-helper v1.11.1
  * Simple indented-text syntax -> interactive-ready SVG mind maps.
  * PlantUML-style geometry with a refined palette.
  * No dependencies. MIT licensed.
@@ -8,7 +8,7 @@
 (function (global) {
   'use strict';
 
-  var VERSION = '1.11.0';
+  var VERSION = '1.11.1';
 
   // Where the credit chip under a map points.
   var HOME = 'https://se-education.org/mind-maps-helper/';
@@ -2606,15 +2606,17 @@
   }
 
   /**
-   * One small link home, sitting astride a hairline rule that closes off the
-   * bottom of the map. A reader who meets a map on a course page has no other
+   * One small caption under the map, reading « Made with Mind Maps Helper »
+   * and linking home. A reader who meets a map on a course page has no other
    * way of finding out what drew it; the author who would rather not carry it
    * says data-credit="false".
    *
-   * Muted, but not dimmed at rest the way the shape switch above the map is.
-   * That one fades back because it is a control, and a page of maps must not
-   * read as a page of buttons. This is a caption, and a caption nobody sees
-   * until they hover has not done its job.
+   * Guillemets rather than a border: the shape switch above the map is already
+   * an outlined object, and a page of maps must not read as a page of buttons.
+   * The caption is faint until the pointer is inside the map — out of the way
+   * of the drawing, and back at full strength for the reader who is looking at
+   * it rather than past it. Where there is no pointer to come inside, it never
+   * fades; the styling says why.
    */
   function buildCredit() {
     var bar = document.createElement('div');
@@ -2628,7 +2630,11 @@
     link.title = 'Mind Maps Helper \u2014 mind maps for your web page, from indented text';
 
     var text = document.createElement('span');
-    text.textContent = 'Made with Mind Maps Helper';
+    // The guillemets are typed in rather than drawn on with CSS, so that a
+    // reader who copies the caption copies the whole of it. The spaces inside
+    // them are non-breaking: a narrow column may wrap the caption, but never
+    // onto a line that opens or closes with a mark left on its own.
+    text.textContent = '\u00ab\u00a0Made with Mind Maps Helper\u00a0\u00bb';
     link.appendChild(text);
 
     // Drawn rather than typed: the arrow glyphs land on a fallback font often
@@ -2826,38 +2832,63 @@
     '@media print{.mm-controls{display:none;}}',
 
     // --- credit ---
-    // Right-aligned under the map, so it balances the shape switch above it
-    // and reads as chrome rather than as part of the drawing. The container
-    // is in the selector so a host page's own `a` rules — which routinely
-    // reach a link through a content wrapper — cannot recolour or underline
-    // it out of shape.
-    '.mm-credit{position:relative;display:flex;align-items:center;',
-    'justify-content:flex-end;margin:6px 0 0;padding-right:14px;}',
-    // The rule the chip straddles. A map has no frame of its own, so without
-    // one the chip is just a second control hanging below the drawing; astride
-    // a bottom edge it reads as the edge's label, the way a caption does.
-    // Absolutely positioned, so the bar's height stays the chip's own and
-    // nothing below it is overlapped when a narrow column wraps the label.
-    '.mm-credit::before{content:"";position:absolute;left:0;right:0;top:50%;',
-    'border-top:1px solid rgba(127,127,127,.35);',
-    'border-top-color:color-mix(in srgb, var(--mm-muted) 35%, transparent);}',
-    // Positioned, or the rule above would paint over the chip's own fill
-    // instead of stopping at it.
-    '.mm-container .mm-credit-link{position:relative;',
-    'display:inline-flex;align-items:center;gap:4px;',
-    'font:inherit;font-size:10.5px;font-weight:600;line-height:1;',
-    'color:var(--mm-muted);text-decoration:none;',
-    'padding:4px 8px;border-radius:5px;background:var(--mm-surface);',
-    'border:1px solid rgba(127,127,127,.4);',
-    'border-color:color-mix(in srgb, var(--mm-muted) 40%, transparent);}',
-    '.mm-container:hover .mm-credit-link{border-color:var(--mm-muted);}',
+    // Right-aligned under the map, so it lines up with the shape switch above
+    // it and reads as chrome rather than as part of the drawing. Set as a
+    // caption rather than a chip: the guillemets do the framing a border and a
+    // hairline rule used to do, and cost no ink to do it. A second outlined
+    // object under a drawing that already has one above it read as a second
+    // control, which is the one thing this is not.
+    '.mm-credit{display:flex;align-items:center;justify-content:flex-end;',
+    'margin:6px 0 0;padding-right:4px;}',
+    // Faint at rest, full strength while the pointer is inside the map — but
+    // only where there is a pointer to be inside it. A touch screen never
+    // reaches the second state, so it is given the first at full strength
+    // instead: a credit nobody on a phone can read is not a credit.
+    // Opacity rather than display, so the space is the caption's own either
+    // way and nothing under the map shifts as the pointer crosses the edge.
+    // That leaves the link in the tab order, which is what :focus-within is
+    // for — a keyboard landing on a link that cannot show itself is worse
+    // than a caption that never faded at all.
+    //
+    // The fade is a knowing exception to the rule the emphasis section keeps
+    // a few hundred lines up. .45 of --mm-muted is 1.9:1 against a light page,
+    // under the 4.5:1 that 10.5px text is owed, and no opacity low enough to
+    // read as faded is over it — so this is a fade or nothing, and the choice
+    // was made deliberately. It is taken here and nowhere else because this is
+    // the one run of text on the page that is not the map: attribution, not a
+    // label a reader has to make out to follow anything. The reader with a
+    // pointer undoes it by moving into a map they were reading anyway, and
+    // every reader who cannot undo it is excused immediately below.
+    '@media (hover: hover){',
+    '.mm-credit{opacity:.45;transition:opacity .15s ease;}',
+    '.mm-container:hover .mm-credit,.mm-credit:focus-within{opacity:1;}',
+    '}',
+    // Three ways of saying one thing: this reader cannot afford the exception
+    // above. Where the platform has taken the colours over, or the reader has
+    // asked for more contrast or for less transparency, the caption does not
+    // fade at all — a preference for legibility is not a preference to go
+    // looking for a pointer first. Emitted after the block above, which it has
+    // to outrank at equal weight.
+    '@media (forced-colors: active),(prefers-contrast: more),',
+    '(prefers-reduced-transparency: reduce){.mm-credit{opacity:1;}}',
+    // A cross-fade is motion enough for a reader who asked for less of it.
+    // Both states stay; only the travel between them goes.
+    '@media (prefers-reduced-motion: reduce){.mm-credit{transition:none;}}',
+    // The container is in the selector so a host page's own `a` rules — which
+    // routinely reach a link through a content wrapper — cannot recolour or
+    // underline it out of shape. The weight stays at 600: it is the contrast
+    // the caption has left to spend once the opacity has gone.
+    '.mm-container .mm-credit-link{display:inline-flex;align-items:center;',
+    'gap:4px;font:inherit;font-size:10.5px;font-weight:600;line-height:1;',
+    'color:var(--mm-muted);text-decoration:none;padding:4px 0;}',
+    // The second step, once the map-wide hover has brought the caption up: an
+    // underline is what says the words are something to click, and it is worth
+    // spending only on the reader who has gone as far as pointing at them.
     '.mm-container .mm-credit-link:hover{color:var(--mm-text);',
-    'background:rgba(127,127,127,.1);',
-    'background:color-mix(in srgb, var(--mm-muted) 10%, transparent);}',
+    'text-decoration:underline;text-underline-offset:2px;}',
     '.mm-credit-link:focus-visible{outline:2px solid var(--mm-root-bg);outline-offset:2px;}',
     '.mm-credit-icon{width:9px;height:9px;flex:none;stroke:currentColor;fill:none;}',
-    // On paper the link is dead ink, and a rule drawn only to carry it is
-    // decoration around nothing. The map itself prints as it always has.
+    // On paper the link is dead ink. The map itself prints as it always has.
     // Emitted after the rules above so it wins inside a print context.
     '@media print{.mm-credit{display:none;}}',
 

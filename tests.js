@@ -132,23 +132,75 @@ window.addEventListener('load', function () {
       return ok;
     }
 
-    /**
-     * Whether the injected sheet drops `selector` from a printed page. Print
-     * media cannot be emulated from inside a page, so this reads the rule
-     * rather than measuring it. What it still catches is the failure that
-     * matters: the rule dropped, or aimed at a selector nothing carries.
-     */
-    function printHides(selector) {
-      var sheet = document.getElementById('mind-maps-helper-styles').sheet;
-      for (var i = 0; i < sheet.cssRules.length; i++) {
-        var group = sheet.cssRules[i];
-        if (!group.media || group.media.mediaText.indexOf('print') === -1) continue;
-        for (var j = 0; j < group.cssRules.length; j++) {
-          if (group.cssRules[j].selectorText === selector &&
-              group.cssRules[j].style.display === 'none') return true;
-        }
+    /** Whether a selector list names `wanted` among its alternatives. */
+    function claims(list, wanted) {
+      var parts = String(list).split(',');
+      for (var i = 0; i < parts.length; i++) {
+        if (parts[i].replace(/^\s+|\s+$/g, '') === wanted) return true;
       }
       return false;
+    }
+
+    /**
+     * What a rule inside a media block declares for one property, or '' when
+     * there is no such rule. Several of the states this suite cares about
+     * cannot be entered to be measured in — a page cannot be asked to print,
+     * and a tab that reports a pointer cannot be asked to stop reporting one —
+     * so for those the declaration is the whole of what there is to check.
+     */
+    function declaredIn(media, selector, prop) {
+      var blocks = mediaBlocks(media);
+      var value = '';
+      for (var i = 0; i < blocks.length; i++) {
+        var rules = blocks[i].cssRules;
+        for (var j = 0; j < rules.length; j++) {
+          var rule = rules[j];
+          if (!rule.selectorText || !claims(rule.selectorText, selector)) continue;
+          var declared = rule.style.getPropertyValue(prop);
+          if (declared) value = declared;
+        }
+      }
+      return value;
+    }
+
+    /** The injected media blocks whose query mentions `media`. */
+    function mediaBlocks(media) {
+      var sheet = document.getElementById('mind-maps-helper-styles').sheet;
+      var found = [];
+      for (var i = 0; i < sheet.cssRules.length; i++) {
+        var group = sheet.cssRules[i];
+        if (group.media && group.media.mediaText.indexOf(media) > -1) found.push(group);
+      }
+      return found;
+    }
+
+    /**
+     * What the page computes when a media block it cannot be made to match is
+     * widened to match everything. The legibility preferences and reduced
+     * motion are the reader's own settings, so the rules answering them would
+     * otherwise only ever be read off the sheet rather than seen to reach a
+     * drawn map. Restored in a finally: a sheet left widened would quietly
+     * rewrite every check after this one.
+     */
+    function underMedia(media, read) {
+      var blocks = mediaBlocks(media);
+      if (!blocks.length) return null;
+      var wanted = blocks[0].media.mediaText;
+      try {
+        blocks[0].media.mediaText = 'all';
+        return read();
+      } finally {
+        blocks[0].media.mediaText = wanted;
+      }
+    }
+
+    /**
+     * Whether the injected sheet drops `selector` from a printed page. What
+     * this still catches, for all that it reads a declaration rather than a
+     * printed page: the rule dropped, or aimed at a selector nothing carries.
+     */
+    function printHides(selector) {
+      return declaredIn('print', selector, 'display') === 'none';
     }
 
     // ---- reaching a fixture
@@ -1064,13 +1116,13 @@ window.addEventListener('load', function () {
       });
     })();
 
-    // --- credit chip ---
+    // --- credit caption ---
     (function () {
       var link = document.querySelector('#credit .mm-credit-link');
       check(113, 'a map carries one link back to the project site',
         !!link && document.querySelectorAll('#credit .mm-credit-link').length === 1 &&
         link.getAttribute('href') === 'https://se-education.org/mind-maps-helper/' &&
-        link.textContent.indexOf('Mind Maps Helper') > -1);
+        /^\u00ab\u00a0Made with Mind Maps Helper\u00a0\u00bb$/.test(link.textContent));
       // Opening in the same tab would take the reader off whatever page the
       // map was sitting on, which is more than a credit line is entitled to do.
       check(114, 'the link opens away from the page it sits on, safely',
@@ -1089,21 +1141,93 @@ window.addEventListener('load', function () {
       check(117, 'a static map is credited too',
         !!document.querySelector('#static .mm-credit-link'));
 
-      // The chip is meant to sit astride the rule, not below it, so check the
-      // geometry rather than the declarations: the rule is drawn at the bar's
-      // half-height and the chip is centred in the same bar.
+      // The rule is gone, and the chip is a caption: faint at rest, brought
+      // back by the pointer coming inside the map. The fade is declared behind
+      // a query for a pointer, and a tab either has one or has not — it cannot
+      // be asked to swap — so the declarations are read off the sheet, the way
+      // the print pair below are. Measuring alone would let a tab reporting no
+      // pointer pass this check by never fading at all.
       var bar = document.querySelector('#credit .mm-credit');
-      var rule = getComputedStyle(bar, '::before');
-      var barBox = bar.getBoundingClientRect();
-      var chipBox = link.getBoundingClientRect();
-      check(118, 'the chip straddles the rule closing off the map',
-        parseFloat(rule.borderTopWidth) > 0 &&
-        Math.abs((chipBox.top + chipBox.height / 2) -
-                 (barBox.top + barBox.height / 2)) < 1);
+      var faded = parseFloat(declaredIn('hover: hover', '.mm-credit', 'opacity'));
+      check(118, 'the caption fades behind a query for the pointer that undoes it',
+        !(parseFloat(getComputedStyle(bar, '::before').borderTopWidth) > 0) &&
+        faded > 0 && faded < 1 &&
+        declaredIn('hover: hover', '.mm-container:hover .mm-credit', 'opacity') === '1' &&
+        declaredIn('hover: hover', '.mm-credit:focus-within', 'opacity') === '1');
+
+      // What the sheet cannot say on its own: that the fade reaches a map that
+      // was really drawn, at the strength this tab has earned. Every way the
+      // suite can be run asserts something here — a tab with a pointer resting
+      // outside the map wears the declared fade, and one without a pointer, or
+      // with it already inside, wears none of it.
+      var canHover = window.matchMedia('(hover: hover)').matches;
+      var pointerInside = bar.parentNode.matches(':hover');
+      // A tab set to any of the three preferences below is a tab where the
+      // caption is meant not to fade, so it must not be held to the fade — the
+      // override this suite asks for in 226 would otherwise fail 224 and 225.
+      var plain = !(window.matchMedia('(forced-colors: active)').matches ||
+        window.matchMedia('(prefers-contrast: more)').matches ||
+        window.matchMedia('(prefers-reduced-transparency: reduce)').matches);
+      var fades = canHover && !pointerInside && plain;
+      var rest = parseFloat(getComputedStyle(bar).opacity);
+      check(224, 'a drawn caption wears the strength its tab and pointer earn',
+        fades ? rest === faded : rest === 1);
+
+      // Fading with opacity leaves a faded link in the tab order, so a keyboard
+      // has to be able to bring it back as well. This is the half of that pair
+      // page script can reach: the hover it cannot fake, the focus it can. The
+      // transition is switched off around the read rather than waited out — a
+      // backgrounded tab never advances one at all, so waiting would hang the
+      // check on exactly the tabs this suite is usually run in.
+      if (fades) {
+        bar.style.transition = 'none';
+        link.focus({ preventScroll: true });
+        var lifted = parseFloat(getComputedStyle(bar).opacity);
+        link.blur();
+        var refaded = parseFloat(getComputedStyle(bar).opacity);
+        bar.style.transition = '';
+        check(225, 'a faded caption comes back for the keyboard too',
+          rest < 1 && lifted === 1 && refaded === rest);
+      } else {
+        skip(225, 'a faded caption comes back for the keyboard too',
+          !canHover ? 'this tab reports no pointer, so the caption never fades'
+            : !plain ? 'this tab has asked for the fade to be dropped'
+            : 'the pointer is already inside this map');
+      }
+
+      // Faded text is the one thing the emphasis modes refuse to do, and the
+      // caption is allowed it only because a pointer undoes it — so a reader
+      // who has said as much, in any of the three ways a browser reports it,
+      // is not asked to go and find a pointer first. None of the three can be
+      // switched on from inside the page, so the declaration names the readers
+      // and the block is widened for a moment to watch it reach a drawn map.
+      var relief = mediaBlocks('forced-colors: active')[0];
+      check(226, 'the fade steps aside where transparency would cost legibility',
+        !!relief &&
+        relief.media.mediaText.indexOf('prefers-contrast: more') > -1 &&
+        relief.media.mediaText.indexOf('prefers-reduced-transparency: reduce') > -1 &&
+        declaredIn('forced-colors: active', '.mm-credit', 'opacity') === '1' &&
+        underMedia('forced-colors: active', function () {
+          // Suppressed, or the read lands part of the way through the fade it
+          // is undoing — and never lands at all in a backgrounded tab. Put
+          // back the way underMedia puts its own widening back, so a throw in
+          // here cannot leave the sheet restored and the caption pinned.
+          bar.style.transition = 'none';
+          try {
+            return parseFloat(getComputedStyle(bar).opacity) === 1;
+          } finally {
+            bar.style.transition = '';
+          }
+        }) === true);
+      check(227, 'the fade is not travelled for a reader who asked for less motion',
+        declaredIn('prefers-reduced-motion', '.mm-credit', 'transition') === 'none' &&
+        underMedia('prefers-reduced-motion', function () {
+          return getComputedStyle(bar).transitionDuration === '0s';
+        }) === true);
 
       // The second half is what a sheet-level check misses on its own: that
       // the selector names something a drawn map really carries.
-      check(119, 'the chip and its rule are dropped when the page prints',
+      check(119, 'the caption is dropped when the page prints',
         printHides('.mm-credit') &&
         document.querySelectorAll('#credit .mm-credit').length === 1);
       check(120, 'the shape switch is dropped when the page prints',

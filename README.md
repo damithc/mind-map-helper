@@ -378,15 +378,16 @@ folding while stopping moves.
 
 ## Credit link
 
-A hairline rule closes off the bottom of every map, with a small chip sitting astride it
-near the right, reading *Made with Mind Maps Helper* and linking back to this site. A
-reader who runs into a mind map on somebody's course page has no other way of finding out
-what drew it.
+A small caption sits under the bottom right of every map, reading *« Made with Mind Maps
+Helper »* and linking back to this site. A reader who runs into a mind map on somebody's
+course page has no other way of finding out what drew it.
 
-The rule and the chip are chrome rather than part of the drawing, so a wide map scrolls
-underneath them rather than carrying them off the screen, and the link opens in a new tab
-rather than taking a reader off the page they were reading. Neither prints, since a link
-nobody can click is dead ink. `data-credit="false"` drops both from the screen as well.
+The caption is chrome rather than part of the drawing, so a wide map scrolls underneath it
+rather than carrying it off the screen, and the link opens in a new tab rather than taking
+a reader off the page they were reading. Where there is a mouse it rests faint and comes up
+to full strength while the pointer is inside the map; on a touch screen, where no pointer
+can come inside, it stays legible. It does not print, since a link nobody can click is dead
+ink. `data-credit="false"` drops it from the screen as well.
 
 ## Options
 
@@ -404,7 +405,7 @@ Set these as attributes on the container.
 | `data-draggable` | `true` | `false` keeps folding but stops readers moving nodes. |
 | `data-interactive` | `true` | `false` for a plain static diagram — no folding, no dragging. |
 | `data-theme` | follows the page | `light` or `dark`, to pin one map regardless of the site's theme. |
-| `data-credit` | `true` | `false` drops the rule and the small link back to this project from under the map. |
+| `data-credit` | `true` | `false` drops the small caption linking back to this project from under the map. |
 
 **Where they may sit.** An option is read from the code block itself, from its `<pre>`, or
 from any highlighter wrapper the script already recognises around it — innermost wins. A
@@ -587,8 +588,8 @@ names the problem and the line number on the page itself.
 ## Notes
 
 - Output is SVG: sharp at any zoom, prints cleanly. The drawing is all that prints —
-  the shape switch and the credit chip are for a reader who can click, so they stay off
-  the page.
+  the shape switch and the credit caption are for a reader who can click, so they stay
+  off the page.
 - Maps shrink to fit a narrow column, down to 70% of natural size, then scroll sideways
   instead of becoming illegible. A scrolled map starts centred on the root.
 - Screen readers get the map as a nested list, and toggles report their expanded state.
