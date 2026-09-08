@@ -940,6 +940,101 @@ window.addEventListener('load', function () {
       });
     })();
 
+    // The fold button, which is one control doing both jobs rather than two.
+    (function () {
+      var done = group('fold all');
+      var host = document.getElementById('foldall');
+      function foldBtn(where) {
+        return document.getElementById(where).querySelector('.mm-fold-all');
+      }
+      function foldLabel(where) {
+        return foldBtn(where).querySelector('.mm-ctl-text').textContent;
+      }
+      function btn() { return foldBtn('foldall'); }
+      function label() { return foldLabel('foldall'); }
+      function shut() {
+        return nodesIn('foldall').filter(function (g) {
+          return g.classList.contains('mm-collapsed');
+        }).length;
+      }
+
+      check(229, 'the fold button sits beside the shapes without joining them',
+        !!btn() && host.querySelectorAll('.mm-controls .mm-seg').length === 2 &&
+        !btn().hasAttribute('data-dir') &&
+        !host.querySelector('.mm-seg[role="radiogroup"]').contains(btn()));
+      // Read off the tree, not off the last press: the map opens with a
+      // branch already folded, so the first thing the button can do is unfold.
+      check(230, 'it opens named for the job it would do',
+        label() === 'Expand all' && btn().title === 'Unfold every branch');
+
+      btn().click();
+      settled('foldall', function () {
+        check(231, 'one press unfolds every branch and turns it into the undo',
+          visibleLabels('foldall').length === 8 && shut() === 0 &&
+          label() === 'Collapse all' && btn().title === 'Fold every branch');
+
+        btn().click();
+        settled('foldall', function () {
+          // Four, not one: the centre node has no fold of its own, and folding
+          // it would leave a lone box where the map was.
+          check(232, 'the next press folds every branch and spares the centre',
+            visibleLabels('foldall').length === 4 && shut() === 3 &&
+            label() === 'Expand all');
+
+          btn().click();
+          settled('foldall', function () {
+            nodeIn(host, 'Requirements')
+              .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            settled('foldall', function () {
+              check(233, 'a branch folded by hand flips the label straight back',
+                shut() === 1 && label() === 'Expand all');
+              check(234, 'a map with no branch to fold is offered no button',
+                !document.querySelector('#foldflat .mm-fold-all') &&
+                document.querySelectorAll('#foldflat .mm-ctl[data-dir]').length === 2);
+              check(235, 'data-controls=false drops the fold button with the rest',
+                !document.querySelector('#nocontrols .mm-fold-all'));
+
+              // The label is promised to follow the tree however the tree
+              // came to be that way, and the button's own press is only one
+              // of the routes in. These are the rest of the ones the library
+              // owns — a map that never had a press at all, the API, and the
+              // keyboard. Each of them could regress on its own while 229-234
+              // went on passing.
+              check(236, 'a map that opens folded opens offering the way out',
+                foldLabel('preset') === 'Expand all' &&
+                foldBtn('preset').getAttribute('data-act') === 'expand');
+
+              MindMap.expandAll(host);
+              settled('foldall', function () {
+                var opened = shut() === 0 && label() === 'Collapse all' &&
+                  btn().getAttribute('data-act') === 'collapse';
+                MindMap.collapseAll(host);
+                settled('foldall', function () {
+                  check(237, 'the API carries the button along with the map',
+                    opened && shut() === 3 && label() === 'Expand all' &&
+                    btn().getAttribute('data-act') === 'expand');
+
+                  MindMap.expandAll(host);
+                  settled('foldall', function () {
+                    // The reader's other way of folding one branch, and the
+                    // one that never goes near the button.
+                    nodeIn(host, 'Requirements').dispatchEvent(
+                      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+                    settled('foldall', function () {
+                      check(238, 'folding from the keyboard moves the button too',
+                        shut() === 1 && label() === 'Expand all' &&
+                        btn().getAttribute('data-act') === 'expand');
+                      done();
+                    });
+                  });
+                });
+              });
+            });
+          });
+        });
+      });
+    })();
+
     // The root moves alone -- carrying its subtree would just slide the map.
     (function () {
       var done = group('root drag');

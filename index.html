@@ -519,6 +519,39 @@ Testing
 folds; for a reader whose device is set to reduce motion it arrives there in one
 step instead, without the animation.</p>
 
+<h3 id="fold-all">Folding the whole map at once</h3>
+
+<p>A reader working through a big map one branch at a time can open or shut all
+of it in a single click. In the map's top corner, beside the shape switch, is a
+button that reads <strong>Expand all</strong> while any branch is folded; press
+it and every branch opens. With nothing left folded it becomes <strong>Collapse
+all</strong>, which shuts the map back down to its top-level topics. Fold one
+branch by hand and it goes back to offering <strong>Expand all</strong>.</p>
+
+<div class="demo">
+<pre class="mindmap" data-credit="false" data-collapse-level="1">
+Software Engineering
+  Requirements
+    Gathering
+    Specification
+    Validation
+  Design
+    Architecture
+    Design Patterns
+  Implementation
+    Coding Standards
+    Refactoring
+  Testing
+    Unit Testing
+    Integration Testing
+</pre>
+</div>
+
+<p>There is nothing to set up: the button appears wherever there is something to
+fold, and a map whose branches are all single nodes does not get one. It hides
+with the shape switch under <code>data-controls="false"</code>, and goes away
+entirely with <code>data-interactive="false"</code>.</p>
+
 <h3 id="collapse-level">Starting a map partly folded</h3>
 
 <p>Big maps are friendlier if they open as an overview.
@@ -840,7 +873,8 @@ Requirements
 <p>You still set the starting shape with <code>data-direction</code>; the switch
 just lets a reader try the other one. Folded branches stay folded across a
 switch. If you would rather pin one shape, set
-<code>data-controls="false"</code>.</p>
+<code>data-controls="false"</code> — which takes the
+<a href="#fold-all">fold button</a> beside it with it.</p>
 
 <p>By keyboard, the switch is a single stop: <kbd>Tab</kbd> to it and the arrow
 keys move between the two shapes, the way a set of radio buttons works.</p>
@@ -1061,8 +1095,9 @@ tall, and scrolls only if the content outgrows even that.</p>
   <tr>
     <td><code>data-controls</code></td>
     <td><code>true</code></td>
-    <td>Set to <code>false</code> to hide the shape switch and fix the map in
-        the shape you chose.</td>
+    <td>Set to <code>false</code> to hide the buttons in the map's corner —
+        the shape switch and the fold button — fixing the map in the shape you
+        chose.</td>
   </tr>
   <tr>
     <td><code>data-draggable</code></td>
@@ -1210,8 +1245,8 @@ the browser console.</p>
 
 <ul class="tight">
   <li>Maps are drawn as SVG, so they stay sharp at any zoom and print cleanly.
-      The drawing is all that prints: the shape switch and the credit caption
-      are for a reader who can click, so they stay off the page.</li>
+      The drawing is all that prints: the buttons in the corner and the credit
+      caption are for a reader who can click, so they stay off the page.</li>
   <li>Maps shrink to fit a narrow screen, down to 70% of full size, and scroll
       sideways if they still do not fit. A scrolled map starts centred on its
       centre node.</li>
@@ -1453,7 +1488,7 @@ carrying maps.</p>
 </footer>
 </div>
 
-<script src="mindmap.js?v=1.11.1"></script>
+<script src="mindmap.js?v=1.12.0"></script>
 <script>
   // Taken from the library itself, so the badge can never drift from the
   // script actually loaded (and a stale cache is visible at a glance).

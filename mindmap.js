@@ -1,5 +1,5 @@
 /*!
- * mind-maps-helper v1.11.1
+ * mind-maps-helper v1.12.0
  * Simple indented-text syntax -> interactive-ready SVG mind maps.
  * PlantUML-style geometry with a refined palette.
  * No dependencies. MIT licensed.
@@ -8,7 +8,7 @@
 (function (global) {
   'use strict';
 
-  var VERSION = '1.11.1';
+  var VERSION = '1.12.0';
 
   // Where the credit chip under a map points.
   var HOME = 'https://se-education.org/mind-maps-helper/';
@@ -1897,6 +1897,9 @@
     });
 
     syncToggleState(root);
+    // Here rather than in the callers: a fold moves the fold button's label,
+    // and a fold reaches the map from a badge, the API and the button itself.
+    syncControls(state);
 
     var toBounds = targetBounds(state, size);
 
@@ -2227,9 +2230,43 @@
   }
 
   function toggleNode(state, node) {
-    if (!node.children.length || node.depth === 0) return;
+    if (!foldable(node)) return;
     node.collapsed = !node.collapsed;
     relayout(state, true);
+  }
+
+  /**
+   * Folds or unfolds every branch at once. The centre node is left out: it
+   * carries no badge of its own, and folding it would leave a lone box where
+   * the map was.
+   */
+  function foldAll(state, collapsed) {
+    eachNode(state.root, function (n) {
+      if (foldable(n)) n.collapsed = collapsed;
+    });
+    relayout(state, true);
+  }
+
+  /** A node with a fold of its own — the ones foldAll and its button act on. */
+  function foldable(node) {
+    return node.depth > 0 && node.children.length > 0;
+  }
+
+  /** Whether the map has a fold to offer at all — a flat one has none. */
+  function anyFoldable(root) {
+    var any = false;
+    eachNode(root, function (n) { if (foldable(n)) any = true; });
+    return any;
+  }
+
+  /**
+   * One folded branch is enough. A half-folded map has an unfolding to do and
+   * no folding, so it is the same case as a fully folded one.
+   */
+  function anyFolded(root) {
+    var any = false;
+    eachNode(root, function (n) { if (foldable(n) && n.collapsed) any = true; });
+    return any;
   }
 
   /**
@@ -2247,14 +2284,21 @@
 
     state.sides = assignSides(state.root, direction);
     syncTogglePositions(state.root);
-    syncControls(state);
-    relayout(state, true);
+    relayout(state, true);      // syncs the controls on its way through
     return true;
   }
 
+  /** Brings every control back in line with the map after it changes. */
   function syncControls(state) {
     if (!state.controls) return;
-    var buttons = state.controls.querySelectorAll('.mm-ctl');
+    syncShapeSwitch(state);
+    syncFoldAll(state);
+  }
+
+  function syncShapeSwitch(state) {
+    // By data-dir, not by class: the fold button shares the button styling
+    // and is not one of the shapes.
+    var buttons = state.controls.querySelectorAll('.mm-ctl[data-dir]');
     for (var i = 0; i < buttons.length; i++) {
       var on = buttons[i].getAttribute('data-dir') === state.direction;
       buttons[i].setAttribute('aria-checked', on ? 'true' : 'false');
@@ -2265,6 +2309,31 @@
       buttons[i].classList.toggle('mm-ctl-on', on);
     }
   }
+
+  /**
+   * The fold button is labelled with what the next press will do, so it reads
+   * as "Expand all" for as long as anything is folded and turns into its own
+   * undo once nothing is. Folding one branch by hand flips it straight back,
+   * which is why this is driven from the tree rather than from the last press.
+   */
+  function syncFoldAll(state) {
+    var b = state.controls.querySelector('.mm-fold-all');
+    if (!b) return;
+    var expand = anyFolded(state.root);
+    b.setAttribute('data-act', expand ? 'expand' : 'collapse');
+    b.title = expand ? 'Unfold every branch' : 'Fold every branch';
+    b.querySelector('.mm-ctl-text').textContent =
+      expand ? 'Expand all' : 'Collapse all';
+    b.querySelector('.mm-ctl-icon path')
+      .setAttribute('d', FOLD_ICON[expand ? 'expand' : 'collapse']);
+  }
+
+  // A box holding the same +/- the fold badges carry, so the button and the
+  // badges it works read as the same control at two scales.
+  var FOLD_ICON = {
+    expand: 'M3.5 2.5h9v9h-9zM5.5 7h5M8 4.5v5',
+    collapse: 'M3.5 2.5h9v9h-9zM5.5 7h5'
+  };
 
   var DIRECTION_ICON = {
     balanced: 'M2 7h4M10 7h4M6 3.5h1.5M6 10.5h1.5M8.5 3.5H10M8.5 10.5H10' +
@@ -2282,6 +2351,11 @@
   function buildControls(state, altDirection) {
     var bar = document.createElement('div');
     bar.className = 'mm-controls';
+
+    // Its own outline, left of the pair: it acts on the map, where the pair
+    // only says which shape the map is in. One outline around all three would
+    // read as three settings, and one of them is not a setting.
+    if (anyFoldable(state.root)) bar.appendChild(buildFoldAll(state));
 
     var seg = document.createElement('div');
     seg.className = 'mm-seg';
@@ -2339,6 +2413,46 @@
 
     bar.appendChild(seg);
     return bar;
+  }
+
+  /**
+   * One button doing both jobs, rather than a pair. A pair always has one
+   * member that does nothing a reader can see — "Collapse all" on a map that
+   * is already folded shut — and a dead control beside a live one is read as
+   * a broken one.
+   */
+  function buildFoldAll(state) {
+    var seg = document.createElement('div');
+    seg.className = 'mm-seg';
+
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'mm-ctl mm-fold-all';
+
+    var icon = document.createElementNS(SVG_NS, 'svg');
+    icon.setAttribute('class', 'mm-ctl-icon');
+    icon.setAttribute('viewBox', '0 0 16 14');
+    icon.setAttribute('aria-hidden', 'true');
+    icon.appendChild(svgEl('path', {
+      d: FOLD_ICON.expand, fill: 'none', 'stroke-width': 1.3,
+      'stroke-linecap': 'round', 'stroke-linejoin': 'round'
+    }));
+
+    // Both left empty for syncFoldAll to fill, so one function decides how
+    // this button reads and there is no second copy to fall out of step.
+    var text = document.createElement('span');
+    text.className = 'mm-ctl-text';
+
+    b.appendChild(icon);
+    b.appendChild(text);
+    // Which way it goes is read off the button, so the press and the label
+    // can never disagree about what was asked for.
+    b.addEventListener('click', function () {
+      foldAll(state, b.getAttribute('data-act') === 'collapse');
+    });
+
+    seg.appendChild(b);
+    return seg;
   }
 
   // How far the pointer must travel before a press counts as a drag rather
@@ -2790,10 +2904,12 @@
     // credit above: paper is where a syllabus map is often read, and which
     // topics are behind and which are today's is the reason it was printed.
 
-    // --- shape switch ---
+    // --- control bar ---
     // Quiet at rest, but still legible at rest: the label has to carry its own
     // contrast, because a reader who never hovers is the common case.
-    '.mm-controls{display:flex;justify-content:flex-end;',
+    // The gap is what keeps the fold button and the shape pair reading as two
+    // objects rather than one long strip of four buttons.
+    '.mm-controls{display:flex;justify-content:flex-end;gap:6px;',
     'margin:0 0 3px;opacity:.75;transition:opacity .15s ease;}',
     '.mm-container:hover .mm-controls,.mm-controls:focus-within{opacity:1;}',
     // The two shapes are alternatives, so they share one outline: separate
@@ -3211,7 +3327,7 @@
         root: root, opts: opts, sides: sides, size: size, svg: svg,
         direction: opts.direction, container: container,
         bounds: null,              // the viewBox as last painted
-        controls: null,            // the shape switch, when there is one
+        controls: null,            // the control bar, when there is one
         suppressClick: false,      // a drag just ended; the click it becomes is not one
         animation: newAnimation()
       };
@@ -3361,10 +3477,7 @@
   function setAllCollapsed(el, collapsed) {
     var state = stateOf(el);
     if (!state) return false;
-    eachNode(state.root, function (n) {
-      if (n.depth > 0 && n.children.length) n.collapsed = collapsed;
-    });
-    relayout(state, true);
+    foldAll(state, collapsed);
     return true;
   }
 
