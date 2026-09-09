@@ -1020,6 +1020,128 @@ A centre node long enough to wrap
   Short
 </pre></div>
 
+<h2>85. Indented branches</h2>
+<p class="want">Expect: every level steps the same small distance further out
+and stacks underneath its parent, with the line dropping from the underside of
+the box and elbowing into the child -- the shape a file browser gives folders
+and sub-folders. Branches still leave the centre by fanning out of its sides,
+and the fold badge sits on the drop line rather than on the outward edge.</p>
+<div class="case" id="indented"><pre class="mindmap" data-layout="indent">
+Software Engineering
+  Requirements
+    Elicitation
+      Interviews
+      Observation
+    Specification
+      Use cases
+  Design
+    Architecture
+      Layered
+</pre></div>
+
+<h2>86. The same map fanned out</h2>
+<p class="want">Expect: the map above in the default arrangement -- one column
+per level, so it is markedly wider and shorter. The pair is what the width
+comparison reads.</p>
+<div class="case" id="indentfan"><pre class="mindmap">
+Software Engineering
+  Requirements
+    Elicitation
+      Interviews
+      Observation
+    Specification
+      Use cases
+  Design
+    Architecture
+      Layered
+</pre></div>
+
+<h2>87. Folding an indented branch</h2>
+<p class="want">Expect: folding works the way it does in the fanned shape --
+the subtree goes, the canvas shrinks, and the badge left behind still sits under
+the box it belongs to.</p>
+<div class="case" id="indentfold"><pre class="mindmap" data-layout="indent">
+Software Engineering
+  Requirements
+    Elicitation
+      Interviews
+      Observation
+    Specification
+      Use cases
+  Design
+    Architecture
+      Layered
+</pre></div>
+
+<h2>88. An arrangement that names nothing</h2>
+<p class="want">Expect: a map drawn the default way. An unusable
+<code>data-layout</code> falls back rather than failing, the way every other
+unusable value does.</p>
+<div class="case" id="indentbogus"><pre class="mindmap" data-layout="sideways">
+Fallback
+  Alpha
+    One
+  Beta
+    Two
+</pre></div>
+
+<h2>89. An indented map through the shape switch</h2>
+<p class="want">Expect: the switch moves every branch to one side and the
+indentation goes with it -- each level still steps the same distance out, now in
+the other direction, and the fold badges cross to the other end of their boxes.
+Switching back restores the split.</p>
+<div class="case" id="indentswitch"><pre class="mindmap" data-layout="indent">
+Switching
+  Requirements
+    Elicitation
+      Interviews
+    Specification
+  Design
+    Architecture
+      Layered
+  Testing
+    Unit tests
+</pre></div>
+
+<h2>90. Dragging an indented node</h2>
+<p class="want">Expect: the drag carries the subtree, and the canvas grows to
+take in the fold badge -- which in this arrangement hangs below the box rather
+than off its side, so a canvas measured the fanned way would clip it.</p>
+<div class="case" id="indentdrag"><pre class="mindmap" data-layout="indent" data-direction="right">
+Dragging
+  Alpha
+    Alpha one
+    Alpha two
+  Beta
+    Beta one
+</pre></div>
+
+<h2>91. Re-measuring an indented map</h2>
+<p class="want">Expect: content that arrives late and resizes a box leaves every
+badge on its drop line. A re-measure moves the badges itself, and it is the one
+path that does so outside a first draw.</p>
+<template id="src-indent-editable"><div class="probe">Before</div></template>
+<div class="case" id="indentrefresh"><pre class="mindmap" data-layout="indent">
+Re-measuring
+  Branch
+    ![](#src-indent-editable)
+      Child
+</pre></div>
+
+<h2>92. A folded row still holds its badge clear</h2>
+<p class="want">Expect: the gap under a branch that opens folded is the wide one
+too. Its children are not drawn, so the badge hangs towards the next sibling
+instead of towards a child -- the reason the row gap is opened up everywhere
+rather than only under a parent with something visible beneath it.</p>
+<div class="case" id="indentfolded"><pre class="mindmap" data-layout="indent" data-direction="right">
+Folded rows
+  Branch
+    Middle
+      [+] Folded away
+        Hidden
+      Next along
+</pre></div>
+
 <script>document.write('<script src="mindmap.js?v='+Date.now()+'"><\/script>');</script>
 <script>document.write('<script src="tests.js?v='+Date.now()+'"><\/script>');</script>
 

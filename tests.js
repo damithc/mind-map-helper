@@ -103,6 +103,68 @@ window.addEventListener('load', function () {
      * placed every box correctly and drew the curves from the wrong corners
      * passes every count and overlap check in the suite.
      */
+    // Half the indent step, which is how far in from a box's root-facing edge
+    // the indented shape drops its line, and the largest radius it rounds the
+    // turn with. Written out here rather than read off the script, which does
+    // not export them — copies, but ones the suite would notice going stale:
+    // check 246 reads the same distance off the badge, and 243 reads the whole
+    // step off the layout.
+    var SPINE_IN = 13;
+    var ELBOW_MAX = 6;
+
+    /**
+     * The two ends a curve has to meet, and where the path says it put them.
+     * The fanned shape sweeps from one box's outward edge to the next box's
+     * inward one; the indented shape drops from under the box and elbows into
+     * the child's root-facing edge, so what "meets its two boxes" means has to
+     * be read off the arrangement rather than off the string. Keyed on the
+     * layout and not on which form the `d` happens to be in, so an edge drawn
+     * in the wrong shape for its map fails here instead of being graded
+     * against the shape it drew.
+     */
+    function edgeEnds(state, node, child) {
+      var d = child.edge.getAttribute('d');
+      var p = boxRect(node.el), k = boxRect(child.el);
+      var outward = (k.x + k.w / 2) > (p.x + p.w / 2);
+
+      if (state.opts.layout === 'indent' && child.depth > 1) {
+        var e = /^M([^,]+),([^ ]+) V([^ ]+) Q([^,]+),([^ ]+) ([^,]+),([^ ]+) H(.+)$/
+          .exec(d);
+        if (!e) return null;
+        var spine = outward ? p.x + SPINE_IN : p.x + p.w - SPINE_IN;
+        var from = p.y + p.h;             // the underside it leaves
+        var centre = k.y + k.h / 2;       // the line it has to arrive on
+        var into = outward ? k.x : k.x + k.w;
+
+        // The corner is rounded, so the drop stops short of the centre line and
+        // the turn ends short of the child — by the same radius, worked out the
+        // way the drawing works it out. Every coordinate the path carries is
+        // named below: an elbow that turned or ended at the wrong height used
+        // to pass this check, because only the ends of it were read.
+        var r = Math.max(0, Math.min(ELBOW_MAX,
+          Math.abs(centre - from) / 2, Math.abs(into - spine)));
+        var down = centre < from ? -1 : 1;
+        var out = into < spine ? -1 : 1;
+
+        return {
+          got: [e[1], e[2], e[3], e[4], e[5], e[6], e[7], e[8]],
+          want: [spine, from,               // leaves the underside, on the line
+                 centre - down * r,         // drops to just short of the centre
+                 spine, centre,             // turns about the corner itself
+                 spine + out * r, centre,   // comes out of the turn on the line
+                 into]                      // and runs into the child's edge
+        };
+      }
+
+      var c = /^M([^,]+),([^ ]+) C[^ ]+ [^ ]+ ([^,]+),(.+)$/.exec(d);
+      if (!c) return null;
+      return {
+        got: [c[1], c[2], c[3], c[4]],
+        want: [outward ? p.x + p.w : p.x, p.y + p.h / 2,
+               outward ? k.x : k.x + k.w, k.y + k.h / 2]
+      };
+    }
+
     function edgesMeetBoxes(map) {
       var state = map.mindMap;
       if (!state) return false;
@@ -111,18 +173,13 @@ window.addEventListener('load', function () {
         for (var i = 0; i < node.children.length; i++) {
           var child = node.children[i];
           if (child.edge && child.edge.style.display !== 'none') {
-            var d = /^M([^,]+),([^ ]+) C[^ ]+ [^ ]+ ([^,]+),(.+)$/.exec(
-              child.edge.getAttribute('d'));
-            if (!d) ok = false;
+            var ends = edgeEnds(state, node, child);
+            if (!ends) ok = false;
             else {
-              var p = boxRect(node.el), k = boxRect(child.el);
-              var outward = (k.x + k.w / 2) > (p.x + p.w / 2);
-              var want = [outward ? p.x + p.w : p.x, p.y + p.h / 2,
-                          outward ? k.x : k.x + k.w, k.y + k.h / 2];
-              for (var j = 0; j < 4; j++) {
+              for (var j = 0; j < ends.want.length; j++) {
                 // The transforms are rounded to two places and the path is not,
                 // so they meet to within half of the last place kept.
-                if (Math.abs(parseFloat(d[j + 1]) - want[j]) > 0.02) ok = false;
+                if (Math.abs(parseFloat(ends.got[j]) - ends.want[j]) > 0.02) ok = false;
               }
             }
           }
@@ -3041,6 +3098,307 @@ window.addEventListener('load', function () {
           same(tocGroup('toc-advanced'), below));
 
         done();
+      }
+    })();
+
+    // ---- the indented arrangement
+    //
+    // The point of it is a level that costs the same whatever its labels say,
+    // so the checks are on the geometry rather than on how it looks: a fixed
+    // step out, a stack downwards, and the width that buys. Check 159 already
+    // holds every edge on the page to its two boxes, this shape included.
+    (function () {
+      var state = mapState('indented');
+      var nodes = [];
+      (function walk(n) {
+        nodes.push(n);
+        for (var i = 0; i < n.children.length; i++) walk(n.children[i]);
+      })(state.root);
+
+      /** A node's root-facing edge — the one the indent is measured from. */
+      function inner(n) { return n.side > 0 ? n.x : n.x + n.w; }
+
+      var deep = nodes.filter(function (n) { return n.depth > 1; });
+
+      check(243, 'every level steps the same distance out, whatever its labels say',
+        deep.length >= 5 && deep.every(function (n) {
+          return Math.abs((inner(n) - inner(n.parent)) * n.side - 26) < 0.01;
+        }));
+
+      // The step is only half of it: a child that stepped out but stayed level
+      // with its parent would overlap the box it belongs under.
+      check(244, 'a child stacks under its parent rather than beside it',
+        deep.length >= 5 && deep.every(function (n) {
+          return n.cy - n.h / 2 > n.parent.cy + n.parent.h / 2;
+        }));
+
+      // Named on the centre node because that is the one box with children
+      // going both ways: a drop line from under it could only belong to one of
+      // them, so the branches keep the fan whatever the rest of the map does.
+      var branchEdges = state.root.children.map(function (b) {
+        return b.edge.getAttribute('d');
+      });
+      check(245, 'branches still leave the centre by fanning out of its sides',
+        branchEdges.length > 0 &&
+        branchEdges.every(function (d) { return d.indexOf(' C') > -1; }) &&
+        deep.every(function (n) {
+          return n.edge.getAttribute('d').indexOf(' V') > -1;
+        }));
+
+      // The badge marks where the subtree leaves the box, which in this shape
+      // is the underside rather than the outward edge.
+      check(246, 'the fold badge sits on the drop line under the box',
+        deep.concat(state.root.children).every(function (n) {
+          if (!n.toggleEl) return true;
+          var m = /translate\(([-\d.]+),([-\d.]+)\)/.exec(
+            n.toggleEl.getAttribute('transform'));
+          var want = n.side > 0 ? 13 : n.w - 13;
+          return Math.abs(parseFloat(m[1]) - want) < 0.02 &&
+                 Math.abs(parseFloat(m[2]) - n.h) < 0.02;
+        }));
+
+      // What the whole thing is for, against the same source drawn the default
+      // way. Stated as a ratio rather than a pixel count so a change to the
+      // metrics moves it without breaking it — and the height is stated too,
+      // because it is the price and should fail if it ever stops being paid.
+      var wide = mapState('indentfan').size;
+      var narrow = state.size;
+      check(247, 'the same map is far narrower indented, and taller for it',
+        narrow.width < wide.width * 0.75 && narrow.height > wide.height);
+
+      check(248, 'an arrangement that names nothing falls back to the default',
+        mapState('indentbogus').opts.layout === 'fan');
+    })();
+
+    (function () {
+      var done = group('indented folding');
+      var state = mapState('indentfold');
+      var before = state.size.height;
+      var branch = nodeIn('indentfold', 'Requirements');
+
+      branch.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+      settled('indentfold', function () {
+        check(249, 'folding an indented branch takes its subtree off screen',
+          visibleLabels('indentfold').indexOf('Interviews') === -1 &&
+          visibleLabels('indentfold').indexOf('Design') > -1);
+
+        // The canvas is the thing a fold is supposed to buy back, and in this
+        // shape it is bought in height rather than in width.
+        check(250, 'the canvas shrank downwards, which is where the room was',
+          parseFloat(svgOf('indentfold').getAttribute('height')) < before);
+        done();
+      });
+    })();
+
+    // The indented arrangement through the paths it shares with the fanned one.
+    // These are the ones a refactor would break silently: the shape switch is
+    // the only thing that moves a branch across the root, the canvas is the
+    // only thing that has to know which way a badge pokes, and a re-measure is
+    // the only thing that moves a badge after the first draw.
+    (function () {
+      var done = group('indented re-layout');
+
+      /** Every node in the tree, folded away or not. */
+      function eachNodeIn(node, fn) {
+        fn(node);
+        for (var i = 0; i < node.children.length; i++) eachNodeIn(node.children[i], fn);
+      }
+
+      /** A node's root-facing edge — the one the indent is measured from. */
+      function inner(n) { return n.side > 0 ? n.x : n.x + n.w; }
+
+      /** Every node below the branches, which are the ones that step. */
+      function stepped(state) {
+        var out = [];
+        (function walk(n) {
+          if (n.depth > 1) out.push(n);
+          for (var i = 0; i < n.kids.length; i++) walk(n.kids[i]);
+        })(state.root);
+        return out;
+      }
+
+      function stepsHold(state) {
+        var deep = stepped(state);
+        return deep.length >= 4 && deep.every(function (n) {
+          return Math.abs((inner(n) - inner(n.parent)) * n.side - 26) < 0.01;
+        });
+      }
+
+      function badgesOnDropLine(state) {
+        var ok = true;
+        eachNodeIn(state.root, function (n) {
+          if (!n.toggleEl) return;
+          var m = /translate\(([-\d.]+),([-\d.]+)\)/.exec(
+            n.toggleEl.getAttribute('transform'));
+          var want = n.side > 0 ? 13 : n.w - 13;
+          if (Math.abs(parseFloat(m[1]) - want) > 0.02 ||
+              Math.abs(parseFloat(m[2]) - n.h) > 0.02) ok = false;
+        });
+        return ok;
+      }
+
+      // Two constants that have to stay in proportion, and nothing in the
+      // script says so where either is written. The badge sits a half-step in
+      // from the box's root-facing edge and reaches TOGGLE_HIT_R towards the
+      // child, which starts a full step in: let the step narrow or the target
+      // grow and the badge silently swallows presses meant for the row below.
+      // The clearance is read off a drawn map rather than off the numbers, so
+      // it covers the placement as well as the arithmetic.
+      (function () {
+        var st = mapState('indented');
+        var tight = Infinity;
+        var seen = 0;
+        (function walk(n) {
+          if (n.toggleEl && n.kids.length) {
+            seen++;
+            // Bounding boxes, so this is the clearance at the badge's widest,
+            // which is level with its own centre. Where the child actually
+            // starts, several pixels lower, the circle has narrowed and the
+            // real gap is wider — this is the conservative reading of it.
+            var badge = n.toggleEl.getBoundingClientRect();
+            var kid = n.kids[0].el.getBoundingClientRect();
+            tight = Math.min(tight, n.side > 0 ? kid.left - badge.right
+                                               : badge.left - kid.right);
+          }
+          for (var i = 0; i < n.kids.length; i++) walk(n.kids[i]);
+        })(st.root);
+        check(257, 'a fold badge never reaches over the row indented under it',
+          seen >= 3 && tight > 0);
+      })();
+
+      // And the same in the other axis: below depth two the ordinary row gap is
+      // narrower than the badge, so the layout has to open it up rather than
+      // let the badge sit on the box beneath it.
+      (function () {
+        var st = mapState('indented');
+        var worst = Infinity;
+        (function walk(n) {
+          if (n.toggleEl && n.kids.length) {
+            var below = (n.kids[0].cy - n.kids[0].h / 2) - (n.cy + n.h / 2);
+            worst = Math.min(worst, below);
+          }
+          for (var i = 0; i < n.kids.length; i++) walk(n.kids[i]);
+        })(st.root);
+        check(258, 'the row under a badge is opened up to clear it',
+          worst >= 9.5 - 0.01);
+      })();
+
+      // Both of the above walk `kids`, so neither of them ever reaches a node
+      // that is folded: it keeps its badge and loses its children, and the row
+      // the badge hangs towards is its next sibling rather than its first
+      // child. That is the case the general floor exists for, so it is worth
+      // one check of its own -- a later refactor narrowing the floor back to
+      // parent-to-first-child would leave 257 and 258 green.
+      (function () {
+        var st = mapState('indentfolded');
+        var folded = null, next = null;
+        (function walk(n) {
+          for (var i = 0; i < n.kids.length; i++) {
+            if (n.kids[i].collapsed && n.kids[i + 1]) {
+              folded = n.kids[i];
+              next = n.kids[i + 1];
+            }
+            walk(n.kids[i]);
+          }
+        })(st.root);
+        check(259, 'a folded row keeps the next row clear of its badge',
+          !!folded && folded.depth > 2 && !!folded.toggleEl &&
+          folded.kids.length === 0 && folded.children.length > 0 &&
+          (next.cy - next.h / 2) - (folded.cy + folded.h / 2) >= 9.5 - 0.01);
+      })();
+
+      var sw = mapState('indentswitch');
+      var host = scopeOf('indentswitch');
+      function btn(dir) { return host.querySelector('.mm-ctl[data-dir="' + dir + '"]'); }
+
+      btn('right').click();
+      settled('indentswitch', function () {
+        var root = sw.root;
+        var everyoneRight = stepped(sw).every(function (n) { return n.side > 0; });
+
+        // The step is signed, so a branch that crossed the root without its
+        // indentation crossing with it would step the wrong way here.
+        check(251, 'the indentation crosses the root with the branches',
+          everyoneRight && stepsHold(sw) &&
+          root.children.every(function (b) { return b.x >= root.x + root.w; }));
+        check(252, 'the badges cross to the other end of their boxes',
+          badgesOnDropLine(sw));
+
+        btn('balanced').click();
+        settled('indentswitch', function () {
+          check(253, 'switching back splits the map again, still indented',
+            stepsHold(sw) && badgesOnDropLine(sw) &&
+            stepped(sw).some(function (n) { return n.side < 0; }) &&
+            stepped(sw).some(function (n) { return n.side > 0; }));
+          dragCase();
+        });
+      });
+
+      // A collapsed node is the one that can be dragged below its own subtree,
+      // which is what puts a badge at the bottom of the canvas: its children
+      // are not drawn, so nothing of its own is left underneath it.
+      function dragCase() {
+        var st = mapState('indentdrag');
+        var beta = nodeIn('indentdrag', 'Beta');
+        beta.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+        settled('indentdrag', function () {
+          var pointer = pointerFor(9);
+          var kid = nodeIn('indentdrag', 'Alpha one');
+          var kidBefore = posOf(kid);
+          var betaBefore = posOf(beta);
+          var r = beta.getBoundingClientRect();
+          pointer(beta, 'pointerdown', r.left + 5, r.top + 5);
+          pointer(beta, 'pointermove', r.left + 25, r.top + 95);
+          pointer(beta, 'pointerup', r.left + 25, r.top + 95);
+
+          settled('indentdrag', function () {
+            var node = null;
+            eachNodeIn(st.root, function (n) {
+              if ((n.plain || n.label) === 'Beta') node = n;
+            });
+            // posOf reads the transform, which stands the box on its top edge.
+            var top = posOf(beta);
+            check(254, 'the drag moved the node and left the rest of the map alone',
+              top.y - betaBefore.y > 40 && top.x - betaBefore.x > 10 &&
+              Math.abs(posOf(kid).x - kidBefore.x) < 0.001 &&
+              Math.abs(posOf(kid).y - kidBefore.y) < 0.001);
+
+            // Exactly the badge's reach past the box, below the padding. Read
+            // as a distance rather than a comparison, so a canvas that grew for
+            // some other reason does not pass for one that made room.
+            var vb = svgOf('indentdrag').getAttribute('viewBox').split(' ');
+            var bottom = parseFloat(vb[1]) + parseFloat(vb[3]);
+            var boxBottom = top.y + node.h + st.opts.padding;
+            check(255, 'the canvas made room for the badge hanging below it',
+              Math.abs(bottom - (boxBottom + 8.5)) < 0.02);
+            refreshCase();
+          });
+        });
+      }
+
+      function refreshCase() {
+        var box = scopeOf('indentrefresh');
+        var st = mapState('indentrefresh');
+        var held = null;
+        eachNodeIn(st.root, function (n) { if (n.runs && n.children.length) held = n; });
+        var was = held.h;
+
+        document.getElementById('src-indent-editable').content.firstElementChild
+          .textContent = 'After, and a good deal taller than it was, so the box grows';
+        var changed = MindMap.refresh(box);
+
+        settled('indentrefresh', function () {
+          // The badges only move when the re-measure found a new size:
+          // `refresh` reports a content change either way, so a box that came
+          // back the same height would leave this passing on the first draw's
+          // work. Assert the growth, then that the badge went with it.
+          check(256, 'a re-measure that resizes a box takes the badges with it',
+            changed === true && held.h > was &&
+            badgesOnDropLine(mapState('indentrefresh')));
+          done();
+        });
       }
     })();
 

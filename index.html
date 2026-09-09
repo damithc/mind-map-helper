@@ -872,6 +872,10 @@ Requirements
 </pre>
 </div>
 
+<p>Which way the branches run is one choice; how each branch is arranged
+underneath is another, and <a href="#indented">indented branches</a> below
+covers that one.</p>
+
 <p>You still set the starting shape with <code>data-direction</code>; the switch
 just lets a reader try the other one. Folded branches stay folded across a
 switch. If you would rather pin one shape, set
@@ -911,6 +915,110 @@ Git
 </pre>
 </div>
 </div>
+
+<h3 id="indented">Indented branches</h3>
+
+<p>A map that goes three or four levels deep gets <em>wide</em>. Each level
+claims a column as wide as its longest label, so by the fourth one the map is
+running off the side of the page and shrinking to fit.</p>
+
+<p><code>data-layout="indent"</code> arranges it the other way. Instead of
+opening a new column, each level steps a little further out and stacks
+underneath its parent, with the line dropping from the underside of the box —
+the way folders and sub-folders are shown in a file browser. A level then costs
+the same small step whatever its labels say. The map below is
+<strong>599&nbsp;pixels wide; fanned out, the same map is 1075</strong> — so it
+fits a column this narrow, where the fanned one would be shrunk as far as it
+goes and still run off the side.</p>
+
+<div class="split">
+<pre><code>&lt;pre class="mindmap"
+     data-layout="indent"&gt;
+Software Engineering
+  Requirements
+    Elicitation
+      Interviews
+      Observation
+    Specification
+      Use cases
+  Design
+  ...
+&lt;/pre&gt;</code></pre>
+<div class="demo">
+<pre class="mindmap" data-credit="false" data-layout="indent">
+Software Engineering
+  Requirements
+    Elicitation
+      Interviews
+      Observation
+    Specification
+      Use cases
+  Design
+    Architecture
+      Layered
+      Client-server
+    Modelling
+      UML diagrams
+  Testing
+    Unit tests
+    Integration tests
+</pre>
+</div>
+</div>
+
+<p>It is a trade rather than a straight win: what the map stops spending
+sideways it spends downwards, so an indented map is taller than the same map
+fanned out. That is usually the better way round on a web page, which scrolls
+down and not across — but a short, wide map has no width problem to solve, and
+looks better fanned.</p>
+
+<h3 id="indented-one-sided">Indenting reads best one-sided</h3>
+
+<p>In a balanced map the branches on the left step <em>leftwards</em>, away from
+the centre, so that half of the map is a mirror image of a file browser and the
+deepest labels are the ones furthest out. It is perfectly readable, but the
+right-hand half is the one that reads the way an outline normally does. Sending
+every branch the same way gives you the whole map in that form — the same map as
+<a href="#one-sided">just above</a>, indented:</p>
+
+<div class="split">
+<pre><code>&lt;pre class="mindmap"
+     data-layout="indent"
+     data-direction="right"&gt;
+Git
+  Local
+    commit
+    branch
+  Remote
+    push
+    pull
+&lt;/pre&gt;</code></pre>
+<div class="demo">
+<pre class="mindmap" data-credit="false" data-layout="indent" data-direction="right">
+Git
+  Local
+    commit
+    branch
+  Remote
+    push
+    pull
+</pre>
+</div>
+</div>
+
+<p>That is a recommendation, not a rule, and there is a real reason to go the
+other way: splitting the branches across the centre roughly halves the map's
+height, which is the one dimension an indented map spends freely. A deep map
+that would run off the bottom of the screen one-sided may well be better
+balanced. Either way the switch in the corner still offers the reader the other
+shape, so what you set here is where the map opens rather than where it has to
+stay.</p>
+
+<p>Everything else works the same. Branches still split left and right of the
+centre, the shape switch still moves them all to one side, and folding, colours
+and dragging are unchanged. Only the reader cannot switch between the two
+layouts: <code>data-layout</code> is the author's call, because it is the map
+you wrote rather than a view of it.</p>
 
 <h2 id="dragging">Moving nodes</h2>
 
@@ -1057,6 +1165,14 @@ tall, and scrolls only if the content outgrows even that.</p>
 <table>
   <tr><th>Attribute</th><th>Default</th><th>What it does</th></tr>
   <tr>
+    <td><code>data-layout</code></td>
+    <td><code>fan</code></td>
+    <td>How branches are arranged. <code>fan</code> spreads each level into its
+        own column. <code>indent</code> steps each level a little further out
+        and stacks it underneath, the way folders and sub-folders are shown —
+        much narrower for a map that goes deep.</td>
+  </tr>
+  <tr>
     <td><code>data-direction</code></td>
     <td><code>balanced</code></td>
     <td>Which shape the map <em>opens</em> in — readers can switch it themselves.
@@ -1072,7 +1188,10 @@ tall, and scrolls only if the content outgrows even that.</p>
   <tr>
     <td><code>data-column-gap</code></td>
     <td><code>46</code></td>
-    <td>Horizontal space between levels. Lower it to make a wide map fit.</td>
+    <td>Horizontal space between levels. Lower it to make a wide map fit. In
+        an <a href="#indented">indented</a> map it sets only the gap between
+        the centre and its branches; the levels below step by a fixed amount
+        that does not need setting.</td>
   </tr>
   <tr>
     <td><code>data-embed-max-width</code></td>
@@ -1490,7 +1609,7 @@ carrying maps.</p>
 </footer>
 </div>
 
-<script src="mindmap.js?v=1.13.0"></script>
+<script src="mindmap.js?v=1.14.0"></script>
 <script>
   // Taken from the library itself, so the badge can never drift from the
   // script actually loaded (and a stale cache is visible at a glance).

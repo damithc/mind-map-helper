@@ -1,5 +1,5 @@
 /*!
- * mind-maps-helper v1.13.0
+ * mind-maps-helper v1.14.0
  * Simple indented-text syntax -> interactive-ready SVG mind maps.
  * PlantUML-style geometry with a refined palette.
  * No dependencies. MIT licensed.
@@ -8,7 +8,7 @@
 (function (global) {
   'use strict';
 
-  var VERSION = '1.13.0';
+  var VERSION = '1.14.0';
 
   // Where the credit chip under a map points.
   var HOME = 'https://se-education.org/mind-maps-helper/';
@@ -188,6 +188,12 @@
 
   var TOGGLE_R = 7.5;
 
+  // The invisible circle over the badge. A 15px badge is a small thing to aim
+  // at, and on a node holding an embedded block it is the only thing that folds
+  // the branch, so the target is brought up to 24px without drawing anything
+  // bigger. INDENT_STEP is held above it for that reason — see there.
+  var TOGGLE_HIT_R = 12;
+
   // How far the centre node's focus ring is set in from its box. Enough that
   // the whole 2px stroke lands on the fill the ring has to read against, with
   // a sliver of that fill still showing outside it so the ring reads as a ring
@@ -209,7 +215,20 @@
   // Below roughly this, the deepest labels stop being legible.
   var MIN_SCALE = 0.7;
 
+  // How far a child steps away from its parent in the indent layout. Wide
+  // enough that the step reads as a step, narrow enough that four levels of it
+  // cost less than one column of boxes did — and wide enough for the fold badge
+  // that sits half of it in: half the step has to clear TOGGLE_HIT_R, or the
+  // badge's target would reach over the child below and swallow presses meant
+  // for it. Check 257 holds the two constants to that.
+  var INDENT_STEP = 26;
+
+  // Radius of the elbow where an indent-layout edge turns out of its drop line.
+  // Half the stub it has to turn within, so the corner is a corner, not an arc.
+  var ELBOW_R = 6;
+
   var DEFAULTS = {
+    layout: 'fan',           // 'fan' | 'indent'
     direction: 'balanced',   // 'balanced' | 'right' | 'left'
     maxNodeWidth: 190,       // px, before a label wraps to a second line
     columnGap: 46,           // horizontal space between depth columns
@@ -1267,9 +1286,107 @@
     for (var i = 0; i < node.children.length; i++) paintAccent(node.children[i], idx);
   }
 
-  function layout(root, opts, sides) {
-    refreshVisibility(root);
+  /**
+   * Pass 1 for the indent layout. A subtree's block is its own row with all
+   * the rows below it stacked underneath, rather than a band its children are
+   * centred in: the parent sits at the top of its block, which is what makes a
+   * step down and out read as containment the way a folder listing does.
+   */
+  /**
+   * The gap between rows in the indent layout. A fold badge hangs below its
+   * box, and the row under it is only a gap away — the parent's first child,
+   * or the next sibling where the badge belongs to a collapsed node. Below
+   * depth two the ordinary gap is 7px and the badge reaches 7.5, so it would
+   * sit on the box beneath it. Floor the gap to clear the badge with a little
+   * of the page still showing between the two. A map with no badges to hang
+   * pays none of it, which is the only reason `opts` is worth passing down.
+   */
+  function indentGap(depth, opts) {
+    var plain = siblingGap(depth);
+    return opts.interactive ? Math.max(plain, TOGGLE_R + 2) : plain;
+  }
 
+  function indentExtent(node, opts) {
+    var kids = node.kids;
+    if (!kids.length) {
+      node.extent = node.h;
+      node.childrenTotal = 0;
+      return node.extent;
+    }
+    var gap = indentGap(kids[0].depth, opts);
+    var total = 0;
+    for (var i = 0; i < kids.length; i++) {
+      total += indentExtent(kids[i], opts);
+      if (i) total += gap;
+    }
+    node.childGap = gap;
+    node.childrenTotal = total;
+    node.extent = node.h + gap + total;
+    return node.extent;
+  }
+
+  // Pass 2 for the indent layout: the node takes the top of its block, its
+  // children take the rest in order.
+  function placeIndent(node, top) {
+    node.cy = top + node.h / 2;
+    var kids = node.kids;
+    if (!kids.length) return;
+    var y = top + node.h + node.childGap;
+    for (var i = 0; i < kids.length; i++) {
+      placeIndent(kids[i], y);
+      y += kids[i].extent + node.childGap;
+    }
+  }
+
+  /**
+   * Horizontal for the indent layout. `edge` is the node's root-facing edge,
+   * and each generation steps one indent further from the root — so a column
+   * costs a fixed 26px however long the labels in it are, which is the whole
+   * point of the layout.
+   */
+  function placeIndentX(node, edge, sign) {
+    node.x = sign > 0 ? edge : edge - node.w;
+    for (var i = 0; i < node.kids.length; i++) {
+      placeIndentX(node.kids[i], edge + sign * INDENT_STEP, sign);
+    }
+  }
+
+  function layoutIndent(root, opts, sides) {
+    var totals = sides.map(function (side) {
+      var gap = indentGap(1, opts);
+      var total = 0;
+      for (var i = 0; i < side.nodes.length; i++) {
+        total += indentExtent(side.nodes[i], opts);
+        if (i) total += gap;
+      }
+      side.gap = gap;
+      side.total = total;
+      return total;
+    });
+
+    var height = Math.max(totals[0], totals[1], root.h);
+
+    sides.forEach(function (side) {
+      var y = (height - side.total) / 2;
+      for (var i = 0; i < side.nodes.length; i++) {
+        placeIndent(side.nodes[i], y);
+        y += side.nodes[i].extent + side.gap;
+      }
+    });
+
+    root.cy = height / 2;
+    root.x = 0;
+
+    sides.forEach(function (side) {
+      var edge = side.sign > 0 ? root.x + root.w + opts.columnGap
+                               : root.x - opts.columnGap;
+      for (var i = 0; i < side.nodes.length; i++) {
+        placeIndentX(side.nodes[i], edge, side.sign);
+      }
+    });
+  }
+
+  function layoutFan(root, opts, sides) {
     // Vertical: stack each side's branches, then centre both against the root.
     var totals = sides.map(function (side) {
       var gap = siblingGap(1);
@@ -1319,17 +1436,24 @@
         });
       }
     });
+  }
+
+  function layout(root, opts, sides) {
+    refreshVisibility(root);
+
+    if (opts.layout === 'indent') layoutIndent(root, opts, sides);
+    else layoutFan(root, opts, sides);
 
     // Normalise so the drawing starts at (padding, padding).
     var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
     eachVisible(root, function (n) {
-      // A toggle sits on the outward edge and pokes past the box, so it has to
-      // count towards the canvas or it clips at the extremes.
-      var bulge = (opts.interactive && n.depth > 0 && n.children.length) ? TOGGLE_R + 1 : 0;
-      minX = Math.min(minX, n.x - (n.side < 0 ? bulge : 0));
-      maxX = Math.max(maxX, n.x + n.w + (n.side > 0 ? bulge : 0));
-      minY = Math.min(minY, n.cy - n.h / 2);
-      maxY = Math.max(maxY, n.cy + n.h / 2);
+      // A toggle pokes past its box, so it has to count towards the canvas or
+      // it clips at the extremes. Which way it pokes depends on the layout.
+      var b = toggleBulge(n, opts);
+      minX = Math.min(minX, n.x - b.left);
+      maxX = Math.max(maxX, n.x + n.w + b.right);
+      minY = Math.min(minY, n.cy - n.h / 2 - b.up);
+      maxY = Math.max(maxY, n.cy + n.h / 2 + b.down);
     });
 
     var dx = opts.padding - minX;
@@ -1357,7 +1481,15 @@
   }
 
   /** Uses the animated position (ax/acy), which equals the layout when idle. */
-  function edgePath(parent, child) {
+  function edgePath(parent, child, opts) {
+    // Branches leave the centre by fanning out of its side in either layout:
+    // the centre has children going both ways, and a drop line from under it
+    // could only belong to one of them.
+    if (opts.layout === 'indent' && child.depth > 1) return elbowPath(parent, child);
+    return fanPath(parent, child);
+  }
+
+  function fanPath(parent, child) {
     var fromRight = child.side > 0;
     var x1 = fromRight ? nx(parent) + parent.w : nx(parent);
     var x2 = fromRight ? nx(child) : nx(child) + child.w;
@@ -1367,6 +1499,38 @@
     var cx = (x2 - x1) * 0.5;
     return 'M' + x1 + ',' + y1 +
       ' C' + (x1 + cx) + ',' + y1 + ' ' + (x2 - cx) + ',' + y2 + ' ' + x2 + ',' + y2;
+  }
+
+  /**
+   * The indent layout's connector: straight down from under the parent, then
+   * out into the child's root-facing edge. Every child of one parent draws the
+   * same drop line down to its own row, so the overlapping segments read as
+   * the one shared spine a folder listing has, without any of them having to
+   * know about the others — which is what keeps an edge the child's own during
+   * a fold, when its siblings are moving too.
+   *
+   * The signs are worked out rather than assumed because a dragged node can
+   * put a child above its parent or on the wrong side of the drop line, and an
+   * elbow that has stopped making sense should still be a line.
+   */
+  function elbowPath(parent, child) {
+    var sign = child.side > 0 ? 1 : -1;
+    var spineX = sign > 0 ? nx(parent) + INDENT_STEP / 2
+                          : nx(parent) + parent.w - INDENT_STEP / 2;
+    var y1 = ny(parent) + parent.h / 2;
+    var y2 = ny(child);
+    var x2 = sign > 0 ? nx(child) : nx(child) + child.w;
+
+    var dy = y2 - y1;
+    var dx = x2 - spineX;
+    var r = Math.max(0, Math.min(ELBOW_R, Math.abs(dy) / 2, Math.abs(dx)));
+    var sy = dy < 0 ? -1 : 1;
+    var sx = dx < 0 ? -1 : 1;
+
+    return 'M' + spineX + ',' + y1 +
+      ' V' + (y2 - sy * r) +
+      ' Q' + spineX + ',' + y2 + ' ' + (spineX + sx * r) + ',' + y2 +
+      ' H' + x2;
   }
 
   function round(n) { return Math.round(n * 100) / 100; }
@@ -1419,7 +1583,7 @@
     // Root has children on both sides, so a toggle there would be ambiguous
     // and would only ever hide the whole map. Leaves have nothing to hide.
     var canToggle = opts.interactive && !isRoot && node.children.length > 0;
-    if (canToggle) g.appendChild(buildToggle(node));
+    if (canToggle) g.appendChild(buildToggle(node, opts));
 
     node.el = g;
     group.appendChild(g);
@@ -1669,17 +1833,46 @@
     ring.setAttribute('ry', r);
   }
 
-  function buildToggle(node) {
-    // Sits on the edge facing away from the root, where the subtree extends.
-    var cx = node.side > 0 ? node.w : 0;
+  /**
+   * Where a node's fold badge sits, in the node's own coordinates. Both
+   * layouts put it where the subtree leaves the box: the fan hangs it off the
+   * outward edge the children fan from, the indent layout sits it on the drop
+   * line they hang under — which is also where a folder listing keeps its
+   * disclosure control, on the connector rather than beside the label.
+   */
+  function togglePos(node, opts) {
+    if (opts.layout === 'indent') {
+      var half = INDENT_STEP / 2;
+      return { x: node.side > 0 ? half : node.w - half, y: node.h };
+    }
+    return { x: node.side > 0 ? node.w : 0, y: node.h / 2 };
+  }
+
+  /**
+   * How far that badge pokes past the box, per side. Non-negative amounts, so
+   * the caller adds them outwards without minding which layout is in force.
+   */
+  function toggleBulge(node, opts) {
+    var none = { left: 0, right: 0, up: 0, down: 0 };
+    if (!(opts.interactive && node.depth > 0 && node.children.length)) return none;
+    var r = TOGGLE_R + 1;
+    // The indent layout's badge sits a half-indent inside the box, so it
+    // clears the sides on its own and only ever pokes downwards.
+    if (opts.layout === 'indent') return { left: 0, right: 0, up: 0, down: r };
+    return {
+      left: node.side < 0 ? r : 0,
+      right: node.side > 0 ? r : 0,
+      up: 0, down: 0
+    };
+  }
+
+  function buildToggle(node, opts) {
+    var at = togglePos(node, opts);
     var t = svgEl('g', {
       'class': 'mm-toggle',
-      transform: 'translate(' + round(cx) + ',' + round(node.h / 2) + ')'
+      transform: 'translate(' + round(at.x) + ',' + round(at.y) + ')'
     });
-    // A 15px badge is a small thing to hit, and on a node holding an embedded
-    // block it is the only thing that folds the branch. An invisible circle
-    // over it brings the target to 24px without drawing anything bigger.
-    t.appendChild(svgEl('circle', { 'class': 'mm-toggle-hit', r: 12 }));
+    t.appendChild(svgEl('circle', { 'class': 'mm-toggle-hit', r: TOGGLE_HIT_R }));
     t.appendChild(svgEl('circle', { 'class': 'mm-toggle-bg', r: TOGGLE_R }));
     t.appendChild(svgEl('path', { 'class': 'mm-toggle-sign', d: 'M-3.4 0 H3.4' }));
     t.appendChild(svgEl('path', { 'class': 'mm-toggle-sign mm-toggle-v', d: 'M0 -3.4 V3.4' }));
@@ -1687,12 +1880,13 @@
     return t;
   }
 
-  /** Toggles live on the outward edge, which flips when a branch changes side. */
-  function syncTogglePositions(root) {
+  /** Toggles live on the outward side, which flips when a branch changes side. */
+  function syncTogglePositions(root, opts) {
     eachNode(root, function (n) {
       if (!n.toggleEl) return;
+      var at = togglePos(n, opts);
       n.toggleEl.setAttribute('transform',
-        'translate(' + round(n.side > 0 ? n.w : 0) + ',' + round(n.h / 2) + ')');
+        'translate(' + round(at.x) + ',' + round(at.y) + ')');
     });
   }
 
@@ -1956,10 +2150,6 @@
     return n.key;
   }
 
-  function toggleBulge(n, opts) {
-    return (opts.interactive && n.depth > 0 && n.children.length) ? TOGGLE_R + 1 : 0;
-  }
-
   /** Where a node is drawn this frame. */
   function drawnAt(n) {
     return { x: nx(n), y: ny(n), fade: n.fade };
@@ -1987,11 +2177,11 @@
     eachNode(state.root, function (n) {
       var p = at(n);
       if (p.fade <= 0.001 || (!n.edx && !n.edy)) return;
-      var bulge = toggleBulge(n, state.opts);
-      x0 = Math.min(x0, p.x - pad - (n.side < 0 ? bulge : 0));
-      x1 = Math.max(x1, p.x + n.w + pad + (n.side > 0 ? bulge : 0));
-      y0 = Math.min(y0, p.y - n.h / 2 - pad);
-      y1 = Math.max(y1, p.y + n.h / 2 + pad);
+      var b = toggleBulge(n, state.opts);
+      x0 = Math.min(x0, p.x - pad - b.left);
+      x1 = Math.max(x1, p.x + n.w + pad + b.right);
+      y0 = Math.min(y0, p.y - n.h / 2 - pad - b.up);
+      y1 = Math.max(y1, p.y + n.h / 2 + pad + b.down);
     });
     return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
   }
@@ -2017,7 +2207,7 @@
         n.edge.style.display = edgeOn ? '' : 'none';
         if (edgeOn) {
           n.edge.style.opacity = n.fade < 0.999 ? n.fade : '';
-          n.edge.setAttribute('d', edgePath(n.parent, n));
+          n.edge.setAttribute('d', edgePath(n.parent, n, state.opts));
         }
       }
     });
@@ -2138,7 +2328,7 @@
         measureNode(n, state.opts);
         redrawNodeBody(n);           // the box and label were sized for placeholders
       });
-      syncTogglePositions(state.root);
+      syncTogglePositions(state.root, state.opts);
       relayout(state, true);
     }
 
@@ -2215,7 +2405,7 @@
     refreshOutline(state);
 
     if (!resized) return true;
-    syncTogglePositions(state.root);
+    syncTogglePositions(state.root, state.opts);
     relayout(state, false);
     return true;
   }
@@ -2290,7 +2480,7 @@
     eachNode(state.root, function (n) { n.dx = 0; n.dy = 0; });
 
     state.sides = assignSides(state.root, direction);
-    syncTogglePositions(state.root);
+    syncTogglePositions(state.root, state.opts);
     relayout(state, true);      // syncs the controls on its way through
     return true;
   }
@@ -3228,12 +3418,16 @@
     }
 
     var opts = {
+      layout: DEFAULTS.layout,
       direction: DEFAULTS.direction,
       maxNodeWidth: DEFAULTS.maxNodeWidth,
       columnGap: DEFAULTS.columnGap,
       padding: DEFAULTS.padding,
       embedMaxWidth: DEFAULTS.embedMaxWidth
     };
+
+    var arrangement = attr('data-layout');
+    if (arrangement === 'fan' || arrangement === 'indent') opts.layout = arrangement;
 
     var dir = attr('data-direction');
     if (dir === 'right' || dir === 'left' || dir === 'balanced') opts.direction = dir;
