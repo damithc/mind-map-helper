@@ -362,7 +362,9 @@ what and on which line, instead of silently drawing nothing.</p>
 <h3 id="wrapping">Longer labels wrap</h3>
 
 <p>A long label breaks onto another line rather than stretching the map. Set the
-width it breaks at with <code>data-max-node-width</code>.</p>
+width it breaks at with <code>data-max-node-width</code>. Every line of a wrapped
+label starts at the same edge, so the text stays easy to read down the left and
+frays only on the right.</p>
 
 <pre><code>&lt;pre class="mindmap" data-max-node-width="110"&gt;
 Course Admin
@@ -1488,7 +1490,7 @@ carrying maps.</p>
 </footer>
 </div>
 
-<script src="mindmap.js?v=1.12.0"></script>
+<script src="mindmap.js?v=1.13.0"></script>
 <script>
   // Taken from the library itself, so the badge can never drift from the
   // script actually loaded (and a stale cache is visible at a glance).

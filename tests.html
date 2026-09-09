@@ -1006,6 +1006,20 @@ Nothing to fold
   Gamma
 </pre></div>
 
+<h2>84. Wrapped labels share one left edge</h2>
+<p class="want">Expect: every line of a label that has wrapped starts the same
+distance in from the left of its box -- the centre node included -- so the text
+reads down one straight edge and frays on the right instead of on both sides. On
+the line carrying a code span it is the chip that stands on that edge, with its
+text inset the usual amount within it.</p>
+<div class="case" id="leftedge"><pre class="mindmap" data-max-node-width="110">
+A centre node long enough to wrap
+  Weekly deadlines are strictly enforced
+  Late submissions lose 10% per day
+  Run `git commit --amend` before pushing
+  Short
+</pre></div>
+
 <script>document.write('<script src="mindmap.js?v='+Date.now()+'"><\/script>');</script>
 <script>document.write('<script src="tests.js?v='+Date.now()+'"><\/script>');</script>
 

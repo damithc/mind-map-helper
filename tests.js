@@ -465,6 +465,143 @@ window.addEventListener('load', function () {
       check(10, 'long label wraps to >1 line', multiline);
     })();
 
+    // --- one left edge down a wrapped label ---
+    //
+    // Lines used to be centred within their box, which started every line of a
+    // wrapped label at a different x. What is read below is the edge itself: a
+    // common inset, an inset that is the padding an unwrapped node already
+    // gets, and a centre node held to the same rule as the branches.
+    (function () {
+      /**
+       * Each line of a label, as the x its ink starts at and the x it ends at.
+       * Lines are told apart by baseline, which every <text> on one line
+       * shares.
+       *
+       * A code chip is the reason this reads more than the text. The chip is
+       * drawn at the line's origin and its text a padding inside that, so a
+       * line led by a chip has text 3.5px further right than a line led by a
+       * word — and read off the <text> alone the two would look misaligned
+       * while the drawn edge was straight. What stands on the edge is the
+       * leftmost thing drawn, chip or word.
+       */
+      function linesOf(g) {
+        var byBaseline = {};
+        Array.prototype.forEach.call(
+          g.querySelectorAll('.mm-label text'), function (t) {
+            var y = t.getAttribute('y');
+            var x = parseFloat(t.getAttribute('x'));
+            var line = byBaseline[y] || (byBaseline[y] = { start: x, end: x });
+            line.start = Math.min(line.start, x);
+            line.end = Math.max(line.end, x + t.getComputedTextLength());
+          });
+
+        // A chip belongs to the line whose baseline it encloses — read that way
+        // rather than from the ratios the drawing sizes it by, so the check
+        // does not break the day one of those ratios is tuned.
+        Array.prototype.forEach.call(
+          g.querySelectorAll('.mm-label .mm-code-chip'), function (c) {
+            var top = parseFloat(c.getAttribute('y'));
+            var bottom = top + parseFloat(c.getAttribute('height'));
+            var x = parseFloat(c.getAttribute('x'));
+            Object.keys(byBaseline).forEach(function (y) {
+              var baseline = parseFloat(y);
+              if (baseline < top || baseline > bottom) return;
+              byBaseline[y].start = Math.min(byBaseline[y].start, x);
+              byBaseline[y].end =
+                Math.max(byBaseline[y].end, x + parseFloat(c.getAttribute('width')));
+            });
+          });
+
+        return Object.keys(byBaseline).map(function (y) { return byBaseline[y]; });
+      }
+
+      function flushLeft(lines) {
+        return lines.every(function (l) {
+          return Math.abs(l.start - lines[0].start) < 0.01;
+        });
+      }
+
+      var wrapped = nodesIn('leftedge').filter(function (g) {
+        return linesOf(g).length > 1;
+      });
+
+      // Lines of the same width sit at the same x however they are aligned, so
+      // an edge read off a label that happens to wrap evenly proves nothing.
+      // At least one label has to be visibly ragged for the checks to bite.
+      var ragged = wrapped.some(function (g) {
+        var ends = linesOf(g).map(function (l) { return l.end; });
+        return Math.max.apply(null, ends) - Math.min.apply(null, ends) > 4;
+      });
+
+      check(239, 'every line of a wrapped label starts at the same x',
+        wrapped.length >= 2 && ragged &&
+        wrapped.every(function (g) { return flushLeft(linesOf(g)); }));
+
+      // The centre node is excepted from plenty — it takes no fold badge, no
+      // branch accent, and a focus ring of its own — so being held to the
+      // branches' alignment is worth stating rather than assuming.
+      var centre = scopeOf('leftedge').querySelector('.mm-root');
+      check(240, 'a wrapped centre node is no exception to the edge',
+        linesOf(centre).length > 1 && flushLeft(linesOf(centre)));
+
+      // Not merely *an* edge: the one an unwrapped node at the same depth
+      // already stands on, which is the box's own padding. Left at x=0 the
+      // lines would share an edge too, and sit against the side of the box.
+      var short = nodeIn('leftedge', 'Short');
+      var branches = wrapped.filter(function (g) {
+        return !g.classList.contains('mm-root');
+      });
+      check(241, 'that edge is the padding an unwrapped label already sits at',
+        branches.length > 0 && linesOf(short).length === 1 &&
+        branches.every(function (g) {
+          return Math.abs(linesOf(g)[0].start - linesOf(short)[0].start) < 0.01;
+        }));
+
+      // On a line led by a code span the chip is the ink at the edge and its
+      // text sits a padding inside — so the two disagree about where the line
+      // starts, and only one of them is the edge the reader sees. Stated on its
+      // own because it is also what keeps the reading above honest: a fixture
+      // that stopped wrapping a chip onto a line of its own would exercise none
+      // of that half of `linesOf`, and 239 would pass on the text alone.
+      var edge = linesOf(short)[0].start;
+      var chipped = nodeMatching('leftedge', 'pushing');
+
+      var chips = Array.prototype.map.call(
+        chipped.querySelectorAll('.mm-label .mm-code-chip'), function (c) {
+          var top = parseFloat(c.getAttribute('y'));
+          return {
+            x: parseFloat(c.getAttribute('x')),
+            top: top,
+            bottom: top + parseFloat(c.getAttribute('height'))
+          };
+        });
+
+      var texts = Array.prototype.map.call(
+        chipped.querySelectorAll('.mm-label text'), function (t) {
+          return {
+            x: parseFloat(t.getAttribute('x')),
+            baseline: parseFloat(t.getAttribute('y')),
+            code: t.classList.contains('mm-code')
+          };
+        });
+
+      // The chip and the text it holds, tied by the band the baseline falls
+      // in and by that text being code — not merely by sitting somewhere
+      // below. Paired loosely, a chip correctly on the edge could vouch for a
+      // text on another line entirely, and a pairing that had come apart
+      // would read as intact.
+      var ledByChip = chips.filter(function (chip) {
+        return Math.abs(chip.x - edge) < 0.01 && texts.some(function (t) {
+          return t.code && t.baseline >= chip.top && t.baseline <= chip.bottom &&
+            t.x > chip.x + 1;
+        });
+      });
+
+      check(242, 'a chip-led line stands the chip on the edge, not its text',
+        ledByChip.length > 0 &&
+        texts.every(function (t) { return t.x >= edge - 0.01; }));
+    })();
+
     (function () {
       function allOneSide(where, side) {
         var svg = svgOf(where);

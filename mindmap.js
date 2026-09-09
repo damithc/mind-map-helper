@@ -1,5 +1,5 @@
 /*!
- * mind-maps-helper v1.12.0
+ * mind-maps-helper v1.13.0
  * Simple indented-text syntax -> interactive-ready SVG mind maps.
  * PlantUML-style geometry with a refined palette.
  * No dependencies. MIT licensed.
@@ -8,7 +8,7 @@
 (function (global) {
   'use strict';
 
-  var VERSION = '1.12.0';
+  var VERSION = '1.13.0';
 
   // Where the credit chip under a map points.
   var HOME = 'https://se-education.org/mind-maps-helper/';
@@ -1491,7 +1491,8 @@
   /**
    * Draws the label as positioned runs rather than one text element, so bold,
    * italic, code chips, links and images can sit side by side on a line.
-   * Lines are centred within the box, matching the plain-text look.
+   * Lines start at the box's left padding edge, so a wrapped label keeps one
+   * reading edge instead of a ragged one down both sides.
    */
   function buildLabel(node) {
     var wrap = svgEl('g', { 'class': 'mm-label' });
@@ -1508,7 +1509,13 @@
       // element's text content readable when copied or extracted.
       if (i) wrap.appendChild(document.createTextNode('\n'));
       var lineTop = top + line.top;
-      var originX = (node.w - line.width) / 2;
+      // The same inset for every line, rather than one derived from this
+      // line's own width: that is what makes the left edge common. `padX` is
+      // exactly where the widest line already sat, because the box was sized
+      // as that line plus a padding either side — so nothing moves except the
+      // lines that fall short, and the rounding the box width was given lands
+      // in the padding on the right instead of being split between the two.
+      var originX = m.padX;
       var baseline = lineTop + line.height / 2 + m.size * 0.35;
 
       var groups = groupItems(line.items);
